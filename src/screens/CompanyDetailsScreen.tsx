@@ -7,7 +7,6 @@ import { AuthHeader } from '../components/AuthHeader';
 import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { AuthScreenLayout } from '../components/AuthScreenLayout';
 import { LoginInput } from '../components/LoginInput';
-import { SelectInput } from '../components/SelectInput';
 import { RegistrationProgress } from '../components/RegistrationProgress';
 import { BriefcaseIcon } from '../assets/icons';
 import { welcomeColors } from '../theme';
@@ -17,9 +16,8 @@ import { findMissingRequiredField } from '../utils/formValidation';
 type Props = NativeStackScreenProps<AuthStackParamList, 'CompanyDetails'>;
 
 const TOTAL_STEPS = 6;
-const EMPLOYEE_COUNT_OPTIONS = ['1-5', '6-10', '11-25', '26-50', '51-100', '100+'];
 
-export function CompanyDetailsScreen(_props: Props): React.JSX.Element {
+export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.Element {
   const [company, setCompany] = useState('');
   const [companyAddress, setCompanyAddress] = useState('');
   const [service, setService] = useState('');
@@ -43,7 +41,7 @@ export function CompanyDetailsScreen(_props: Props): React.JSX.Element {
       {
         value: numberOfEmployees,
         title: 'Missing number of employees',
-        message: 'Please select your number of employees.',
+        message: 'Please enter your number of employees.',
       },
     ]);
     if (missingField) {
@@ -51,8 +49,16 @@ export function CompanyDetailsScreen(_props: Props): React.JSX.Element {
       return;
     }
 
-    // TODO: navigate to the next registration step once it exists
-    console.log('TODO: navigate to next registration step');
+    navigation.navigate('W9', {
+      identity: route.params.identity,
+      company: {
+        company: company.trim(),
+        companyAddress: companyAddress.trim(),
+        service: service.trim(),
+        yearsOfExperience: yearsOfExperience.trim(),
+        numberOfEmployees,
+      },
+    });
   };
 
   return (
@@ -100,12 +106,12 @@ export function CompanyDetailsScreen(_props: Props): React.JSX.Element {
           keyboardType="numeric"
         />
 
-        <SelectInput
+        <LoginInput
           label="Number of Employees"
           placeholder="Enter number of employees"
           value={numberOfEmployees}
-          options={EMPLOYEE_COUNT_OPTIONS}
-          onSelect={setNumberOfEmployees}
+          onChangeText={setNumberOfEmployees}
+          keyboardType="numeric"
         />
 
         <AuthPrimaryButton title="Continue" onPress={handleContinue} style={styles.continueButton} />

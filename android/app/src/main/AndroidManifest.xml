@@ -2,6 +2,20 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+      Required on Android 11+ (API 30+) package visibility: without this,
+      PackageManager.queryIntentActivities() returns empty for any app,
+      so react-native-file-viewer's FileViewer.open() fails with
+      "No app associated with this mime type" even when a PDF viewer
+      (e.g. Chrome, Google Drive) is installed on the device.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/pdf" />
+        </intent>
+    </queries>
+
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"

@@ -29,7 +29,7 @@ export function AuthScreenLayout({
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       {withKeyboardAvoiding ? (
         <KeyboardAvoidingView
           style={styles.flex}
