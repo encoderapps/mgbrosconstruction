@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronRightIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
 
@@ -19,6 +20,8 @@ export function SelectInput({
   onSelect,
 }: SelectInputProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
+  // Edge-to-edge draws the modal under the system nav bar, so lift the sheet above it.
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.container}>
@@ -32,7 +35,7 @@ export function SelectInput({
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setIsOpen(false)}>
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { paddingBottom: styles.sheet.paddingBottom + insets.bottom }]}>
             <Text style={styles.sheetTitle}>{label}</Text>
             <FlatList
               data={options}

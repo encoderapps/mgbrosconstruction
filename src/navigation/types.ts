@@ -82,6 +82,8 @@ export type AuthStackParamList = {
   CreatePassword: SubcontractorRegistrationParams;
   RegistrationComplete: undefined;
   ForgotPassword: undefined;
+  CheckYourEmail: { email: string };
+  TemplatePreview: { title: string; pdfPath: string; currentStep: number };
   Home: undefined;
   ApprovalNeeded: undefined;
 };

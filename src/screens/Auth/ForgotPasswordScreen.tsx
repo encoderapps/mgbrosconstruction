@@ -27,7 +27,9 @@ export function ForgotPasswordScreen({ navigation }: Props): React.JSX.Element {
       return;
     }
 
-    // TODO: Call Node.js / Express reset-password API
+    // TODO: Call the forgot-password API before navigating. The email is
+    // passed along so it's available once that integration lands.
+    navigation.navigate('CheckYourEmail', { email: email.trim() });
   };
 
   const handleCancel = (): void => {

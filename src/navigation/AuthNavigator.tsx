@@ -18,8 +18,10 @@ import { RegistrationCompleteScreen } from '../screens/RegistrationCompleteScree
 import { LoginScreen } from '../screens/Auth/LoginScreen';
 import { RegisterScreen } from '../screens/Auth/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/Auth/ForgotPasswordScreen';
+import { CheckYourEmailScreen } from '../screens/Auth/CheckYourEmailScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ApprovalNeededScreen } from '../screens/ApprovalNeededScreen';
+import { TemplatePreviewScreen } from '../screens/TemplatePreviewScreen';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -43,8 +45,10 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="CheckYourEmail" component={CheckYourEmailScreen} />
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="ApprovalNeeded" component={ApprovalNeededScreen} />
+      <Stack.Screen name="TemplatePreview" component={TemplatePreviewScreen} />
     </Stack.Navigator>
   );
 }

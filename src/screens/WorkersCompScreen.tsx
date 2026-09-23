@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { pick, saveDocuments, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
-import FileViewer from 'react-native-file-viewer';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
 import { AuthCardHeader } from '../components/AuthCardHeader';
@@ -76,7 +75,7 @@ export function WorkersCompScreen({ navigation, route }: Props): React.JSX.Eleme
         effectiveDate,
         expirationDate,
       });
-      await FileViewer.open(pdfPath);
+      navigation.navigate('TemplatePreview', { title: 'WC Template', pdfPath, currentStep: 5 });
     } catch (error) {
       console.error('Failed to generate WC template:', error);
       Alert.alert('Unable to generate WC Template', 'Please try again.');
@@ -191,7 +190,7 @@ export function WorkersCompScreen({ navigation, route }: Props): React.JSX.Eleme
 
         <LoginInput
           label="Insurance Company Name"
-          placeholder=""
+          placeholder="Enter Insurance Company Name"
           value={insuranceCompanyName}
           onChangeText={setInsuranceCompanyName}
           autoCapitalize="words"

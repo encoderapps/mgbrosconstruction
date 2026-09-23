@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { pick, saveDocuments, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
-import FileViewer from 'react-native-file-viewer';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
 import { AuthCardHeader } from '../components/AuthCardHeader';
@@ -79,7 +78,7 @@ export function GeneralLiabilityScreen({ navigation, route }: Props): React.JSX.
         effectiveDate,
         expirationDate,
       });
-      await FileViewer.open(pdfPath);
+      navigation.navigate('TemplatePreview', { title: 'GL Template', pdfPath, currentStep: 4 });
     } catch (error) {
       console.error('Failed to generate GL template:', error);
       Alert.alert('Unable to generate GL Template', 'Please try again.');
