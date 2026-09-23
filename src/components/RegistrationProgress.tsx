@@ -15,14 +15,15 @@ export function RegistrationProgress({
     <View style={styles.row}>
       {Array.from({ length: totalSteps }, (_, index) => {
         const step = index + 1;
-        const active = step === currentStep;
+        // Completed (before the current step) and active (current step) steps share the filled style.
+        const filled = step <= currentStep;
         const isLast = step === totalSteps;
         return (
           <React.Fragment key={step}>
-            <View style={[styles.circle, active && styles.circleActive]}>
-              <Text style={[styles.stepText, active && styles.stepTextActive]}>{step}</Text>
+            <View style={[styles.circle, filled && styles.circleActive]}>
+              <Text style={[styles.stepText, filled && styles.stepTextActive]}>{step}</Text>
             </View>
-            {!isLast && <View style={styles.connector} />}
+            {!isLast && <View style={[styles.connector, step < currentStep && styles.connectorActive]} />}
           </React.Fragment>
         );
       })}
@@ -52,6 +53,9 @@ const styles = StyleSheet.create({
     height: 2,
     marginHorizontal: 4,
     backgroundColor: welcomeColors.chevron,
+  },
+  connectorActive: {
+    backgroundColor: welcomeColors.loginButton,
   },
   stepText: {
     fontFamily: fontFamily.semiBold,

@@ -12,8 +12,7 @@ import { SecurityInfo } from '../components/SecurityInfo';
 import { UserIcon } from '../assets/icons';
 import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
-import { checkEmailAvailability } from '../services/subcontractorService';
-import { NormalizedApiError } from '../services/api';
+import { checkExistingEmail } from '../services/checkExistingEmailService';
 import { findMissingRequiredField, isValidEmail } from '../utils/formValidation';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'RegisterSubcontractor'>;
@@ -23,7 +22,7 @@ const TOTAL_STEPS = 6;
 export function RegisterSubcontractorScreen({ navigation }: Props): React.JSX.Element {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [homeAddress, setHomeAddress] = useState('');
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
@@ -32,7 +31,7 @@ export function RegisterSubcontractorScreen({ navigation }: Props): React.JSX.El
     const missingField = findMissingRequiredField([
       { value: firstName, title: 'Missing first name', message: 'Please enter your first name.' },
       { value: lastName, title: 'Missing last name', message: 'Please enter your last name.' },
-      { value: phoneNumber, title: 'Missing phone number', message: 'Please enter your phone number.' },
+      { value: phone, title: 'Missing phone number', message: 'Please enter your phone number.' },
       { value: email, title: 'Missing email', message: 'Please enter your email address.' },
       { value: homeAddress, title: 'Missing address', message: 'Please enter your home address.' },
     ]);
@@ -48,22 +47,21 @@ export function RegisterSubcontractorScreen({ navigation }: Props): React.JSX.El
     const identity = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      phoneNumber: phoneNumber.trim(),
+      phone: phone.trim(),
       email: email.trim(),
       homeAddress: homeAddress.trim(),
     };
 
     setIsCheckingEmail(true);
     try {
-      const isAvailable = await checkEmailAvailability(identity.email);
-      if (isAvailable) {
-        navigation.navigate('IdentityVerificationComplete', { identity });
-      } else {
+      const result = await checkExistingEmail(identity.email);
+      if (!result.success) {
         navigation.navigate('EmailAlreadyInUse');
+        return;
       }
-    } catch (error) {
-      const message = (error as Partial<NormalizedApiError>)?.message ?? 'Something went wrong. Please try again.';
-      Alert.alert('Unable to verify email', message);
+      navigation.navigate('CompanyDetails', { identity });
+    } catch {
+      Alert.alert('Unable to verify email', 'Something went wrong while checking your email. Please try again.');
     } finally {
       setIsCheckingEmail(false);
     }
@@ -105,8 +103,8 @@ export function RegisterSubcontractorScreen({ navigation }: Props): React.JSX.El
         <LoginInput
           label="Phone Number"
           placeholder="Enter phone number"
-          value={phoneNumber}
-          onChangeText={setPhoneNumber}
+          value={phone}
+          onChangeText={setPhone}
           keyboardType="phone-pad"
         />
 

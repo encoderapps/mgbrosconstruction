@@ -12,6 +12,7 @@ import { SecurityInfo } from '../components/SecurityInfo';
 import { EyeIcon, LockIcon, LoginIcon, MailIcon, UserIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
+import { loginSubcontractor } from '../services/subcontractorLoginService';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'SubcontractorLogin'>;
 
@@ -26,8 +27,9 @@ export function SubcontractorLoginScreen({ navigation }: Props): React.JSX.Eleme
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const handleLogin = (): void => {
+  const handleLogin = async (): Promise<void> => {
     if (!email.trim()) {
       Alert.alert('Missing email', 'Please enter your email address.');
       return;
@@ -36,7 +38,27 @@ export function SubcontractorLoginScreen({ navigation }: Props): React.JSX.Eleme
       Alert.alert('Missing password', 'Please enter your password.');
       return;
     }
-    // TODO: call the Subcontractor authentication API (Node.js / Express backend)
+
+    setIsLoggingIn(true);
+    try {
+      const result = await loginSubcontractor(email.trim(), password);
+      // An unapproved account reports success: false / IsLoginSuccessful:
+      // false too (e.g. HTTP 403, "Account is not approved."), so IsApproved
+      // must be checked before treating the response as a login failure.
+      if (!result.IsApproved) {
+        navigation.navigate('ApprovalNeeded');
+        return;
+      }
+      if (!result.success || !result.IsLoginSuccessful) {
+        Alert.alert('Unable to log in', result.message || 'Please check your credentials and try again.');
+        return;
+      }
+      navigation.navigate('Home');
+    } catch {
+      Alert.alert('Unable to log in', 'Something went wrong while logging in. Please try again.');
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const handleRegister = (): void => {
@@ -85,7 +107,11 @@ export function SubcontractorLoginScreen({ navigation }: Props): React.JSX.Eleme
           <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
         </Pressable>
 
-        <AuthPrimaryButton title="Login" onPress={handleLogin} />
+        <AuthPrimaryButton
+          title={isLoggingIn ? 'Logging in...' : 'Login'}
+          onPress={handleLogin}
+          disabled={isLoggingIn}
+        />
       </AuthCard>
 
       <View style={styles.dividerRow}>

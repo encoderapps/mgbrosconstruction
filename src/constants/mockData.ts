@@ -1,5 +1,6 @@
 import { Project, ProjectDetails } from '../types/project';
 import { Task } from '../types/task';
+import { SubcontractorCompanyProfile } from '../types/company';
 
 /**
  * Placeholder data for screens whose backing APIs (/api/projects, /api/tasks)
@@ -70,6 +71,18 @@ export const MOCK_PROJECT_DETAILS: Record<string, ProjectDetails> = Object.fromE
     },
   ]),
 );
+
+/**
+ * Placeholder data for the Home screen's company info card, shown right
+ * after the temporary dummy login. Replace with the real company-profile
+ * API response once it exists.
+ */
+export const MOCK_SUBCONTRACTOR_COMPANY: SubcontractorCompanyProfile = {
+  name: 'High Tech Air Inc',
+  addressLines: ['185 N Addison Rd', 'Wood Dale, IL 60191', 'US'],
+  email: 'hightechairinc@gmail.com',
+  phone: '(224) 612-6823',
+};
 
 export const MOCK_TASKS: Task[] = [
   {
