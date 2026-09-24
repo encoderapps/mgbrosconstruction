@@ -58,3 +58,9 @@ export interface SubcontractorRegistrationApiPayload {
   wcFileName: string;
   wcBase64Data: string;
 }
+
+export interface ForgotPasswordResponse {
+  success: boolean;
+  message: string;
+  accountId: string | null;
+}

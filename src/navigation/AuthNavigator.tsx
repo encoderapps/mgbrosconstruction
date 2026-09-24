@@ -19,6 +19,9 @@ import { LoginScreen } from '../screens/Auth/LoginScreen';
 import { RegisterScreen } from '../screens/Auth/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/Auth/ForgotPasswordScreen';
 import { CheckYourEmailScreen } from '../screens/Auth/CheckYourEmailScreen';
+import { VerifyResetCodeScreen } from '../screens/Auth/VerifyResetCodeScreen';
+import { ChangePasswordScreen } from '../screens/Auth/ChangePasswordScreen';
+import { PasswordResetSuccessScreen } from '../screens/Auth/PasswordResetSuccessScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ApprovalNeededScreen } from '../screens/ApprovalNeededScreen';
 import { TemplatePreviewScreen } from '../screens/TemplatePreviewScreen';
@@ -46,6 +49,9 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="CheckYourEmail" component={CheckYourEmailScreen} />
+      <Stack.Screen name="VerifyResetCode" component={VerifyResetCodeScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      <Stack.Screen name="PasswordResetSuccess" component={PasswordResetSuccessScreen} />
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="ApprovalNeeded" component={ApprovalNeededScreen} />
       <Stack.Screen name="TemplatePreview" component={TemplatePreviewScreen} />

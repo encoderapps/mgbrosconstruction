@@ -22,6 +22,7 @@ export const SALESFORCE_TOKEN_URL = `${SALESFORCE_INSTANCE_URL}/services/oauth2/
 export const SALESFORCE_SUBCONTRACTOR_REGISTRATION_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorregistration`;
 export const SALESFORCE_CHECK_EXISTING_EMAIL_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/checkExistingEmail`;
 export const SALESFORCE_SUBCONTRACTOR_LOGIN_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorlogin`;
+export const SALESFORCE_FORGOT_PASSWORD_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorforgotpassword`;
 export const SALESFORCE_CLIENT_ID =
   '3MVG9fIN0XOBSvWWorfqZ8cnCCukzkrft4_3c5MkpZwdPz.XSBhx30eoxlzx3R9XXzBidJ0hEVAwrt1Qs91qM';
 export const SALESFORCE_CLIENT_SECRET =
