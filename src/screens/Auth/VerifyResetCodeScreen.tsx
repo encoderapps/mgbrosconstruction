@@ -56,9 +56,8 @@ export function VerifyResetCodeScreen({ navigation, route }: Props): React.JSX.E
       return;
     }
 
-    // The code is validated by the backend. No separate verification
-    // endpoint has been provided, so it's carried to the final reset
-    // request. See resetPassword() in forgotPasswordService.
+    // The backend has no separate verification step: it validates the code
+    // as the `token` of the RESET_PASSWORD request on the next screen.
     navigation.navigate('ChangePassword', { email, resetCode: trimmedCode });
   };
 

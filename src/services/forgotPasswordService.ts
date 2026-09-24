@@ -3,23 +3,18 @@ import { API_TIMEOUT_MS, SALESFORCE_FORGOT_PASSWORD_URL } from '../constants/con
 import { ForgotPasswordResponse } from '../types';
 import { fetchSalesforceAccessToken, getStoredSalesforceAccessToken } from './salesforceAuthService';
 
-/**
- * Thrown by the steps of the reset flow whose backend contract hasn't been
- * provided yet, so screens can show a clear message instead of a generic
- * failure.
- */
-export class PasswordResetNotAvailableError extends Error {
-  constructor() {
-    super('Password reset API contract has not been provided yet.');
-    this.name = 'PasswordResetNotAvailableError';
-  }
-}
+type ForgotPasswordRequest =
+  | { action: 'SEND_RESET'; email: string }
+  | { action: 'RESET_PASSWORD'; token: string; newPassword: string; confirmPassword: string };
 
 /**
  * Maps a thrown request error to a user-friendly message, without exposing
  * raw Salesforce error text.
  */
-export function getResetRequestErrorMessage(error: unknown): string {
+export function getResetRequestErrorMessage(
+  error: unknown,
+  fallback = 'Something went wrong while sending the reset code. Please try again.',
+): string {
   if (axios.isAxiosError(error)) {
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
       return 'The request timed out. Please check your connection and try again.';
@@ -31,27 +26,21 @@ export function getResetRequestErrorMessage(error: unknown): string {
       return 'The server is having trouble right now. Please try again later.';
     }
   }
-  return 'Something went wrong while sending the reset code. Please try again.';
+  return fallback;
 }
 
 /**
- * Asks Salesforce to email a password reset code. The backend deliberately
- * responds the same way whether or not the email has an account, so a
- * `success: true` here does not mean the email exists.
+ * Both reset steps share one Apex REST endpoint, distinguished by `action`.
  */
-export async function requestPasswordResetCode(email: string): Promise<ForgotPasswordResponse> {
+async function postForgotPasswordAction(body: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
   const postWithToken = (accessToken: string) =>
-    axios.post<ForgotPasswordResponse>(
-      SALESFORCE_FORGOT_PASSWORD_URL,
-      { action: 'SEND_RESET', email },
-      {
-        timeout: API_TIMEOUT_MS,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
+    axios.post<ForgotPasswordResponse>(SALESFORCE_FORGOT_PASSWORD_URL, body, {
+      timeout: API_TIMEOUT_MS,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
       },
-    );
+    });
 
   const storedToken = await getStoredSalesforceAccessToken();
   try {
@@ -79,16 +68,27 @@ export async function requestPasswordResetCode(email: string): Promise<ForgotPas
 }
 
 /**
- * TODO: Integrate once the backend provides the password-reset contract
- * (endpoint/action, request body, and response shape). The backend is the
- * authority on the reset code: correctness, 15-minute expiry, and reuse. If
- * it exposes a separate code-verification step, call it from
- * VerifyResetCodeScreen before navigating to ChangePassword.
+ * Asks Salesforce to email a password reset code. The backend deliberately
+ * responds the same way whether or not the email has an account, so a
+ * `success: true` here does not mean the email exists.
  */
-export async function resetPassword(
-  _email: string,
-  _resetCode: string,
-  _newPassword: string,
-): Promise<never> {
-  throw new PasswordResetNotAvailableError();
+export function requestPasswordResetCode(email: string): Promise<ForgotPasswordResponse> {
+  return postForgotPasswordAction({ action: 'SEND_RESET', email });
+}
+
+/**
+ * Sets a new password using the emailed reset code. The backend is the
+ * authority on the code: correctness, 15-minute expiry, and reuse.
+ */
+export function resetPassword(
+  resetCode: string,
+  newPassword: string,
+  confirmPassword: string,
+): Promise<ForgotPasswordResponse> {
+  return postForgotPasswordAction({
+    action: 'RESET_PASSWORD',
+    token: resetCode,
+    newPassword,
+    confirmPassword,
+  });
 }

@@ -12,7 +12,7 @@ import { EyeIcon, LockIcon } from '../../assets/icons';
 import { welcomeColors } from '../../theme';
 import { AuthStackParamList } from '../../navigation/types';
 import { validateNewPassword } from '../../utils/passwordValidation';
-import { PasswordResetNotAvailableError, resetPassword } from '../../services/forgotPasswordService';
+import { getResetRequestErrorMessage, resetPassword } from '../../services/forgotPasswordService';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ChangePassword'>;
 
@@ -37,23 +37,37 @@ export function ChangePasswordScreen({ navigation, route }: Props): React.JSX.El
     // Never log the password or reset code.
     setIsSubmitting(true);
     try {
-      await resetPassword(email, resetCode, password);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'SubcontractorLogin' }, { name: 'PasswordResetSuccess' }],
-      });
-    } catch (error) {
-      if (error instanceof PasswordResetNotAvailableError) {
-        Alert.alert(
-          'Password reset unavailable',
-          'Password reset is not available yet. Please try again later.',
-        );
+      const result = await resetPassword(resetCode, password, confirmPassword);
+      if (result?.success === true) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'SubcontractorLogin' }, { name: 'PasswordResetSuccess' }],
+        });
         return;
       }
-      // TODO: Once the reset API contract is known, map its invalid, expired
-      // and already-used code responses here (and send the user back to
-      // VerifyResetCode for those).
-      Alert.alert('Unable to reset password', 'Unable to reset your password. Please try again.');
+
+      // A rejected code (invalid, expired or already used) can't be fixed on
+      // this screen, so offer to go back and request a new one.
+      const message = result?.message?.trim();
+      if (message && /token|code|expired/i.test(message)) {
+        Alert.alert('Unable to reset password', message, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Resend Code',
+            onPress: () => navigation.popTo('VerifyResetCode', { email }),
+          },
+        ]);
+        return;
+      }
+      Alert.alert(
+        'Unable to reset password',
+        message || 'Unable to reset your password. Please try again.',
+      );
+    } catch (error) {
+      Alert.alert(
+        'Unable to reset password',
+        getResetRequestErrorMessage(error, 'Unable to reset your password. Please try again.'),
+      );
     } finally {
       setIsSubmitting(false);
     }
