@@ -7,11 +7,13 @@ import { AuthHeader } from '../components/AuthHeader';
 import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { AuthScreenLayout } from '../components/AuthScreenLayout';
 import { LoginInput } from '../components/LoginInput';
+import { SelectInput } from '../components/SelectInput';
 import { RegistrationProgress } from '../components/RegistrationProgress';
 import { BriefcaseIcon } from '../assets/icons';
 import { welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { findMissingRequiredField } from '../utils/formValidation';
+import { SERVICE_OPTIONS } from '../constants/serviceOptions';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'CompanyDetails'>;
 
@@ -32,7 +34,7 @@ export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.El
         title: 'Missing company address',
         message: 'Please enter your company address.',
       },
-      { value: service, title: 'Missing service', message: 'Please enter the service you provide.' },
+      { value: service, title: 'Missing service', message: 'Please select the service you provide.' },
       {
         value: yearsOfExperience,
         title: 'Missing years of experience',
@@ -54,7 +56,7 @@ export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.El
       company: {
         company: company.trim(),
         companyAddress: companyAddress.trim(),
-        service: service.trim(),
+        service,
         yearsOfExperience: yearsOfExperience.trim(),
         numberOfEmployees,
       },
@@ -90,12 +92,12 @@ export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.El
           autoCapitalize="words"
         />
 
-        <LoginInput
+        <SelectInput
           label="Service"
-          placeholder="Enter service"
+          placeholder="Select service"
           value={service}
-          onChangeText={setService}
-          autoCapitalize="words"
+          options={SERVICE_OPTIONS}
+          onSelect={setService}
         />
 
         <LoginInput

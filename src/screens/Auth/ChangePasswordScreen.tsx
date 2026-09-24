@@ -1,25 +1,23 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AuthCard } from '../components/AuthCard';
-import { AuthCardHeader } from '../components/AuthCardHeader';
-import { AuthHeader } from '../components/AuthHeader';
-import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
-import { AuthScreenLayout } from '../components/AuthScreenLayout';
-import { LoginInput } from '../components/LoginInput';
-import { RegistrationProgress } from '../components/RegistrationProgress';
-import { PasswordRequirements } from '../components/PasswordRequirements';
-import { EyeIcon, LockIcon } from '../assets/icons';
-import { welcomeColors } from '../theme';
-import { AuthStackParamList } from '../navigation/types';
-import { submitSubcontractorRegistration } from '../services/subcontractorRegistrationService';
-import { validateNewPassword } from '../utils/passwordValidation';
+import { AuthCard } from '../../components/AuthCard';
+import { AuthCardHeader } from '../../components/AuthCardHeader';
+import { AuthHeader } from '../../components/AuthHeader';
+import { AuthPrimaryButton } from '../../components/AuthPrimaryButton';
+import { AuthScreenLayout } from '../../components/AuthScreenLayout';
+import { LoginInput } from '../../components/LoginInput';
+import { PasswordRequirements } from '../../components/PasswordRequirements';
+import { EyeIcon, LockIcon } from '../../assets/icons';
+import { welcomeColors } from '../../theme';
+import { AuthStackParamList } from '../../navigation/types';
+import { validateNewPassword } from '../../utils/passwordValidation';
+import { getResetRequestErrorMessage, resetPassword } from '../../services/forgotPasswordService';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'CreatePassword'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'ChangePassword'>;
 
-const TOTAL_STEPS = 6;
-
-export function CreatePasswordScreen({ navigation, route }: Props): React.JSX.Element {
+export function ChangePasswordScreen({ navigation, route }: Props): React.JSX.Element {
+  const { email, resetCode } = route.params;
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,26 +25,48 @@ export function CreatePasswordScreen({ navigation, route }: Props): React.JSX.El
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleContinue = async (): Promise<void> => {
+    if (isSubmitting) {
+      return;
+    }
     const validationError = validateNewPassword(password, confirmPassword);
     if (validationError) {
       Alert.alert(validationError.title, validationError.message);
       return;
     }
 
-    // Note: password/confirmPassword are sent to the registration API (it
-    // requires both) but are never logged or included in the local
-    // console-log registration object.
+    // Never log the password or reset code.
     setIsSubmitting(true);
     try {
-      await submitSubcontractorRegistration(route.params, password, confirmPassword);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'RegistrationComplete' }],
-      });
-    } catch {
+      const result = await resetPassword(resetCode, password, confirmPassword);
+      if (result?.success === true) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'SubcontractorLogin' }, { name: 'PasswordResetSuccess' }],
+        });
+        return;
+      }
+
+      // A rejected code (invalid, expired or already used) can't be fixed on
+      // this screen, so offer to go back and request a new one.
+      const message = result?.message?.trim();
+      if (message && /token|code|expired/i.test(message)) {
+        Alert.alert('Unable to reset password', message, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Resend Code',
+            onPress: () => navigation.popTo('VerifyResetCode', { email }),
+          },
+        ]);
+        return;
+      }
       Alert.alert(
-        'Unable to complete registration',
-        'Something went wrong while submitting your registration. Please try again.',
+        'Unable to reset password',
+        message || 'Unable to reset your password. Please try again.',
+      );
+    } catch (error) {
+      Alert.alert(
+        'Unable to reset password',
+        getResetRequestErrorMessage(error, 'Unable to reset your password. Please try again.'),
       );
     } finally {
       setIsSubmitting(false);
@@ -57,17 +77,15 @@ export function CreatePasswordScreen({ navigation, route }: Props): React.JSX.El
     <AuthScreenLayout withKeyboardAvoiding>
       <AuthHeader />
 
-      <RegistrationProgress totalSteps={TOTAL_STEPS} currentStep={6} />
-
       <AuthCard>
         <AuthCardHeader
           icon={<LockIcon width={20} height={13} color={welcomeColors.accent} />}
-          title="Create Password"
-          subtitle="Set a secure password for your account."
+          title="Change Password"
+          subtitle="Set a new password for your account."
         />
 
         <LoginInput
-          label="Enter Password"
+          label="New Password"
           placeholder="Enter Password"
           value={password}
           onChangeText={setPassword}
@@ -80,7 +98,7 @@ export function CreatePasswordScreen({ navigation, route }: Props): React.JSX.El
         />
 
         <LoginInput
-          label="Re-Enter Password"
+          label="Confirm Password"
           placeholder="Re-Enter Password"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
@@ -100,7 +118,7 @@ export function CreatePasswordScreen({ navigation, route }: Props): React.JSX.El
         <PasswordRequirements />
 
         <AuthPrimaryButton
-          title={isSubmitting ? 'Submitting...' : 'Continue'}
+          title={isSubmitting ? 'Updating Password...' : 'Continue'}
           onPress={handleContinue}
           disabled={isSubmitting}
           style={styles.continueButton}

@@ -83,6 +83,9 @@ export type AuthStackParamList = {
   RegistrationComplete: undefined;
   ForgotPassword: undefined;
   CheckYourEmail: { email: string };
+  VerifyResetCode: { email: string };
+  ChangePassword: { email: string; resetCode: string };
+  PasswordResetSuccess: undefined;
   TemplatePreview: { title: string; pdfPath: string; currentStep: number };
   Home: undefined;
   ApprovalNeeded: undefined;

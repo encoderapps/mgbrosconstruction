@@ -11,13 +11,21 @@ import { LockIcon, MailIcon } from '../../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../../theme';
 import { AuthStackParamList } from '../../navigation/types';
 import { isValidEmail } from '../../utils/formValidation';
+import {
+  getResetRequestErrorMessage,
+  requestPasswordResetCode,
+} from '../../services/forgotPasswordService';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>;
 
 export function ForgotPasswordScreen({ navigation }: Props): React.JSX.Element {
   const [email, setEmail] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
-  const handleResetPassword = (): void => {
+  const handleResetPassword = async (): Promise<void> => {
+    if (isSending) {
+      return;
+    }
     if (!email.trim()) {
       Alert.alert('Missing email', 'Please enter your email address.');
       return;
@@ -27,9 +35,20 @@ export function ForgotPasswordScreen({ navigation }: Props): React.JSX.Element {
       return;
     }
 
-    // TODO: Call the forgot-password API before navigating. The email is
-    // passed along so it's available once that integration lands.
-    navigation.navigate('CheckYourEmail', { email: email.trim() });
+    const trimmedEmail = email.trim();
+    setIsSending(true);
+    try {
+      const result = await requestPasswordResetCode(trimmedEmail);
+      if (result?.success !== true) {
+        Alert.alert('Unable to send reset code', 'We could not process your request. Please try again.');
+        return;
+      }
+      navigation.navigate('VerifyResetCode', { email: trimmedEmail });
+    } catch (error) {
+      Alert.alert('Unable to send reset code', getResetRequestErrorMessage(error));
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleCancel = (): void => {
@@ -61,7 +80,12 @@ export function ForgotPasswordScreen({ navigation }: Props): React.JSX.Element {
           autoCapitalize="none"
         />
 
-        <AuthPrimaryButton title="Continue" onPress={handleResetPassword} style={styles.continueButton} />
+        <AuthPrimaryButton
+          title={isSending ? 'Sending...' : 'Continue'}
+          onPress={handleResetPassword}
+          disabled={isSending}
+          style={styles.continueButton}
+        />
 
         <Pressable
           onPress={handleCancel}
