@@ -2,7 +2,11 @@ import axios from 'axios';
 import { SALESFORCE_SUBCONTRACTOR_REGISTRATION_URL } from '../constants/config';
 import { SubcontractorRegistrationParams } from '../navigation/types';
 import { SubcontractorRegistrationApiPayload } from '../types';
+import { formatAddress } from '../utils/address';
 import { fetchSalesforceAccessToken, getStoredSalesforceAccessToken } from './salesforceAuthService';
+
+// File type Salesforce expects for every uploaded registration document.
+const UPLOADED_FILE_TYPE = 'Internal';
 
 function buildApiPayload(
   params: SubcontractorRegistrationParams,
@@ -19,23 +23,27 @@ function buildApiPayload(
     confirmPassword,
 
     companyName: params.company.company,
-    companyAddress: params.company.companyAddress,
+    // The API takes the company address as one formatted string.
+    companyAddress: formatAddress(params.company.companyAddress),
     yearsOfExperience: params.company.yearsOfExperience,
-    service: params.company.service,
+    // Salesforce multi-select picklists take their values as one semicolon-separated string.
+    service: params.company.service.join(';'),
     numberOfEmployees: params.company.numberOfEmployees,
 
     federalTaxClassification: params.w9.federalTaxClassification,
     taxIdentificationNumber: params.w9.taxIdentificationNumber,
     w9SignedDate: params.w9.w9SignedDate,
     w9FileName: params.w9.w9File.name,
+    w9FileType: UPLOADED_FILE_TYPE,
     w9Base64Data: params.w9.w9File.base64,
 
     glInsuranceCompanyName: params.generalLiability.insuranceCompanyName,
     glPolicyNumber: params.generalLiability.policyNumber,
     glEffectiveDate: params.generalLiability.effectiveDate,
     glExpirationDate: params.generalLiability.expirationDate,
-    glAdditionalInsured: params.generalLiability.additionalInsured === 'Yes',
+    glAdditionalInsured: params.generalLiability.additionalInsured,
     glFileName: params.generalLiability.coiFile.name,
+    glFileType: UPLOADED_FILE_TYPE,
     glBase64Data: params.generalLiability.coiFile.base64,
 
     wcInsuranceCompanyName: params.workersComp.insuranceCompanyName,
@@ -43,6 +51,7 @@ function buildApiPayload(
     wcEffectiveDate: params.workersComp.effectiveDate,
     wcExpirationDate: params.workersComp.expirationDate,
     wcFileName: params.workersComp.coiFile.name,
+    wcFileType: UPLOADED_FILE_TYPE,
     wcBase64Data: params.workersComp.coiFile.base64,
   };
 }

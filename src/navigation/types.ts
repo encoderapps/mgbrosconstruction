@@ -1,4 +1,15 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
+import type { CertificateTemplate } from '../services/certificateTemplateService';
+
+export interface Address {
+  address1: string;
+  /** Optional. */
+  address2: string;
+  city: string;
+  state: string;
+  country: string;
+  pincode: string;
+}
 
 export interface SubcontractorIdentityData {
   firstName: string;
@@ -10,8 +21,8 @@ export interface SubcontractorIdentityData {
 
 export interface SubcontractorCompanyData {
   company: string;
-  companyAddress: string;
-  service: string;
+  companyAddress: Address;
+  service: string[];
   yearsOfExperience: string;
   numberOfEmployees: string;
 }
@@ -35,7 +46,7 @@ export interface SubcontractorGeneralLiabilityData {
   policyNumber: string;
   effectiveDate: string;
   expirationDate: string;
-  additionalInsured: string;
+  additionalInsured: boolean;
   coiFile: RegistrationFile;
 }
 
@@ -86,7 +97,7 @@ export type AuthStackParamList = {
   VerifyResetCode: { email: string };
   ChangePassword: { email: string; resetCode: string };
   PasswordResetSuccess: undefined;
-  TemplatePreview: { title: string; pdfPath: string; currentStep: number };
+  TemplatePreview: { title: string; template: CertificateTemplate; currentStep: number };
   Home: undefined;
   ApprovalNeeded: undefined;
 };

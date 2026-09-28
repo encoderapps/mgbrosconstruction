@@ -9,6 +9,7 @@ import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { AuthScreenLayout } from '../components/AuthScreenLayout';
 import { LoginInput } from '../components/LoginInput';
 import { DateInput } from '../components/DateInput';
+import { SelectInput } from '../components/SelectInput';
 import { RegistrationProgress } from '../components/RegistrationProgress';
 import { DocumentIcon, UploadIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
@@ -16,6 +17,7 @@ import { AuthStackParamList, RegistrationFile } from '../navigation/types';
 import { findMissingRequiredField } from '../utils/formValidation';
 import { isPdfFile } from '../utils/fileValidation';
 import { fileToBase64 } from '../utils/fileToBase64';
+import { TAX_CLASSIFICATION_OPTIONS } from '../constants/taxClassificationOptions';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'W9'>;
 
@@ -60,7 +62,7 @@ export function W9Screen({ navigation, route }: Props): React.JSX.Element {
       {
         value: federalTaxClassification,
         title: 'Missing federal tax classification',
-        message: 'Please enter your federal tax classification.',
+        message: 'Please select your federal tax classification.',
       },
       {
         value: taxIdentificationNumber,
@@ -82,7 +84,7 @@ export function W9Screen({ navigation, route }: Props): React.JSX.Element {
       identity: route.params.identity,
       company: route.params.company,
       w9: {
-        federalTaxClassification: federalTaxClassification.trim(),
+        federalTaxClassification,
         taxIdentificationNumber: taxIdentificationNumber.trim(),
         w9SignedDate: w9SignedDate.trim(),
         w9File: uploadedW9,
@@ -103,12 +105,12 @@ export function W9Screen({ navigation, route }: Props): React.JSX.Element {
           subtitle="Fill in your company tax details and upload W9"
         />
 
-        <LoginInput
+        <SelectInput
           label="Federal Tax Classification"
-          placeholder="Enter federal tax classification"
+          placeholder="Select federal tax classification"
           value={federalTaxClassification}
-          onChangeText={setFederalTaxClassification}
-          autoCapitalize="words"
+          options={TAX_CLASSIFICATION_OPTIONS}
+          onSelect={setFederalTaxClassification}
         />
 
         <LoginInput

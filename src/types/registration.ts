@@ -6,8 +6,13 @@ export interface RegistrationData {
   homeAddress: string;
 
   companyName: string;
-  companyAddress: string;
-  service: string;
+  companyAddress1: string;
+  companyAddress2: string;
+  companyCity: string;
+  companyState: string;
+  companyCountry: string;
+  companyPincode: string;
+  service: string[];
   yearsOfExperience: string;
   numberOfEmployees: string;
 
@@ -20,7 +25,7 @@ export interface RegistrationData {
   glPolicyNumber: string;
   glEffectiveDate: string;
   glExpirationDate: string;
-  glAdditionalInsured: string;
+  glAdditionalInsured: boolean;
   glFileName: string;
 
   wcInsuranceCompanyName: string;

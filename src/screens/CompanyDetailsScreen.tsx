@@ -7,34 +7,60 @@ import { AuthHeader } from '../components/AuthHeader';
 import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { AuthScreenLayout } from '../components/AuthScreenLayout';
 import { LoginInput } from '../components/LoginInput';
-import { SelectInput } from '../components/SelectInput';
+import { AddressInput } from '../components/AddressInput';
+import { MultiSelectInput } from '../components/MultiSelectInput';
 import { RegistrationProgress } from '../components/RegistrationProgress';
 import { BriefcaseIcon } from '../assets/icons';
 import { welcomeColors } from '../theme';
-import { AuthStackParamList } from '../navigation/types';
+import { Address, AuthStackParamList } from '../navigation/types';
 import { findMissingRequiredField } from '../utils/formValidation';
+import { isValidPincode } from '../utils/address';
 import { SERVICE_OPTIONS } from '../constants/serviceOptions';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'CompanyDetails'>;
 
 const TOTAL_STEPS = 6;
+const EMPTY_ADDRESS: Address = { address1: '', address2: '', city: '', state: '', country: '', pincode: '' };
 
 export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.Element {
   const [company, setCompany] = useState('');
-  const [companyAddress, setCompanyAddress] = useState('');
-  const [service, setService] = useState('');
+  const [companyAddress, setCompanyAddress] = useState<Address>(EMPTY_ADDRESS);
+  const [isAddressExpanded, setIsAddressExpanded] = useState(false);
+  const [services, setServices] = useState<string[]>([]);
   const [yearsOfExperience, setYearsOfExperience] = useState('');
   const [numberOfEmployees, setNumberOfEmployees] = useState('');
 
+  const handleAddressChange = (field: keyof Address, value: string): void => {
+    setCompanyAddress((current) => ({ ...current, [field]: value }));
+  };
+
   const handleContinue = (): void => {
+    if (!company.trim()) {
+      Alert.alert('Missing company name', 'Please enter your company name.');
+      return;
+    }
+
+    const missingAddressField = findMissingRequiredField([
+      { value: companyAddress.address1, title: 'Missing address', message: 'Please enter address 1.' },
+      { value: companyAddress.city, title: 'Missing city', message: 'Please enter the city.' },
+      { value: companyAddress.state, title: 'Missing state', message: 'Please enter the state.' },
+      { value: companyAddress.country, title: 'Missing country', message: 'Please enter the country.' },
+      { value: companyAddress.pincode, title: 'Missing pincode', message: 'Please enter the pincode.' },
+    ]);
+    if (missingAddressField) {
+      // Open the address section so the user can see the field to fill in.
+      setIsAddressExpanded(true);
+      Alert.alert(missingAddressField.title, missingAddressField.message);
+      return;
+    }
+    if (!isValidPincode(companyAddress.pincode)) {
+      setIsAddressExpanded(true);
+      Alert.alert('Invalid pincode', 'Please enter a valid pincode.');
+      return;
+    }
+
     const missingField = findMissingRequiredField([
-      { value: company, title: 'Missing company name', message: 'Please enter your company name.' },
-      {
-        value: companyAddress,
-        title: 'Missing company address',
-        message: 'Please enter your company address.',
-      },
-      { value: service, title: 'Missing service', message: 'Please select the service you provide.' },
+      { value: services.join(', '), title: 'Missing service', message: 'Please select at least one service.' },
       {
         value: yearsOfExperience,
         title: 'Missing years of experience',
@@ -55,8 +81,15 @@ export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.El
       identity: route.params.identity,
       company: {
         company: company.trim(),
-        companyAddress: companyAddress.trim(),
-        service,
+        companyAddress: {
+          address1: companyAddress.address1.trim(),
+          address2: companyAddress.address2.trim(),
+          city: companyAddress.city.trim(),
+          state: companyAddress.state.trim(),
+          country: companyAddress.country.trim(),
+          pincode: companyAddress.pincode.trim(),
+        },
+        service: services,
         yearsOfExperience: yearsOfExperience.trim(),
         numberOfEmployees,
       },
@@ -84,20 +117,20 @@ export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.El
           autoCapitalize="words"
         />
 
-        <LoginInput
+        <AddressInput
           label="Company Address"
-          placeholder="Enter company address"
           value={companyAddress}
-          onChangeText={setCompanyAddress}
-          autoCapitalize="words"
+          onChange={handleAddressChange}
+          isExpanded={isAddressExpanded}
+          onToggle={() => setIsAddressExpanded((current) => !current)}
         />
 
-        <SelectInput
+        <MultiSelectInput
           label="Service"
-          placeholder="Select service"
-          value={service}
+          placeholder="Select services"
+          values={services}
           options={SERVICE_OPTIONS}
-          onSelect={setService}
+          onChange={setServices}
         />
 
         <LoginInput

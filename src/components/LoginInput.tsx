@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { fontFamily, radius, welcomeColors } from '../theme';
+import { useScrollFocusedInputIntoView } from './AuthScreenLayout';
 
 type LoginInputProps = {
   label: string;
@@ -20,6 +21,7 @@ type LoginInputProps = {
   secureTextEntry?: boolean;
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  maxLength?: number;
 };
 
 export function LoginInput({
@@ -33,7 +35,10 @@ export function LoginInput({
   secureTextEntry,
   keyboardType,
   autoCapitalize,
+  maxLength,
 }: LoginInputProps): React.JSX.Element {
+  const scrollFocusedInputIntoView = useScrollFocusedInputIntoView();
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
@@ -48,6 +53,8 @@ export function LoginInput({
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize ?? 'none'}
+          maxLength={maxLength}
+          onFocus={() => scrollFocusedInputIntoView?.()}
         />
         {!!rightIcon && (
           <Pressable onPress={onRightIconPress} hitSlop={8} style={styles.rightIcon}>

@@ -21,3 +21,4 @@ export * from './FolderIcon';
 export * from './CardIcon';
 export * from './BagIcon';
 export * from './ClipboardCheckIcon';
+export * from './CheckIcon';
