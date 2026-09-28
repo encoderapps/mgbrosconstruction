@@ -1,70 +1,112 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Pdf from 'react-native-pdf';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
 import { AuthHeader } from '../components/AuthHeader';
 import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
-import { AuthScreenLayout } from '../components/AuthScreenLayout';
 import { RegistrationProgress } from '../components/RegistrationProgress';
 import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
+import { getCertificateTemplatePath } from '../services/certificateTemplateService';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'TemplatePreview'>;
 
 const TOTAL_STEPS = 6;
-// The ACORD certificate templates are US Letter portrait (8.5in x 11in).
-const PAGE_ASPECT_RATIO = 11 / 8.5;
+const MIN_SCALE = 1;
+const MAX_SCALE = 4;
+// Tapping the PDF toggles between fit-to-width and this zoom level.
+const TAP_ZOOM_SCALE = 2.5;
 
 export function TemplatePreviewScreen({ navigation, route }: Props): React.JSX.Element {
-  const { title, pdfPath, currentStep } = route.params;
-  const [pdfWidth, setPdfWidth] = useState(0);
+  const { title, template, currentStep } = route.params;
+  const [pdfPath, setPdfPath] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
+  const [scale, setScale] = useState(MIN_SCALE);
 
-  const handlePdfLayout = (event: LayoutChangeEvent): void => {
-    setPdfWidth(event.nativeEvent.layout.width);
+  useEffect(() => {
+    let isMounted = true;
+    getCertificateTemplatePath(template)
+      .then((path) => {
+        if (isMounted) {
+          setPdfPath(path);
+        }
+      })
+      .catch((error) => {
+        console.error(`Failed to load ${title}:`, error);
+        if (isMounted) {
+          setHasError(true);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [template, title]);
+
+  const handlePdfTap = (): void => {
+    setScale((current) => (current > MIN_SCALE ? MIN_SCALE : TAP_ZOOM_SCALE));
   };
 
+  // A fixed (non-scrolling) layout, so the PDF viewer owns every scroll,
+  // pinch and pan gesture instead of competing with a parent ScrollView.
   return (
-    <AuthScreenLayout>
-      <AuthHeader />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <View style={styles.container}>
+        <AuthHeader />
 
-      <RegistrationProgress totalSteps={TOTAL_STEPS} currentStep={currentStep} />
+        <RegistrationProgress totalSteps={TOTAL_STEPS} currentStep={currentStep} />
 
-      <AuthCard>
-        <Text style={styles.title}>{title}</Text>
+        <AuthCard style={styles.card}>
+          <Text style={styles.title}>{title}</Text>
 
-        <View
-          style={[styles.pdfWrapper, pdfWidth > 0 && { height: pdfWidth * PAGE_ASPECT_RATIO }]}
-          onLayout={handlePdfLayout}
-        >
-          {hasError ? (
-            <Text style={styles.errorText}>Unable to display the template. Please try again.</Text>
-          ) : (
-            pdfWidth > 0 && (
+          <View style={styles.pdfWrapper}>
+            {hasError ? (
+              <Text style={styles.errorText}>Unable to display the template. Please try again.</Text>
+            ) : pdfPath ? (
               <Pdf
                 source={{ uri: `file://${pdfPath}` }}
                 style={styles.pdf}
                 fitPolicy={0}
-                singlePage
+                scale={scale}
+                minScale={MIN_SCALE}
+                maxScale={MAX_SCALE}
                 trustAllCerts={false}
+                onPageSingleTap={handlePdfTap}
+                onScaleChanged={(newScale) => setScale(newScale)}
                 renderActivityIndicator={() => <ActivityIndicator color={welcomeColors.accent} />}
                 onError={(error) => {
-                  console.error('Failed to render template PDF:', error);
+                  console.error(`Failed to render ${title} PDF:`, error);
                   setHasError(true);
                 }}
               />
-            )
-          )}
-        </View>
+            ) : (
+              <ActivityIndicator color={welcomeColors.accent} />
+            )}
+          </View>
 
-        <AuthPrimaryButton title="Back" onPress={() => navigation.goBack()} />
-      </AuthCard>
-    </AuthScreenLayout>
+          <AuthPrimaryButton title="Back" onPress={() => navigation.goBack()} />
+        </AuthCard>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: welcomeColors.background,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 20,
+    gap: 24,
+  },
+  card: {
+    flex: 1,
+  },
   title: {
     fontFamily: fontFamily.semiBold,
     fontWeight: '600',
@@ -74,8 +116,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   pdfWrapper: {
-    width: '100%',
-    minHeight: 200,
+    flex: 1,
     justifyContent: 'center',
     marginBottom: 16,
     borderWidth: 1,

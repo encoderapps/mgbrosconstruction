@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { pick, saveDocuments, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
+import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
 import { AuthCardHeader } from '../components/AuthCardHeader';
@@ -9,111 +9,30 @@ import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { AuthScreenLayout } from '../components/AuthScreenLayout';
 import { LoginInput } from '../components/LoginInput';
 import { DateInput } from '../components/DateInput';
-import { SelectInput } from '../components/SelectInput';
+import { Checkbox } from '../components/Checkbox';
 import { RegistrationProgress } from '../components/RegistrationProgress';
-import { DocumentIcon, DownloadIcon, ShieldIcon, UploadIcon } from '../assets/icons';
+import { DocumentIcon, ShieldIcon, UploadIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
 import { AuthStackParamList, RegistrationFile } from '../navigation/types';
 import { findMissingRequiredField } from '../utils/formValidation';
 import { isPdfFile } from '../utils/fileValidation';
 import { fileToBase64 } from '../utils/fileToBase64';
-import { generateGLTemplate } from '../services/glTemplateService';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'GeneralLiability'>;
 
 const TOTAL_STEPS = 6;
-const ADDITIONAL_INSURED_OPTIONS = ['Yes', 'No'];
 
 export function GeneralLiabilityScreen({ navigation, route }: Props): React.JSX.Element {
   const [insuranceCompanyName, setInsuranceCompanyName] = useState('');
   const [policyNumber, setPolicyNumber] = useState('');
   const [effectiveDate, setEffectiveDate] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
-  const [additionalInsured, setAdditionalInsured] = useState('');
+  const [additionalInsured, setAdditionalInsured] = useState(false);
   const [uploadedCOI, setUploadedCOI] = useState<RegistrationFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false);
-  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
 
-  const validateGLTemplateFields = (): boolean => {
-    const missingField = findMissingRequiredField([
-      {
-        value: insuranceCompanyName,
-        title: 'Missing insurance company name',
-        message: 'Please complete all General Liability fields before generating the GL Template.',
-      },
-      {
-        value: policyNumber,
-        title: 'Missing policy number',
-        message: 'Please complete all General Liability fields before generating the GL Template.',
-      },
-      {
-        value: effectiveDate,
-        title: 'Missing effective date',
-        message: 'Please complete all General Liability fields before generating the GL Template.',
-      },
-      {
-        value: expirationDate,
-        title: 'Missing expiration date',
-        message: 'Please complete all General Liability fields before generating the GL Template.',
-      },
-    ]);
-    if (missingField) {
-      Alert.alert(missingField.title, missingField.message);
-      return false;
-    }
-    return true;
-  };
-
-  const handleGLTemplatePress = async (): Promise<void> => {
-    if (!validateGLTemplateFields()) {
-      return;
-    }
-
-    setIsGeneratingTemplate(true);
-    try {
-      const pdfPath = await generateGLTemplate({
-        insuranceCompanyName: insuranceCompanyName.trim(),
-        policyNumber: policyNumber.trim(),
-        effectiveDate,
-        expirationDate,
-      });
-      navigation.navigate('TemplatePreview', { title: 'GL Template', pdfPath, currentStep: 4 });
-    } catch (error) {
-      console.error('Failed to generate GL template:', error);
-      Alert.alert('Unable to generate GL Template', 'Please try again.');
-    } finally {
-      setIsGeneratingTemplate(false);
-    }
-  };
-
-  const handleDownloadGLTemplate = async (): Promise<void> => {
-    if (!validateGLTemplateFields()) {
-      return;
-    }
-
-    setIsDownloadingTemplate(true);
-    try {
-      const pdfPath = await generateGLTemplate({
-        insuranceCompanyName: insuranceCompanyName.trim(),
-        policyNumber: policyNumber.trim(),
-        effectiveDate,
-        expirationDate,
-      });
-      await saveDocuments({
-        sourceUris: [`file://${pdfPath}`],
-        mimeType: 'application/pdf',
-        fileName: 'MG-Bros-General-Liability-COI.pdf',
-      });
-    } catch (error) {
-      if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) {
-        return;
-      }
-      console.error('Failed to download GL template:', error);
-      Alert.alert('Unable to download GL Template', 'Please try again.');
-    } finally {
-      setIsDownloadingTemplate(false);
-    }
+  const handleGLTemplatePress = (): void => {
+    navigation.navigate('TemplatePreview', { title: 'GL Template', template: 'gl', currentStep: 4 });
   };
 
   const handleUploadPress = async (): Promise<void> => {
@@ -153,11 +72,6 @@ export function GeneralLiabilityScreen({ navigation, route }: Props): React.JSX.
       { value: policyNumber, title: 'Missing policy number', message: 'Please enter the policy number.' },
       { value: effectiveDate, title: 'Missing effective date', message: 'Please enter the effective date.' },
       { value: expirationDate, title: 'Missing expiration date', message: 'Please enter the expiration date.' },
-      {
-        value: additionalInsured,
-        title: 'Missing additional insured',
-        message: 'Please select if additional insured.',
-      },
     ]);
     if (missingField) {
       Alert.alert(missingField.title, missingField.message);
@@ -225,26 +139,12 @@ export function GeneralLiabilityScreen({ navigation, route }: Props): React.JSX.
           onChange={setExpirationDate}
         />
 
-        <SelectInput
-          label="Additional Insured"
-          placeholder="Select if additional insured"
-          value={additionalInsured}
-          options={ADDITIONAL_INSURED_OPTIONS}
-          onSelect={setAdditionalInsured}
-        />
+        <Checkbox label="Additional Insured" checked={additionalInsured} onChange={setAdditionalInsured} />
 
         <View style={styles.glTemplateRow}>
-          <Pressable
-            onPress={handleGLTemplatePress}
-            hitSlop={8}
-            style={styles.glTemplateLink}
-            disabled={isGeneratingTemplate}
-          >
+          <Pressable onPress={handleGLTemplatePress} hitSlop={8} style={styles.glTemplateLink}>
             <DocumentIcon size={14} color={welcomeColors.link} />
-            <Text style={styles.glTemplateText}>{isGeneratingTemplate ? 'Generating...' : 'GL Template'}</Text>
-          </Pressable>
-          <Pressable onPress={handleDownloadGLTemplate} hitSlop={8} disabled={isDownloadingTemplate}>
-            <DownloadIcon size={16} color={welcomeColors.link} />
+            <Text style={styles.glTemplateText}>GL Template</Text>
           </Pressable>
         </View>
 

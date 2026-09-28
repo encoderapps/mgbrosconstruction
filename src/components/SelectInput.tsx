@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Keyboard, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronRightIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
@@ -26,7 +26,14 @@ export function SelectInput({
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
-      <Pressable style={styles.inputWrapper} onPress={() => setIsOpen(true)}>
+      <Pressable
+        style={styles.inputWrapper}
+        onPress={() => {
+          // Close the keyboard so it doesn't cover the options sheet.
+          Keyboard.dismiss();
+          setIsOpen(true);
+        }}
+      >
         <Text style={[styles.value, !value && styles.placeholder]}>{value || placeholder}</Text>
         <View style={styles.chevron}>
           <ChevronRightIcon size={14} color={welcomeColors.inputPlaceholder} />

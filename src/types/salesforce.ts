@@ -41,6 +41,7 @@ export interface SubcontractorRegistrationApiPayload {
   taxIdentificationNumber: string;
   w9SignedDate: string;
   w9FileName: string;
+  w9FileType: string;
   w9Base64Data: string;
 
   glInsuranceCompanyName: string;
@@ -49,6 +50,7 @@ export interface SubcontractorRegistrationApiPayload {
   glExpirationDate: string;
   glAdditionalInsured: boolean;
   glFileName: string;
+  glFileType: string;
   glBase64Data: string;
 
   wcInsuranceCompanyName: string;
@@ -56,6 +58,7 @@ export interface SubcontractorRegistrationApiPayload {
   wcEffectiveDate: string;
   wcExpirationDate: string;
   wcFileName: string;
+  wcFileType: string;
   wcBase64Data: string;
 }
 

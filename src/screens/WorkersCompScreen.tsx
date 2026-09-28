@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { pick, saveDocuments, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
+import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
 import { AuthCardHeader } from '../components/AuthCardHeader';
@@ -10,13 +10,12 @@ import { AuthScreenLayout } from '../components/AuthScreenLayout';
 import { LoginInput } from '../components/LoginInput';
 import { DateInput } from '../components/DateInput';
 import { RegistrationProgress } from '../components/RegistrationProgress';
-import { DocumentIcon, DownloadIcon, ShieldIcon, UploadIcon } from '../assets/icons';
+import { DocumentIcon, ShieldIcon, UploadIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
 import { AuthStackParamList, RegistrationFile } from '../navigation/types';
 import { findMissingRequiredField } from '../utils/formValidation';
 import { isPdfFile } from '../utils/fileValidation';
 import { fileToBase64 } from '../utils/fileToBase64';
-import { generateWCTemplate } from '../services/wcTemplateService';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'WorkersComp'>;
 
@@ -29,88 +28,9 @@ export function WorkersCompScreen({ navigation, route }: Props): React.JSX.Eleme
   const [expirationDate, setExpirationDate] = useState('');
   const [uploadedWorkersCompCOI, setUploadedWorkersCompCOI] = useState<RegistrationFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false);
-  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
 
-  const validateWCTemplateFields = (): boolean => {
-    const missingField = findMissingRequiredField([
-      {
-        value: insuranceCompanyName,
-        title: 'Missing insurance company name',
-        message: 'Please complete all Workers Comp fields before generating the WC Template.',
-      },
-      {
-        value: policyNumber,
-        title: 'Missing policy number',
-        message: 'Please complete all Workers Comp fields before generating the WC Template.',
-      },
-      {
-        value: effectiveDate,
-        title: 'Missing effective date',
-        message: 'Please complete all Workers Comp fields before generating the WC Template.',
-      },
-      {
-        value: expirationDate,
-        title: 'Missing expiration date',
-        message: 'Please complete all Workers Comp fields before generating the WC Template.',
-      },
-    ]);
-    if (missingField) {
-      Alert.alert(missingField.title, missingField.message);
-      return false;
-    }
-    return true;
-  };
-
-  const handleWCTemplatePress = async (): Promise<void> => {
-    if (!validateWCTemplateFields()) {
-      return;
-    }
-
-    setIsGeneratingTemplate(true);
-    try {
-      const pdfPath = await generateWCTemplate({
-        insuranceCompanyName: insuranceCompanyName.trim(),
-        policyNumber: policyNumber.trim(),
-        effectiveDate,
-        expirationDate,
-      });
-      navigation.navigate('TemplatePreview', { title: 'WC Template', pdfPath, currentStep: 5 });
-    } catch (error) {
-      console.error('Failed to generate WC template:', error);
-      Alert.alert('Unable to generate WC Template', 'Please try again.');
-    } finally {
-      setIsGeneratingTemplate(false);
-    }
-  };
-
-  const handleDownloadWCTemplate = async (): Promise<void> => {
-    if (!validateWCTemplateFields()) {
-      return;
-    }
-
-    setIsDownloadingTemplate(true);
-    try {
-      const pdfPath = await generateWCTemplate({
-        insuranceCompanyName: insuranceCompanyName.trim(),
-        policyNumber: policyNumber.trim(),
-        effectiveDate,
-        expirationDate,
-      });
-      await saveDocuments({
-        sourceUris: [`file://${pdfPath}`],
-        mimeType: 'application/pdf',
-        fileName: 'MG-Bros-Workers-Comp-COI.pdf',
-      });
-    } catch (error) {
-      if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) {
-        return;
-      }
-      console.error('Failed to download WC template:', error);
-      Alert.alert('Unable to download WC Template', 'Please try again.');
-    } finally {
-      setIsDownloadingTemplate(false);
-    }
+  const handleWCTemplatePress = (): void => {
+    navigation.navigate('TemplatePreview', { title: 'WC Template', template: 'wc', currentStep: 5 });
   };
 
   const handleUploadPress = async (): Promise<void> => {
@@ -218,17 +138,9 @@ export function WorkersCompScreen({ navigation, route }: Props): React.JSX.Eleme
         />
 
         <View style={styles.wcTemplateRow}>
-          <Pressable
-            onPress={handleWCTemplatePress}
-            hitSlop={8}
-            style={styles.wcTemplateLink}
-            disabled={isGeneratingTemplate}
-          >
+          <Pressable onPress={handleWCTemplatePress} hitSlop={8} style={styles.wcTemplateLink}>
             <DocumentIcon size={14} color={welcomeColors.link} />
-            <Text style={styles.wcTemplateText}>{isGeneratingTemplate ? 'Generating...' : 'WC Template'}</Text>
-          </Pressable>
-          <Pressable onPress={handleDownloadWCTemplate} hitSlop={8} disabled={isDownloadingTemplate}>
-            <DownloadIcon size={16} color={welcomeColors.link} />
+            <Text style={styles.wcTemplateText}>WC Template</Text>
           </Pressable>
         </View>
 
