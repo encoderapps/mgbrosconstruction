@@ -18,6 +18,7 @@ import { findMissingRequiredField } from '../utils/formValidation';
 import { isPdfFile } from '../utils/fileValidation';
 import { fileToBase64 } from '../utils/fileToBase64';
 import { TAX_CLASSIFICATION_OPTIONS } from '../constants/taxClassificationOptions';
+import { formatTaxIdInput, isValidTaxId } from '../utils/taxId';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'W9'>;
 
@@ -75,6 +76,10 @@ export function W9Screen({ navigation, route }: Props): React.JSX.Element {
       Alert.alert(missingField.title, missingField.message);
       return;
     }
+    if (!isValidTaxId(taxIdentificationNumber)) {
+      Alert.alert('Invalid tax identification number', 'Please enter a 9-digit tax identification number (XX-XXXXXXX).');
+      return;
+    }
     if (!uploadedW9) {
       Alert.alert('W9 required', 'Please upload your signed W9 document.');
       return;
@@ -85,7 +90,7 @@ export function W9Screen({ navigation, route }: Props): React.JSX.Element {
       company: route.params.company,
       w9: {
         federalTaxClassification,
-        taxIdentificationNumber: taxIdentificationNumber.trim(),
+        taxIdentificationNumber,
         w9SignedDate: w9SignedDate.trim(),
         w9File: uploadedW9,
       },
@@ -115,9 +120,11 @@ export function W9Screen({ navigation, route }: Props): React.JSX.Element {
 
         <LoginInput
           label="Tax Identification Number"
-          placeholder="Enter tax identification number"
+          placeholder="XX-XXXXXXX"
           value={taxIdentificationNumber}
-          onChangeText={setTaxIdentificationNumber}
+          onChangeText={(text) => setTaxIdentificationNumber(formatTaxIdInput(text))}
+          keyboardType="number-pad"
+          maxLength={10}
         />
 
         <DateInput

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { CalendarIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
+import { parseDateOnlyString, toDateOnlyString } from '../utils/dateValidation';
 
 type DateInputProps = {
   label: string;
@@ -10,16 +11,20 @@ type DateInputProps = {
   /** Stored/returned as YYYY-MM-DD, matching the backend's expected format. */
   value: string;
   onChange: (date: string) => void;
+  /** Earliest selectable date in the picker. */
+  minimumDate?: Date;
+  /** Latest selectable date in the picker. */
+  maximumDate?: Date;
 };
 
-function toDateOnlyString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-export function DateInput({ label, placeholder, value, onChange }: DateInputProps): React.JSX.Element {
+export function DateInput({
+  label,
+  placeholder,
+  value,
+  onChange,
+  minimumDate,
+  maximumDate,
+}: DateInputProps): React.JSX.Element {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
 
   const handleChange = (event: DateTimePickerEvent, selectedDate?: Date): void => {
@@ -39,9 +44,11 @@ export function DateInput({ label, placeholder, value, onChange }: DateInputProp
 
       {isPickerOpen && (
         <DateTimePicker
-          value={value ? new Date(value) : new Date()}
+          value={value ? parseDateOnlyString(value) : new Date()}
           mode="date"
           display="default"
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
           onChange={handleChange}
         />
       )}

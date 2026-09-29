@@ -1,16 +1,6 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 import type { CertificateTemplate } from '../services/certificateTemplateService';
 
-export interface Address {
-  address1: string;
-  /** Optional. */
-  address2: string;
-  city: string;
-  state: string;
-  country: string;
-  pincode: string;
-}
-
 export interface SubcontractorIdentityData {
   firstName: string;
   lastName: string;
@@ -21,7 +11,11 @@ export interface SubcontractorIdentityData {
 
 export interface SubcontractorCompanyData {
   company: string;
-  companyAddress: Address;
+  companyStreetAddress: string;
+  companyCity: string;
+  /** Two-letter US state code, e.g. "IL". */
+  companyState: string;
+  companyZipCode: string;
   service: string[];
   yearsOfExperience: string;
   numberOfEmployees: string;

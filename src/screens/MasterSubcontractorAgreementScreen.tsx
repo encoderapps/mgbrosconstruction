@@ -1,45 +1,48 @@
-import React, { useState } from 'react';
-import {
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  ScrollView,
-  StyleSheet,
-  Text,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import Pdf from 'react-native-pdf';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
 import { AuthCardHeader } from '../components/AuthCardHeader';
 import { AuthHeader } from '../components/AuthHeader';
 import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
-import { AuthScreenLayout } from '../components/AuthScreenLayout';
 import { RegistrationProgress } from '../components/RegistrationProgress';
 import { DocumentIcon } from '../assets/icons';
-import { fontFamily, radius, welcomeColors } from '../theme';
+import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
-import { MASTER_SUBCONTRACT_AGREEMENT } from '../constants/legalContent';
+import { generateMasterSubcontractAgreement } from '../services/masterSubcontractAgreementService';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'MasterSubcontractorAgreement'>;
 
 const TOTAL_STEPS = 6;
-const SCROLL_END_TOLERANCE = 20;
-
-const [agreementTitle, ...agreementBodyParts] = MASTER_SUBCONTRACT_AGREEMENT.split('\n\n');
-const agreementBody = agreementBodyParts.join('\n\n');
+const MIN_SCALE = 1;
+const MAX_SCALE = 4;
 
 export function MasterSubcontractorAgreementScreen({ navigation, route }: Props): React.JSX.Element {
+  const companyName = route.params.company.company;
+  const [pdfPath, setPdfPath] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
   const [hasReadAgreement, setHasReadAgreement] = useState(false);
 
-  const handleAgreementScroll = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
-    if (hasReadAgreement) {
-      return;
-    }
-    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    const isAtBottom =
-      contentOffset.y + layoutMeasurement.height >= contentSize.height - SCROLL_END_TOLERANCE;
-    if (isAtBottom) {
-      setHasReadAgreement(true);
-    }
-  };
+  useEffect(() => {
+    let isMounted = true;
+    generateMasterSubcontractAgreement(companyName)
+      .then((path) => {
+        if (isMounted) {
+          setPdfPath(path);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to prepare Master Subcontract Agreement:', error);
+        if (isMounted) {
+          setHasError(true);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [companyName]);
 
   const handleContinue = (): void => {
     if (!hasReadAgreement) {
@@ -48,71 +51,110 @@ export function MasterSubcontractorAgreementScreen({ navigation, route }: Props)
     navigation.navigate('AcceptPolicyTerms', route.params);
   };
 
+  // A fixed (non-scrolling) layout, so the PDF viewer owns every scroll,
+  // pinch and pan gesture instead of competing with a parent ScrollView.
   return (
-    <AuthScreenLayout withKeyboardAvoiding>
-      <AuthHeader />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <View style={styles.container}>
+        <AuthHeader />
 
-      <RegistrationProgress totalSteps={TOTAL_STEPS} currentStep={6} />
+        <RegistrationProgress totalSteps={TOTAL_STEPS} currentStep={6} />
 
-      <AuthCard>
-        <AuthCardHeader
-          icon={<DocumentIcon size={18} color={welcomeColors.accent} />}
-          title="Master Subcontractor Agreement"
-          subtitle="Sign Master Subcontract Agreement"
-        />
+        <AuthCard style={styles.card}>
+          <AuthCardHeader
+            icon={<DocumentIcon size={18} color={welcomeColors.accent} />}
+            title="Master Subcontractor Agreement"
+            subtitle="Sign Master Subcontract Agreement"
+          />
 
-        <ScrollView
-          style={styles.agreementBox}
-          contentContainerStyle={styles.agreementContent}
-          onScroll={handleAgreementScroll}
-          scrollEventThrottle={16}
-          nestedScrollEnabled
-        >
-          <Text style={styles.agreementTitle}>{agreementTitle}</Text>
-          <Text style={styles.agreementBody}>{agreementBody}</Text>
-        </ScrollView>
+          <View style={styles.pdfWrapper}>
+            {hasError ? (
+              <Text style={styles.errorText}>Unable to display the agreement. Please try again.</Text>
+            ) : pdfPath ? (
+              <Pdf
+                source={{ uri: `file://${pdfPath}` }}
+                style={styles.pdf}
+                fitPolicy={0}
+                minScale={MIN_SCALE}
+                maxScale={MAX_SCALE}
+                spacing={8}
+                trustAllCerts={false}
+                onLoadComplete={(numberOfPages) => {
+                  if (numberOfPages <= 1) {
+                    setHasReadAgreement(true);
+                  }
+                }}
+                onPageChanged={(page, numberOfPages) => {
+                  // Continue unlocks once the user has reached the last page.
+                  if (page >= numberOfPages) {
+                    setHasReadAgreement(true);
+                  }
+                }}
+                renderActivityIndicator={() => <ActivityIndicator color={welcomeColors.accent} />}
+                onError={(error) => {
+                  console.error('Failed to render Master Subcontract Agreement PDF:', error);
+                  setHasError(true);
+                }}
+              />
+            ) : (
+              <ActivityIndicator color={welcomeColors.accent} />
+            )}
+          </View>
 
-        <AuthPrimaryButton
-          title="Continue"
-          onPress={handleContinue}
-          disabled={!hasReadAgreement}
-          style={styles.continueButton}
-        />
-      </AuthCard>
-    </AuthScreenLayout>
+          {!hasReadAgreement && !hasError && (
+            <Text style={styles.hintText}>Scroll to the end of the agreement to continue.</Text>
+          )}
+
+          <AuthPrimaryButton title="Continue" onPress={handleContinue} disabled={!hasReadAgreement} />
+        </AuthCard>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  agreementBox: {
-    height: 360,
-    borderWidth: 1,
-    borderColor: welcomeColors.inputBorder,
-    borderRadius: radius.md,
-    backgroundColor: welcomeColors.inputBackground,
-    marginBottom: 14,
+  safeArea: {
+    flex: 1,
+    backgroundColor: welcomeColors.background,
   },
-  agreementContent: {
-    padding: 14,
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 20,
+    gap: 24,
   },
-  agreementTitle: {
-    fontFamily: fontFamily.bold,
-    fontWeight: '700',
-    fontSize: 12,
-    color: welcomeColors.textPrimary,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
+  card: {
+    flex: 1,
+  },
+  pdfWrapper: {
+    flex: 1,
+    justifyContent: 'center',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: welcomeColors.cardBorder,
+    backgroundColor: welcomeColors.cardBackground,
+    overflow: 'hidden',
   },
-  agreementBody: {
+  pdf: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: welcomeColors.cardBackground,
+  },
+  hintText: {
     fontFamily: fontFamily.regular,
     fontWeight: '400',
     fontSize: 11,
-    lineHeight: 17,
-    color: welcomeColors.textPrimary,
-    textAlign: 'justify',
+    color: welcomeColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 10,
   },
-  continueButton: {
-    marginTop: 4,
+  errorText: {
+    fontFamily: fontFamily.regular,
+    fontWeight: '400',
+    fontSize: 12,
+    color: welcomeColors.textSecondary,
+    textAlign: 'center',
+    padding: 16,
   },
 });

@@ -10,12 +10,10 @@ export function buildRegistrationData(params: SubcontractorRegistrationParams): 
     homeAddress: params.identity.homeAddress,
 
     companyName: params.company.company,
-    companyAddress1: params.company.companyAddress.address1,
-    companyAddress2: params.company.companyAddress.address2,
-    companyCity: params.company.companyAddress.city,
-    companyState: params.company.companyAddress.state,
-    companyCountry: params.company.companyAddress.country,
-    companyPincode: params.company.companyAddress.pincode,
+    companyStreetAddress: params.company.companyStreetAddress,
+    companyCity: params.company.companyCity,
+    companyState: params.company.companyState,
+    companyZipCode: params.company.companyZipCode,
     service: params.company.service,
     yearsOfExperience: params.company.yearsOfExperience,
     numberOfEmployees: params.company.numberOfEmployees,
@@ -40,13 +38,8 @@ export function buildRegistrationData(params: SubcontractorRegistrationParams): 
   };
 }
 
-const OPTIONAL_REGISTRATION_FIELDS: (keyof RegistrationData)[] = ['companyAddress2'];
-
 export function findMissingRegistrationFields(data: RegistrationData): (keyof RegistrationData)[] {
   return (Object.keys(data) as (keyof RegistrationData)[]).filter((key) => {
-    if (OPTIONAL_REGISTRATION_FIELDS.includes(key)) {
-      return false;
-    }
     const value = data[key];
     if (typeof value === 'boolean') {
       // A boolean (e.g. an unchecked checkbox) is always a valid answer.

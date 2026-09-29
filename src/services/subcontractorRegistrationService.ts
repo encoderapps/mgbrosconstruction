@@ -2,7 +2,7 @@ import axios from 'axios';
 import { SALESFORCE_SUBCONTRACTOR_REGISTRATION_URL } from '../constants/config';
 import { SubcontractorRegistrationParams } from '../navigation/types';
 import { SubcontractorRegistrationApiPayload } from '../types';
-import { formatAddress } from '../utils/address';
+import { formatCompanyAddress } from '../utils/address';
 import { fetchSalesforceAccessToken, getStoredSalesforceAccessToken } from './salesforceAuthService';
 
 // File type Salesforce expects for every uploaded registration document.
@@ -24,7 +24,7 @@ function buildApiPayload(
 
     companyName: params.company.company,
     // The API takes the company address as one formatted string.
-    companyAddress: formatAddress(params.company.companyAddress),
+    companyAddress: formatCompanyAddress(params.company),
     yearsOfExperience: params.company.yearsOfExperience,
     // Salesforce multi-select picklists take their values as one semicolon-separated string.
     service: params.company.service.join(';'),
