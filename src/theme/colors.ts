@@ -58,3 +58,20 @@ export const welcomeColors = {
   securityText: '#333333',
   link: '#3B6FD4',
 } as const;
+
+// Signed-in screens (header, lists, statuses), in the same warm palette.
+export const portalColors = {
+  headerBorder: '#E8E0D8',
+  unreadBackground: '#F7F3EE',
+  danger: '#D32F2F',
+} as const;
+
+/** Foreground / background / border for status badges and notification icons. */
+export const toneColors = {
+  success: { foreground: '#2E7D32', background: '#E8F5E9', border: '#C3E6C3' },
+  info: { foreground: '#3B6FD4', background: '#E8EFFB', border: '#C5D6F5' },
+  warning: { foreground: '#E69500', background: '#FFF6E5', border: '#FFD89A' },
+  danger: { foreground: '#E5484D', background: '#FDECEC', border: '#F5C2C3' },
+} as const;
+
+export type Tone = keyof typeof toneColors;

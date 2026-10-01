@@ -23,6 +23,13 @@ import { VerifyResetCodeScreen } from '../screens/Auth/VerifyResetCodeScreen';
 import { ChangePasswordScreen } from '../screens/Auth/ChangePasswordScreen';
 import { PasswordResetSuccessScreen } from '../screens/Auth/PasswordResetSuccessScreen';
 import { HomeScreen } from '../screens/HomeScreen';
+import { ContactFormScreen } from '../screens/ContactFormScreen';
+import { ContactDetailsScreen } from '../screens/ContactDetailsScreen';
+import { PurchaseOrdersScreen } from '../screens/PurchaseOrdersScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { PurchaseOrderDetailsScreen } from '../screens/PurchaseOrderDetailsScreen';
+import { InvoicesScreen } from '../screens/InvoicesScreen';
 import { ApprovalNeededScreen } from '../screens/ApprovalNeededScreen';
 import { TemplatePreviewScreen } from '../screens/TemplatePreviewScreen';
 
@@ -53,6 +60,14 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       <Stack.Screen name="PasswordResetSuccess" component={PasswordResetSuccessScreen} />
       <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen name="AddContact" component={ContactFormScreen} />
+      <Stack.Screen name="EditContact" component={ContactFormScreen} />
+      <Stack.Screen name="ContactDetails" component={ContactDetailsScreen} />
+      <Stack.Screen name="PurchaseOrders" component={PurchaseOrdersScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="PurchaseOrderDetails" component={PurchaseOrderDetailsScreen} />
+      <Stack.Screen name="Invoices" component={InvoicesScreen} />
       <Stack.Screen name="ApprovalNeeded" component={ApprovalNeededScreen} />
       <Stack.Screen name="TemplatePreview" component={TemplatePreviewScreen} />
     </Stack.Navigator>

@@ -31,4 +31,9 @@ export interface RegistrationData {
   wcEffectiveDate: string;
   wcExpirationDate: string;
   wcFileName: string;
+
+  signatureName: string;
+  signatureFont: string;
+  signatureInitials: string;
+  signatureDate: string;
 }

@@ -1,61 +1,145 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Pdf from 'react-native-pdf';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
 import { AuthCardHeader } from '../components/AuthCardHeader';
 import { AuthHeader } from '../components/AuthHeader';
 import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
+import { LoginInput } from '../components/LoginInput';
 import { RegistrationProgress } from '../components/RegistrationProgress';
+import { SignatureStyleOption } from '../components/SignatureStyleOption';
 import { DocumentIcon } from '../assets/icons';
 import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
-import { generateMasterSubcontractAgreement } from '../services/masterSubcontractAgreementService';
+import { SIGNATURE_FONTS, SignatureFontId } from '../constants/signatureFonts';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
+import {
+  deleteMasterSubcontractAgreement,
+  generateMasterSubcontractAgreement,
+} from '../services/masterSubcontractAgreementService';
+import { getInitials } from '../utils/signature';
+import { todayDateString } from '../utils/dateValidation';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'MasterSubcontractorAgreement'>;
 
 const TOTAL_STEPS = 6;
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
+const SIGNATURE_DEBOUNCE_MS = 600;
 
 export function MasterSubcontractorAgreementScreen({ navigation, route }: Props): React.JSX.Element {
   const companyName = route.params.company.company;
-  const [pdfPath, setPdfPath] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
+  // The PDF and the page to open it at change together, only when a new PDF is
+  // generated. react-native-pdf reloads the whole document on any prop change,
+  // so the page shown while scrolling is tracked in a ref, not passed back as a
+  // prop — reloading mid-scroll crashes its native renderer.
+  const [pdf, setPdf] = useState<{ path: string; page: number } | null>(null);
+  const currentPageRef = useRef(1);
   const [hasError, setHasError] = useState(false);
   const [hasReadAgreement, setHasReadAgreement] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [signatureFont, setSignatureFont] = useState<SignatureFontId | null>(null);
+  const keyboardHeight = useKeyboardHeight();
+  const hasPdfRef = useRef(false);
 
+  const signatureName = fullName.trim().replace(/\s+/g, ' ');
+  const initials = getInitials(signatureName);
+  const hasName = signatureName.length > 0;
+
+  // The signature on the "By:" line changes with every keystroke, so wait for
+  // the user to pause typing before regenerating the PDF with it.
+  const [debouncedName, setDebouncedName] = useState(signatureName);
   useEffect(() => {
-    let isMounted = true;
-    generateMasterSubcontractAgreement(companyName)
+    const timer = setTimeout(() => setDebouncedName(signatureName), SIGNATURE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [signatureName]);
+
+  // The PDF only carries a signature once there's both a name and a style, so
+  // typing a name before choosing a style (or vice versa) doesn't regenerate it.
+  const signedName = signatureFont ? debouncedName : '';
+  const signedFont = debouncedName ? signatureFont : null;
+
+  // (Re)generate the agreement: the company name always, plus — once the user
+  // has entered a name and chosen a style — their initials on every page and
+  // their signature and today's date on page 10.
+  useEffect(() => {
+    let isCancelled = false;
+    const signature =
+      signedName && signedFont
+        ? { name: signedName, initials: getInitials(signedName), fontId: signedFont, date: todayDateString() }
+        : undefined;
+    generateMasterSubcontractAgreement(companyName, signature)
       .then((path) => {
-        if (isMounted) {
-          setPdfPath(path);
+        if (isCancelled) {
+          // Superseded by a newer request, or the screen has closed.
+          deleteMasterSubcontractAgreement(path);
+          return;
         }
+        // Keep the user's place when the PDF is regenerated with new initials.
+        hasPdfRef.current = true;
+        setHasError(false);
+        setPdf({ path, page: currentPageRef.current });
       })
       .catch((error) => {
         console.error('Failed to prepare Master Subcontract Agreement:', error);
-        if (isMounted) {
+        if (isCancelled) {
+          return;
+        }
+        if (hasPdfRef.current) {
+          // Only re-signing failed: keep showing the agreement already loaded.
+          Alert.alert('Unable to add signature', 'Your signature could not be added to the agreement preview.');
+        } else {
           setHasError(true);
         }
       });
     return () => {
-      isMounted = false;
+      isCancelled = true;
     };
-  }, [companyName]);
+  }, [companyName, signedName, signedFont]);
+
+  // Delete each generated file once the viewer has moved on to a newer one (or the screen closes).
+  const pdfPath = pdf?.path;
+  useEffect(() => {
+    return () => {
+      if (pdfPath) {
+        deleteMasterSubcontractAgreement(pdfPath);
+      }
+    };
+  }, [pdfPath]);
+
+  const pdfSource = useMemo(() => (pdfPath ? { uri: `file://${pdfPath}` } : null), [pdfPath]);
 
   const handleContinue = (): void => {
     if (!hasReadAgreement) {
       return;
     }
-    navigation.navigate('AcceptPolicyTerms', route.params);
+    if (!hasName) {
+      Alert.alert('Missing full name', 'Please enter your full name to sign the agreement.');
+      return;
+    }
+    if (!signatureFont) {
+      Alert.alert('Missing signature', 'Please choose a signature style.');
+      return;
+    }
+    navigation.navigate('AcceptPolicyTerms', {
+      ...route.params,
+      signature: { signatureName, signatureFont, signatureInitials: initials, signatureDate: todayDateString() },
+    });
   };
 
-  // A fixed (non-scrolling) layout, so the PDF viewer owns every scroll,
-  // pinch and pan gesture instead of competing with a parent ScrollView.
+  // The screen doesn't scroll (so the PDF owns its gestures) and the Android
+  // window doesn't resize for the keyboard, so lift the layout above it.
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <View style={styles.container}>
+      <View
+        style={[
+          styles.container,
+          keyboardHeight > 0 && { paddingBottom: 20 + Math.max(0, keyboardHeight - insets.bottom) },
+        ]}
+      >
         <AuthHeader />
 
         <RegistrationProgress totalSteps={TOTAL_STEPS} currentStep={6} />
@@ -70,9 +154,10 @@ export function MasterSubcontractorAgreementScreen({ navigation, route }: Props)
           <View style={styles.pdfWrapper}>
             {hasError ? (
               <Text style={styles.errorText}>Unable to display the agreement. Please try again.</Text>
-            ) : pdfPath ? (
+            ) : pdf && pdfSource ? (
               <Pdf
-                source={{ uri: `file://${pdfPath}` }}
+                source={pdfSource}
+                page={pdf.page}
                 style={styles.pdf}
                 fitPolicy={0}
                 minScale={MIN_SCALE}
@@ -85,7 +170,8 @@ export function MasterSubcontractorAgreementScreen({ navigation, route }: Props)
                   }
                 }}
                 onPageChanged={(page, numberOfPages) => {
-                  // Continue unlocks once the user has reached the last page.
+                  currentPageRef.current = page;
+                  // The signature section unlocks once the user has reached the last page.
                   if (page >= numberOfPages) {
                     setHasReadAgreement(true);
                   }
@@ -101,11 +187,47 @@ export function MasterSubcontractorAgreementScreen({ navigation, route }: Props)
             )}
           </View>
 
-          {!hasReadAgreement && !hasError && (
-            <Text style={styles.hintText}>Scroll to the end of the agreement to continue.</Text>
+          {hasReadAgreement ? (
+            <ScrollView
+              style={styles.signaturePanel}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.sectionTitle}>Signature</Text>
+
+              <LoginInput
+                label="Full Name"
+                placeholder="Enter your full name"
+                value={fullName}
+                onChangeText={setFullName}
+                autoCapitalize="words"
+              />
+
+              <Text style={styles.sectionLabel}>Choose Signature Style</Text>
+              {!hasName && <Text style={styles.hintText}>Enter your full name to create your signature.</Text>}
+
+              {SIGNATURE_FONTS.map((font) => (
+                <SignatureStyleOption
+                  key={font.id}
+                  font={font}
+                  signatureName={signatureName}
+                  initials={initials}
+                  isSelected={signatureFont === font.id}
+                  disabled={!hasName}
+                  onSelect={() => setSignatureFont(font.id)}
+                />
+              ))}
+            </ScrollView>
+          ) : (
+            !hasError && <Text style={styles.hintText}>Scroll to the end of the agreement to sign it.</Text>
           )}
 
-          <AuthPrimaryButton title="Continue" onPress={handleContinue} disabled={!hasReadAgreement} />
+          <AuthPrimaryButton
+            title="Continue"
+            onPress={handleContinue}
+            disabled={!hasReadAgreement}
+            style={styles.continueButton}
+          />
         </AuthCard>
       </View>
     </SafeAreaView>
@@ -129,6 +251,7 @@ const styles = StyleSheet.create({
   },
   pdfWrapper: {
     flex: 1,
+    minHeight: 140,
     justifyContent: 'center',
     marginBottom: 12,
     borderWidth: 1,
@@ -141,6 +264,26 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: welcomeColors.cardBackground,
   },
+  signaturePanel: {
+    flexGrow: 0,
+    maxHeight: 300,
+  },
+  sectionTitle: {
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    fontSize: 13,
+    lineHeight: 18,
+    color: welcomeColors.textPrimary,
+    marginBottom: 10,
+  },
+  sectionLabel: {
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    fontSize: 11,
+    lineHeight: 16.5,
+    color: welcomeColors.textPrimary,
+    marginBottom: 6,
+  },
   hintText: {
     fontFamily: fontFamily.regular,
     fontWeight: '400',
@@ -148,6 +291,9 @@ const styles = StyleSheet.create({
     color: welcomeColors.textSecondary,
     textAlign: 'center',
     marginBottom: 10,
+  },
+  continueButton: {
+    marginTop: 4,
   },
   errorText: {
     fontFamily: fontFamily.regular,

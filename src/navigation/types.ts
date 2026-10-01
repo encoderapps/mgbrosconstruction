@@ -1,5 +1,6 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 import type { CertificateTemplate } from '../services/certificateTemplateService';
+import type { SignatureFontId } from '../constants/signatureFonts';
 
 export interface SubcontractorIdentityData {
   firstName: string;
@@ -52,12 +53,27 @@ export interface SubcontractorWorkersCompData {
   coiFile: RegistrationFile;
 }
 
+/** Step 6 digital signature, created from the signer's typed full name. */
+export interface SubcontractorSignatureData {
+  signatureName: string;
+  signatureFont: SignatureFontId;
+  /** Derived from signatureName, e.g. "Deepak Rathore" → "DR". */
+  signatureInitials: string;
+  /** Date the agreement was signed, as YYYY-MM-DD (the device's local date). */
+  signatureDate: string;
+}
+
 export type SubcontractorRegistrationParams = {
   identity: SubcontractorIdentityData;
   company: SubcontractorCompanyData;
   w9: SubcontractorW9Data;
   generalLiability: SubcontractorGeneralLiabilityData;
   workersComp: SubcontractorWorkersCompData;
+};
+
+/** Registration params once the Master Subcontractor Agreement has been signed (Step 6 onward). */
+export type SignedSubcontractorRegistrationParams = SubcontractorRegistrationParams & {
+  signature: SubcontractorSignatureData;
 };
 
 export type AuthStackParamList = {
@@ -83,8 +99,8 @@ export type AuthStackParamList = {
     generalLiability: SubcontractorGeneralLiabilityData;
   };
   MasterSubcontractorAgreement: SubcontractorRegistrationParams;
-  AcceptPolicyTerms: SubcontractorRegistrationParams;
-  CreatePassword: SubcontractorRegistrationParams;
+  AcceptPolicyTerms: SignedSubcontractorRegistrationParams;
+  CreatePassword: SignedSubcontractorRegistrationParams;
   RegistrationComplete: undefined;
   ForgotPassword: undefined;
   CheckYourEmail: { email: string };
@@ -93,6 +109,14 @@ export type AuthStackParamList = {
   PasswordResetSuccess: undefined;
   TemplatePreview: { title: string; template: CertificateTemplate; currentStep: number };
   Home: undefined;
+  AddContact: undefined;
+  EditContact: { contactId: string };
+  ContactDetails: { contactId: string };
+  PurchaseOrders: undefined;
+  Notifications: undefined;
+  Profile: undefined;
+  PurchaseOrderDetails: { poId: string };
+  Invoices: undefined;
   ApprovalNeeded: undefined;
 };
 

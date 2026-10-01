@@ -1,15 +1,16 @@
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import MgBrosSubcontractorLogo from '../assets/images/mg-bros-subcontractor-logo.svg';
 import { AuthCard } from '../components/AuthCard';
+import { ContactsSection } from '../components/ContactsSection';
+import { HomeHeader } from '../components/HomeHeader';
+import { ExpandableTableSection } from '../components/ExpandableTableSection';
+import { InvoicesTable } from '../components/InvoicesTable';
+import { PurchaseOrdersTable } from '../components/PurchaseOrdersTable';
 import {
   BagIcon,
-  BellIcon,
   CardIcon,
-  ChatIcon,
-  CheckCircleIcon,
   ChevronRightIcon,
   ClipboardCheckIcon,
   BriefcaseIcon,
@@ -18,11 +19,16 @@ import {
   LocationIcon,
   MailIcon,
   PhoneIcon,
-  UserIcon,
 } from '../assets/icons';
-import { fontFamily, radius, welcomeColors } from '../theme';
+import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
-import { MOCK_SUBCONTRACTOR_COMPANY } from '../constants/mockData';
+import { EMPTY_VALUE } from '../constants/display';
+import { useContacts } from '../context/ContactsContext';
+import { useAccountList } from '../hooks/useAccountList';
+import { fetchInvoices } from '../services/invoiceService';
+import { fetchPurchaseOrders } from '../services/purchaseOrderService';
+import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
+import { formatPhoneNumber } from '../utils/formatPhoneNumber';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Home'>;
 
@@ -32,76 +38,122 @@ type MenuItem = {
   icon: React.ReactNode;
 };
 
-const MENU_ITEMS: MenuItem[] = [
-  { key: 'contacts', label: 'Contacts', icon: <UserIcon size={18} color={welcomeColors.accent} /> },
-  { key: 'purchaseOrders', label: 'Purchase Orders', icon: <BagIcon size={18} color={welcomeColors.accent} /> },
+// Contacts, Purchase Orders and Invoices are rendered separately since they
+// expand in place; these are the plain menu rows around them.
+const MENU_ITEMS_BEFORE_INVOICES: MenuItem[] = [
   { key: 'bids', label: 'Bids', icon: <ClipboardCheckIcon size={18} color={welcomeColors.accent} /> },
   { key: 'projects', label: 'Projects', icon: <BriefcaseIcon size={18} color={welcomeColors.accent} /> },
-  { key: 'invoices', label: 'Invoices', icon: <DocumentIcon size={18} color={welcomeColors.accent} /> },
+];
+const MENU_ITEMS_AFTER_INVOICES: MenuItem[] = [
   { key: 'documents', label: 'Documents', icon: <FolderIcon size={18} color={welcomeColors.accent} /> },
   { key: 'paymentSettings', label: 'Payment Settings', icon: <CardIcon size={18} color={welcomeColors.accent} /> },
 ];
 
-export function HomeScreen(_props: Props): React.JSX.Element {
-  const company = MOCK_SUBCONTRACTOR_COMPANY;
+type ExpandableSection = 'contacts' | 'purchaseOrders' | 'invoices';
+
+export function HomeScreen({ navigation }: Props): React.JSX.Element {
+  const { company } = useSubcontractorSession();
+  const { contacts } = useContacts();
+  // Each section expands independently, so several can be open at once.
+  const [expandedSections, setExpandedSections] = useState<ReadonlySet<ExpandableSection>>(new Set());
+
+  // Each card fetches its latest 5 (the APIs' home/recent views) when it's expanded.
+  const recentPurchaseOrders = useAccountList(fetchPurchaseOrders, 'home', expandedSections.has('purchaseOrders'));
+  const recentInvoices = useAccountList(fetchInvoices, 'recent', expandedSections.has('invoices'));
+
+  const toggleSection = (section: ExpandableSection): void => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedSections((current) => {
+      const next = new Set(current);
+      if (!next.delete(section)) {
+        next.add(section);
+      }
+      return next;
+    });
+  };
+
+  const renderMenuItem = (item: MenuItem): React.JSX.Element => (
+    <Pressable key={item.key} hitSlop={4}>
+      <AuthCard style={styles.menuCard}>
+        <View style={styles.menuIconWrapper}>{item.icon}</View>
+        <Text style={styles.menuLabel}>{item.label}</Text>
+        <ChevronRightIcon size={16} color={welcomeColors.chevron} />
+      </AuthCard>
+    </Pressable>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <HomeHeader />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <MgBrosSubcontractorLogo style={styles.logo} />
-
-          <View style={styles.documentsPill}>
-            <Text style={styles.documentsPillText}>Documents:</Text>
-            <CheckCircleIcon size={14} />
-          </View>
-
-          <View style={styles.headerIcons}>
-            <View style={styles.headerIconWrapper}>
-              <BellIcon size={16} color={welcomeColors.accent} />
-            </View>
-            <View style={styles.headerIconWrapper}>
-              <ChatIcon size={16} color={welcomeColors.accent} />
-            </View>
-            <View style={styles.headerIconWrapper}>
-              <UserIcon size={16} color={welcomeColors.accent} />
-            </View>
-          </View>
-        </View>
-
         <AuthCard style={styles.companyCard}>
-          <Text style={styles.companyName}>{company.name}</Text>
+          <Text style={styles.companyName}>{company?.name || EMPTY_VALUE}</Text>
 
           <View style={styles.companyInfoRow}>
             <View style={styles.companyInfoColumn}>
               <View style={styles.companyInfoLine}>
                 <LocationIcon size={14} color={welcomeColors.link} />
-                <Text style={styles.companyInfoText}>{company.addressLines.join('\n')}</Text>
+                <Text style={styles.companyInfoText}>{company?.address || EMPTY_VALUE}</Text>
               </View>
             </View>
 
             <View style={styles.companyInfoColumn}>
               <View style={styles.companyInfoLine}>
                 <MailIcon size={13} color={welcomeColors.link} />
-                <Text style={styles.companyInfoText}>{company.email}</Text>
+                <Text style={styles.companyInfoText}>{company?.email || EMPTY_VALUE}</Text>
               </View>
               <View style={styles.companyInfoLine}>
                 <PhoneIcon size={13} color={welcomeColors.link} />
-                <Text style={styles.companyInfoText}>{company.phone}</Text>
+                <Text style={styles.companyInfoText}>
+                  {company?.phone ? formatPhoneNumber(company.phone) : EMPTY_VALUE}
+                </Text>
               </View>
             </View>
           </View>
         </AuthCard>
 
-        {MENU_ITEMS.map((item) => (
-          <Pressable key={item.key} hitSlop={4}>
-            <AuthCard style={styles.menuCard}>
-              <View style={styles.menuIconWrapper}>{item.icon}</View>
-              <Text style={styles.menuLabel}>{item.label}</Text>
-              <ChevronRightIcon size={16} color={welcomeColors.chevron} />
-            </AuthCard>
-          </Pressable>
-        ))}
+        <ContactsSection
+          contacts={contacts}
+          isExpanded={expandedSections.has('contacts')}
+          onToggle={() => toggleSection('contacts')}
+          onAddPress={() => navigation.navigate('AddContact')}
+          onContactPress={(contact) => navigation.navigate('ContactDetails', { contactId: contact.id })}
+        />
+
+        <ExpandableTableSection
+          title="Purchase Orders"
+          icon={<BagIcon size={18} color={welcomeColors.accent} />}
+          count={recentPurchaseOrders.count ?? undefined}
+          isExpanded={expandedSections.has('purchaseOrders')}
+          onToggle={() => toggleSection('purchaseOrders')}
+          onViewAllPress={() => navigation.navigate('PurchaseOrders')}
+        >
+          <PurchaseOrdersTable
+            orders={recentPurchaseOrders.items}
+            status={recentPurchaseOrders.status}
+            onRetry={recentPurchaseOrders.reload}
+            onOrderPress={(order) => navigation.navigate('PurchaseOrderDetails', { poId: order.id })}
+          />
+        </ExpandableTableSection>
+
+        {MENU_ITEMS_BEFORE_INVOICES.map(renderMenuItem)}
+
+        <ExpandableTableSection
+          title="Invoices"
+          icon={<DocumentIcon size={18} color={welcomeColors.accent} />}
+          count={recentInvoices.count ?? undefined}
+          isExpanded={expandedSections.has('invoices')}
+          onToggle={() => toggleSection('invoices')}
+          onViewAllPress={() => navigation.navigate('Invoices')}
+        >
+          <InvoicesTable
+            invoices={recentInvoices.items}
+            status={recentInvoices.status}
+            onRetry={recentInvoices.reload}
+          />
+        </ExpandableTableSection>
+
+        {MENU_ITEMS_AFTER_INVOICES.map(renderMenuItem)}
       </ScrollView>
     </SafeAreaView>
   );
@@ -118,48 +170,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
     gap: 12,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  logo: {
-    width: 24,
-    height: undefined,
-    aspectRatio: 311 / 116,
-  },
-  documentsPill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(46, 125, 50, 0.1)',
-    borderWidth: 1,
-    borderColor: welcomeColors.registerGreen,
-    borderRadius: radius.pill,
-    paddingVertical: 6,
-  },
-  documentsPillText: {
-    fontFamily: fontFamily.semiBold,
-    fontWeight: '600',
-    fontSize: 12,
-    color: welcomeColors.registerGreen,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  headerIconWrapper: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: welcomeColors.cardBackground,
-    borderWidth: 1,
-    borderColor: welcomeColors.cardBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   companyCard: {
     alignItems: 'stretch',

@@ -28,6 +28,8 @@ export function RegisterScreen({ navigation }: Props): React.JSX.Element {
   const onSubmit = async (values: RegisterFormValues): Promise<void> => {
     setSubmitError(null);
     try {
+      // confirmPassword is only for the form; leave it out of the request.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { confirmPassword: _confirmPassword, ...payload } = values;
       await register(payload);
     } catch (error) {

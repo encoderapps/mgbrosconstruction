@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { CalendarIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
 import { parseDateOnlyString, toDateOnlyString } from '../utils/dateValidation';
@@ -27,11 +27,9 @@ export function DateInput({
 }: DateInputProps): React.JSX.Element {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
 
-  const handleChange = (event: DateTimePickerEvent, selectedDate?: Date): void => {
+  const handleValueChange = (_event: unknown, selectedDate: Date): void => {
     setIsPickerOpen(false);
-    if (event.type === 'set' && selectedDate) {
-      onChange(toDateOnlyString(selectedDate));
-    }
+    onChange(toDateOnlyString(selectedDate));
   };
 
   return (
@@ -49,7 +47,8 @@ export function DateInput({
           display="default"
           minimumDate={minimumDate}
           maximumDate={maximumDate}
-          onChange={handleChange}
+          onValueChange={handleValueChange}
+          onDismiss={() => setIsPickerOpen(false)}
         />
       )}
     </View>

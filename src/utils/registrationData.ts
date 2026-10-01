@@ -1,7 +1,7 @@
-import { SubcontractorRegistrationParams } from '../navigation/types';
+import { SignedSubcontractorRegistrationParams } from '../navigation/types';
 import { RegistrationData } from '../types/registration';
 
-export function buildRegistrationData(params: SubcontractorRegistrationParams): RegistrationData {
+export function buildRegistrationData(params: SignedSubcontractorRegistrationParams): RegistrationData {
   return {
     firstName: params.identity.firstName,
     lastName: params.identity.lastName,
@@ -35,6 +35,11 @@ export function buildRegistrationData(params: SubcontractorRegistrationParams): 
     wcEffectiveDate: params.workersComp.effectiveDate,
     wcExpirationDate: params.workersComp.expirationDate,
     wcFileName: params.workersComp.coiFile.name,
+
+    signatureName: params.signature.signatureName,
+    signatureFont: params.signature.signatureFont,
+    signatureInitials: params.signature.signatureInitials,
+    signatureDate: params.signature.signatureDate,
   };
 }
 
