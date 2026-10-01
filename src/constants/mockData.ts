@@ -1,6 +1,7 @@
 import { Project, ProjectDetails } from '../types/project';
 import { Task } from '../types/task';
-import { SubcontractorCompanyProfile } from '../types/company';
+import { Contact } from '../types/contact';
+import { AppNotification } from '../types/notification';
 
 /**
  * Placeholder data for screens whose backing APIs (/api/projects, /api/tasks)
@@ -72,17 +73,35 @@ export const MOCK_PROJECT_DETAILS: Record<string, ProjectDetails> = Object.fromE
   ]),
 );
 
-/**
- * Placeholder data for the Home screen's company info card, shown right
- * after the temporary dummy login. Replace with the real company-profile
- * API response once it exists.
- */
-export const MOCK_SUBCONTRACTOR_COMPANY: SubcontractorCompanyProfile = {
-  name: 'High Tech Air Inc',
-  addressLines: ['185 N Addison Rd', 'Wood Dale, IL 60191', 'US'],
-  email: 'hightechairinc@gmail.com',
-  phone: '(224) 612-6823',
-};
+/** Seed contacts for the Home screen Contacts section until a contacts API exists. */
+export const MOCK_CONTACTS: Contact[] = [
+  {
+    id: 'c1',
+    salutation: 'Mr.',
+    firstName: 'John',
+    middleName: '',
+    lastName: 'Smith',
+    suffix: '',
+    contactOwner: '',
+    address: '123 Main St, Chicago, IL 60601',
+    phone: '(312) 555-1234',
+    email: 'john@email.com',
+    role: 'Manager',
+  },
+  {
+    id: 'c2',
+    salutation: 'Ms.',
+    firstName: 'Jane',
+    middleName: '',
+    lastName: 'Doe',
+    suffix: '',
+    contactOwner: '',
+    address: '450 Oak Ave, Evanston, IL 60201',
+    phone: '(224) 619-6823',
+    email: 'jane@email.com',
+    role: 'Estimator',
+  },
+];
 
 export const MOCK_TASKS: Task[] = [
   {
@@ -112,4 +131,16 @@ export const MOCK_TASKS: Task[] = [
     priority: 'low',
     status: 'todo',
   },
+];
+
+/** Sample notifications for the Notifications screen until a notifications API exists. */
+export const MOCK_NOTIFICATIONS: AppNotification[] = [
+  { id: 'n1', kind: 'bidAccepted', title: 'Bid Accepted', message: 'Your bid BID-2002 for Duct Work has been accepted', timeAgo: '2h ago', isRead: false },
+  { id: 'n2', kind: 'poUpdated', title: 'PO Updated', message: 'Purchase Order PO-1003 has been modified', timeAgo: '3h ago', isRead: false },
+  { id: 'n3', kind: 'invoiceReminder', title: 'Invoice Reminder', message: 'Invoice INV-3002 for 914 Greenwood is overdue', timeAgo: '5h ago', isRead: false },
+  { id: 'n4', kind: 'documentExpiring', title: 'Document Expiring', message: 'Your Workers Comp insurance expires in 7 days', timeAgo: 'Yesterday', isRead: true },
+  { id: 'n5', kind: 'paymentReceived', title: 'Payment Received', message: 'Payment of $4,200 received for INV-3001', timeAgo: 'Yesterday', isRead: true },
+  { id: 'n6', kind: 'projectAssigned', title: 'New Project Assigned', message: 'You have been assigned to 567 Oak Ave project', timeAgo: '2d ago', isRead: true },
+  { id: 'n7', kind: 'bidDueSoon', title: 'Bid Due Soon', message: 'Bid BID-2009 for Concrete is due in 3 days', timeAgo: '2d ago', isRead: true },
+  { id: 'n8', kind: 'contactAdded', title: 'Contact Added', message: 'Sarah Johnson has been added as Accountant', timeAgo: '3d ago', isRead: true },
 ];

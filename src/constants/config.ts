@@ -23,6 +23,10 @@ export const SALESFORCE_SUBCONTRACTOR_REGISTRATION_URL = `${SALESFORCE_INSTANCE_
 export const SALESFORCE_CHECK_EXISTING_EMAIL_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/checkExistingEmail`;
 export const SALESFORCE_SUBCONTRACTOR_LOGIN_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorlogin`;
 export const SALESFORCE_FORGOT_PASSWORD_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorforgotpassword`;
+export const SALESFORCE_CONTACT_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/contact`;
+export const SALESFORCE_INVOICES_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/invoices/fetch`;
+export const SALESFORCE_PURCHASE_ORDERS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/purchaseorders`;
+export const SALESFORCE_PURCHASE_ORDER_DETAIL_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/purchaseorderdetail`;
 export const SALESFORCE_CLIENT_ID =
   '3MVG9fIN0XOBSvWWorfqZ8cnCCukzkrft4_3c5MkpZwdPz.XSBhx30eoxlzx3R9XXzBidJ0hEVAwrt1Qs91qM';
 export const SALESFORCE_CLIENT_SECRET =

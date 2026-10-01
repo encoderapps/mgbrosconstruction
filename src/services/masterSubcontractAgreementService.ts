@@ -1,6 +1,9 @@
+import { Platform } from 'react-native';
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 import RNFS from 'react-native-fs';
 import { MASTER_SUBCONTRACT_AGREEMENT_PDF_BASE64 } from '../assets/pdf/masterSubcontractAgreementPdf';
+import { SignatureFontId, getSignatureFont } from '../constants/signatureFonts';
 
 /*
  * The agreement PDF is shown exactly as provided, except for the highlighted
@@ -45,7 +48,73 @@ const PAGE_10_SIGNATURE_NAME = {
   baseline: 313.85,
 };
 
-const OUTPUT_FILE_NAME = 'MG-Bros-Master-Subcontract-Agreement.pdf';
+/**
+ * "Initials: ____" in the bottom-right corner of every page. The body text ends
+ * by ~710pt and the centred page number sits at ~730-743pt, so this corner is free.
+ */
+const PAGE_INITIALS = {
+  labelX: 432,
+  lineStartX: 470,
+  lineEndX: 540, // the 1" right margin
+  baseline: 741, // shares the page number's baseline
+  labelFontSize: 9,
+  initialsFontSize: 18,
+};
+
+/** Page 10, Subcontractor column: "By: ______" (signature) and "Dated: ______" (signing date). */
+const PAGE_10_SIGNATURE_LINES = {
+  pageIndex: 9,
+  signature: { startX: 325.12, endX: 520.92, baseline: 350.5, fontSize: 22 },
+  date: { x: 346, baseline: 388.4 },
+};
+
+const INK_BLUE = rgb(0.05, 0.1, 0.35); // like a pen signature
+
+const OUTPUT_FILE_PREFIX = 'MG-Bros-Master-Subcontract-Agreement';
+
+export interface AgreementSignature {
+  /** The signer's full name, drawn on the "By:" line. */
+  name: string;
+  /** Drawn at the bottom of every page. */
+  initials: string;
+  fontId: SignatureFontId;
+  /** Signing date as YYYY-MM-DD, shown on the "Dated:" line as MM/DD/YYYY. */
+  date: string;
+}
+
+function formatDateForAgreement(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-');
+  return `${month}/${day}/${year}`;
+}
+
+/** Reads a bundled signature font (linked into the native app's assets) as base64. */
+async function readSignatureFont(fontId: SignatureFontId): Promise<string> {
+  const { fileName } = getSignatureFont(fontId);
+  return Platform.OS === 'android'
+    ? RNFS.readFileAssets(`fonts/${fileName}`, 'base64')
+    : RNFS.readFile(`${RNFS.MainBundlePath}/${fileName}`, 'base64');
+}
+
+function drawPageInitials(page: PDFPage, labelFont: PDFFont, signatureFont: PDFFont, initials: string): void {
+  const layout = PAGE_INITIALS;
+  const y = PAGE_HEIGHT - layout.baseline;
+  page.drawText('Initials:', { x: layout.labelX, y, size: layout.labelFontSize, font: labelFont, color: rgb(0, 0, 0) });
+  page.drawLine({
+    start: { x: layout.lineStartX, y: y - 2 },
+    end: { x: layout.lineEndX, y: y - 2 },
+    thickness: 0.5,
+    color: rgb(0, 0, 0),
+  });
+  const lineWidth = layout.lineEndX - layout.lineStartX;
+  const initialsWidth = signatureFont.widthOfTextAtSize(initials, layout.initialsFontSize);
+  page.drawText(initials, {
+    x: layout.lineStartX + Math.max(0, (lineWidth - initialsWidth) / 2),
+    y,
+    size: layout.initialsFontSize,
+    font: signatureFont,
+    color: INK_BLUE,
+  });
+}
 
 function coverArea(page: PDFPage, left: number, right: number, top: number, bottom: number): void {
   page.drawRectangle({
@@ -118,13 +187,50 @@ function drawSignatureName(page: PDFPage, font: PDFFont, companyName: string): v
   });
 }
 
+/** Signs page 10's Subcontractor block: the signature on "By:" and the date on "Dated:". */
+function drawSignatureBlock(
+  page: PDFPage,
+  textFont: PDFFont,
+  signatureFont: PDFFont,
+  signature: AgreementSignature,
+): void {
+  const { signature: sigLine, date } = PAGE_10_SIGNATURE_LINES;
+  const lineWidth = sigLine.endX - sigLine.startX - 8;
+  const fullWidth = signatureFont.widthOfTextAtSize(signature.name, sigLine.fontSize);
+  const fontSize = fullWidth <= lineWidth ? sigLine.fontSize : (sigLine.fontSize * lineWidth) / fullWidth;
+  page.drawText(signature.name, {
+    x: sigLine.startX + 6,
+    y: PAGE_HEIGHT - sigLine.baseline,
+    size: fontSize,
+    font: signatureFont,
+    color: INK_BLUE,
+  });
+  page.drawText(formatDateForAgreement(signature.date), {
+    x: date.x,
+    y: PAGE_HEIGHT - date.baseline,
+    size: FONT_SIZE,
+    font: textFont,
+    color: rgb(0, 0, 0),
+  });
+}
+
 /**
  * Writes the Master Subcontract Agreement, with the Step 2 company name filled
- * in on page 1 and in the page 10 signature block, to the cache directory and
- * returns its path. Nothing else on the agreement is changed.
+ * in on page 1 and in the page 10 signature block — plus, once the user has
+ * signed, their initials at the bottom of every page and their signature and
+ * the signing date on page 10 — to the cache directory and returns its path.
+ * Nothing else on the agreement is changed.
+ *
+ * Each call writes a new file: the PDF viewer may still be reading the
+ * previous one, and overwriting a file it has open crashes its native
+ * renderer. Delete superseded files with deleteMasterSubcontractAgreement.
  */
-export async function generateMasterSubcontractAgreement(companyName: string): Promise<string> {
+export async function generateMasterSubcontractAgreement(
+  companyName: string,
+  signature?: AgreementSignature,
+): Promise<string> {
   const pdfDoc = await PDFDocument.load(MASTER_SUBCONTRACT_AGREEMENT_PDF_BASE64);
+  pdfDoc.registerFontkit(fontkit);
   const pages = pdfDoc.getPages();
   const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -133,7 +239,18 @@ export async function generateMasterSubcontractAgreement(companyName: string): P
   drawNameLine(pages[PAGE_1_NAME_LINE.pageIndex], regularFont, name);
   drawSignatureName(pages[PAGE_10_SIGNATURE_NAME.pageIndex], boldFont, name);
 
-  const outputPath = `${RNFS.CachesDirectoryPath}/${OUTPUT_FILE_NAME}`;
+  if (signature?.name && signature.initials) {
+    const signatureFont = await pdfDoc.embedFont(await readSignatureFont(signature.fontId), { subset: true });
+    pages.forEach((page) => drawPageInitials(page, regularFont, signatureFont, signature.initials));
+    drawSignatureBlock(pages[PAGE_10_SIGNATURE_LINES.pageIndex], regularFont, signatureFont, signature);
+  }
+
+  const outputPath = `${RNFS.CachesDirectoryPath}/${OUTPUT_FILE_PREFIX}-${Date.now()}.pdf`;
   await RNFS.writeFile(outputPath, await pdfDoc.saveAsBase64(), 'base64');
   return outputPath;
+}
+
+/** Deletes a generated agreement file that's no longer shown; failures are ignored (it's only cache). */
+export function deleteMasterSubcontractAgreement(path: string): void {
+  RNFS.unlink(path).catch(() => undefined);
 }

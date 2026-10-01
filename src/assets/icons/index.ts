@@ -22,3 +22,5 @@ export * from './CardIcon';
 export * from './BagIcon';
 export * from './ClipboardCheckIcon';
 export * from './CheckIcon';
+export * from './PlusIcon';
+export * from './ArrowLeftIcon';

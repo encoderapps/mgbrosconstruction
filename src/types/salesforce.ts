@@ -20,6 +20,10 @@ export interface SubcontractorLoginResponse {
   IsLoginSuccessful: boolean;
   IsApproved: boolean;
   accountId: string | null;
+  companyName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  homeAddress?: string | null;
 }
 
 export interface SubcontractorRegistrationApiPayload {
@@ -60,6 +64,98 @@ export interface SubcontractorRegistrationApiPayload {
   wcFileName: string;
   wcFileType: string;
   wcBase64Data: string;
+}
+
+export interface CreateContactApiPayload {
+  AccountId: string;
+  Salutation: string;
+  FirstName: string;
+  MiddleName: string;
+  LastName: string;
+  Email: string;
+  Phone: string;
+  Address: string;
+}
+
+/** The update (PATCH) contact API takes the same body as create. */
+export type UpdateContactApiPayload = CreateContactApiPayload;
+
+export interface CreateContactResponse {
+  success: boolean;
+  message: string;
+  contactId: string | null;
+  contactName: string | null;
+  accountId: string | null;
+  accountName: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+export type InvoicesView = 'recent' | 'all';
+
+/** One invoice as returned by the invoices API (field names not yet confirmed). */
+export interface InvoiceApiRecord {
+  id?: string;
+  invoiceId?: string;
+  company?: string;
+  toFrom?: string;
+  status?: string;
+  vendorNumber?: string;
+}
+
+export interface InvoicesApiResponse {
+  success: boolean;
+  message?: string;
+  view: InvoicesView;
+  totalInvoices: number;
+  invoices: InvoiceApiRecord[];
+}
+
+export type PurchaseOrdersView = 'home' | 'all';
+
+export interface PurchaseOrderApiRecord {
+  id: string;
+  name: string | null;
+  status: string | null;
+  paidAmount: number | null;
+  vendor: string | null;
+  createdDate: string | null;
+}
+
+export interface PurchaseOrdersApiResponse {
+  success: boolean;
+  message?: string;
+  /** Number of purchase orders returned (5 at most for view=home). */
+  count: number;
+  purchaseOrders: PurchaseOrderApiRecord[];
+}
+
+/** Field names not yet confirmed: no purchase order tested so far had payment terms. */
+export interface PurchaseOrderPaymentTermApiRecord {
+  id?: string;
+  percentage?: number;
+  description?: string;
+  amount?: number;
+}
+
+export interface PurchaseOrderDetailApiResponse {
+  success: boolean;
+  message?: string;
+  purchaseOrder: {
+    id: string;
+    name: string | null;
+    status: string | null;
+    project: string | null;
+    projectAddress: {
+      street: string | null;
+      city: string | null;
+      state: string | null;
+      postalCode: string | null;
+      country: string | null;
+    } | null;
+    totalAmount: number | null;
+    paymentTerms: PurchaseOrderPaymentTermApiRecord[] | null;
+  } | null;
 }
 
 export interface ForgotPasswordResponse {
