@@ -6,12 +6,10 @@ export interface RegistrationData {
   homeAddress: string;
 
   companyName: string;
-  companyAddress1: string;
-  companyAddress2: string;
+  companyStreetAddress: string;
   companyCity: string;
   companyState: string;
-  companyCountry: string;
-  companyPincode: string;
+  companyZipCode: string;
   service: string[];
   yearsOfExperience: string;
   numberOfEmployees: string;

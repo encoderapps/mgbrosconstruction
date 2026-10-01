@@ -10,6 +10,8 @@ type SelectInputProps = {
   value: string;
   options: string[];
   onSelect: (value: string) => void;
+  /** Display text for an option (e.g. "IL" → "Illinois (IL)"). Defaults to the value itself. */
+  formatOption?: (value: string) => string;
 };
 
 export function SelectInput({
@@ -18,6 +20,7 @@ export function SelectInput({
   value,
   options,
   onSelect,
+  formatOption = (option) => option,
 }: SelectInputProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   // Edge-to-edge draws the modal under the system nav bar, so lift the sheet above it.
@@ -34,7 +37,7 @@ export function SelectInput({
           setIsOpen(true);
         }}
       >
-        <Text style={[styles.value, !value && styles.placeholder]}>{value || placeholder}</Text>
+        <Text style={[styles.value, !value && styles.placeholder]}>{value ? formatOption(value) : placeholder}</Text>
         <View style={styles.chevron}>
           <ChevronRightIcon size={14} color={welcomeColors.inputPlaceholder} />
         </View>
@@ -55,7 +58,7 @@ export function SelectInput({
                     setIsOpen(false);
                   }}
                 >
-                  <Text style={[styles.optionText, item === value && styles.optionTextActive]}>{item}</Text>
+                  <Text style={[styles.optionText, item === value && styles.optionTextActive]}>{formatOption(item)}</Text>
                 </Pressable>
               )}
             />

@@ -7,32 +7,30 @@ import { AuthHeader } from '../components/AuthHeader';
 import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { AuthScreenLayout } from '../components/AuthScreenLayout';
 import { LoginInput } from '../components/LoginInput';
-import { AddressInput } from '../components/AddressInput';
+import { SelectInput } from '../components/SelectInput';
 import { MultiSelectInput } from '../components/MultiSelectInput';
 import { RegistrationProgress } from '../components/RegistrationProgress';
 import { BriefcaseIcon } from '../assets/icons';
 import { welcomeColors } from '../theme';
-import { Address, AuthStackParamList } from '../navigation/types';
+import { AuthStackParamList } from '../navigation/types';
 import { findMissingRequiredField } from '../utils/formValidation';
-import { isValidPincode } from '../utils/address';
+import { isValidZipCode } from '../utils/address';
+import { US_STATE_CODES, formatUsStateOption } from '../constants/usStates';
 import { SERVICE_OPTIONS } from '../constants/serviceOptions';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'CompanyDetails'>;
 
 const TOTAL_STEPS = 6;
-const EMPTY_ADDRESS: Address = { address1: '', address2: '', city: '', state: '', country: '', pincode: '' };
 
 export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.Element {
   const [company, setCompany] = useState('');
-  const [companyAddress, setCompanyAddress] = useState<Address>(EMPTY_ADDRESS);
-  const [isAddressExpanded, setIsAddressExpanded] = useState(false);
+  const [companyStreetAddress, setCompanyStreetAddress] = useState('');
+  const [companyCity, setCompanyCity] = useState('');
+  const [companyState, setCompanyState] = useState('');
+  const [companyZipCode, setCompanyZipCode] = useState('');
   const [services, setServices] = useState<string[]>([]);
   const [yearsOfExperience, setYearsOfExperience] = useState('');
   const [numberOfEmployees, setNumberOfEmployees] = useState('');
-
-  const handleAddressChange = (field: keyof Address, value: string): void => {
-    setCompanyAddress((current) => ({ ...current, [field]: value }));
-  };
 
   const handleContinue = (): void => {
     if (!company.trim()) {
@@ -41,21 +39,21 @@ export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.El
     }
 
     const missingAddressField = findMissingRequiredField([
-      { value: companyAddress.address1, title: 'Missing address', message: 'Please enter address 1.' },
-      { value: companyAddress.city, title: 'Missing city', message: 'Please enter the city.' },
-      { value: companyAddress.state, title: 'Missing state', message: 'Please enter the state.' },
-      { value: companyAddress.country, title: 'Missing country', message: 'Please enter the country.' },
-      { value: companyAddress.pincode, title: 'Missing pincode', message: 'Please enter the pincode.' },
+      {
+        value: companyStreetAddress,
+        title: 'Missing company street address',
+        message: 'Please enter your company street address.',
+      },
+      { value: companyCity, title: 'Missing city', message: 'Please enter the city.' },
+      { value: companyState, title: 'Missing state', message: 'Please select the state.' },
+      { value: companyZipCode, title: 'Missing zip code', message: 'Please enter the zip code.' },
     ]);
     if (missingAddressField) {
-      // Open the address section so the user can see the field to fill in.
-      setIsAddressExpanded(true);
       Alert.alert(missingAddressField.title, missingAddressField.message);
       return;
     }
-    if (!isValidPincode(companyAddress.pincode)) {
-      setIsAddressExpanded(true);
-      Alert.alert('Invalid pincode', 'Please enter a valid pincode.');
+    if (!isValidZipCode(companyZipCode)) {
+      Alert.alert('Invalid zip code', 'Please enter a valid 5-digit zip code.');
       return;
     }
 
@@ -81,14 +79,10 @@ export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.El
       identity: route.params.identity,
       company: {
         company: company.trim(),
-        companyAddress: {
-          address1: companyAddress.address1.trim(),
-          address2: companyAddress.address2.trim(),
-          city: companyAddress.city.trim(),
-          state: companyAddress.state.trim(),
-          country: companyAddress.country.trim(),
-          pincode: companyAddress.pincode.trim(),
-        },
+        companyStreetAddress: companyStreetAddress.trim(),
+        companyCity: companyCity.trim(),
+        companyState,
+        companyZipCode: companyZipCode.trim(),
         service: services,
         yearsOfExperience: yearsOfExperience.trim(),
         numberOfEmployees,
@@ -117,12 +111,38 @@ export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.El
           autoCapitalize="words"
         />
 
-        <AddressInput
-          label="Company Address"
-          value={companyAddress}
-          onChange={handleAddressChange}
-          isExpanded={isAddressExpanded}
-          onToggle={() => setIsAddressExpanded((current) => !current)}
+        <LoginInput
+          label="Company Street Address"
+          placeholder="Enter company street address"
+          value={companyStreetAddress}
+          onChangeText={setCompanyStreetAddress}
+          autoCapitalize="words"
+        />
+
+        <LoginInput
+          label="City"
+          placeholder="Enter city"
+          value={companyCity}
+          onChangeText={setCompanyCity}
+          autoCapitalize="words"
+        />
+
+        <SelectInput
+          label="State"
+          placeholder="Select state"
+          value={companyState}
+          options={US_STATE_CODES}
+          formatOption={formatUsStateOption}
+          onSelect={setCompanyState}
+        />
+
+        <LoginInput
+          label="Zip Code"
+          placeholder="Enter zip code"
+          value={companyZipCode}
+          onChangeText={(text) => setCompanyZipCode(text.replace(/\D/g, ''))}
+          keyboardType="number-pad"
+          maxLength={5}
         />
 
         <MultiSelectInput

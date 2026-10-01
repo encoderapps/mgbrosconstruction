@@ -15,6 +15,7 @@ import { DocumentIcon, ShieldIcon, UploadIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
 import { AuthStackParamList, RegistrationFile } from '../navigation/types';
 import { findMissingRequiredField } from '../utils/formValidation';
+import { startOfToday, validateInsuranceDates } from '../utils/dateValidation';
 import { isPdfFile } from '../utils/fileValidation';
 import { fileToBase64 } from '../utils/fileToBase64';
 
@@ -77,6 +78,11 @@ export function GeneralLiabilityScreen({ navigation, route }: Props): React.JSX.
       Alert.alert(missingField.title, missingField.message);
       return;
     }
+    const dateError = validateInsuranceDates(effectiveDate, expirationDate);
+    if (dateError) {
+      Alert.alert(dateError.title, dateError.message);
+      return;
+    }
     if (!uploadedCOI) {
       Alert.alert('COI required', 'Please upload your General Liability COI.');
       return;
@@ -130,6 +136,7 @@ export function GeneralLiabilityScreen({ navigation, route }: Props): React.JSX.
           placeholder="Enter effective date"
           value={effectiveDate}
           onChange={setEffectiveDate}
+          maximumDate={startOfToday()}
         />
 
         <DateInput
@@ -137,6 +144,7 @@ export function GeneralLiabilityScreen({ navigation, route }: Props): React.JSX.
           placeholder="Enter expiration date"
           value={expirationDate}
           onChange={setExpirationDate}
+          minimumDate={startOfToday()}
         />
 
         <Checkbox label="Additional Insured" checked={additionalInsured} onChange={setAdditionalInsured} />

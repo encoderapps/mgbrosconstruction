@@ -1,19 +1,18 @@
-import { Address } from '../navigation/types';
+import { SubcontractorCompanyData } from '../navigation/types';
 
-/** Pincode / postal code: 3–10 letters or digits, with inner spaces or dashes allowed. */
-export const PINCODE_REGEX = /^[A-Za-z0-9][A-Za-z0-9 -]{1,8}[A-Za-z0-9]$/;
+/** US ZIP code: exactly 5 digits. */
+export const ZIP_CODE_REGEX = /^\d{5}$/;
 
-export function isValidPincode(pincode: string): boolean {
-  return PINCODE_REGEX.test(pincode.trim());
+export function isValidZipCode(zipCode: string): boolean {
+  return ZIP_CODE_REGEX.test(zipCode.trim());
 }
 
 /**
- * Joins the separate address fields into the single address string the
- * registration API expects, skipping empty parts (Address 2 is optional), e.g.
- * "1295 Jarvis Ave, Suite 1, Elk Grove Village, Illinois, United States, 60007".
+ * Joins the separate company address fields into the single `companyAddress`
+ * string the registration API expects, e.g. "185 N Addison Rd, Wood Dale, IL, 60007".
  */
-export function formatAddress(address: Address): string {
-  return [address.address1, address.address2, address.city, address.state, address.country, address.pincode]
+export function formatCompanyAddress(company: SubcontractorCompanyData): string {
+  return [company.companyStreetAddress, company.companyCity, company.companyState, company.companyZipCode]
     .map((part) => part.trim())
     .filter(Boolean)
     .join(', ');
