@@ -2,6 +2,7 @@ import { fetchInvoices } from '../src/services/invoiceService';
 import { fetchPurchaseOrderDetail } from '../src/services/purchaseOrderDetailService';
 import { fetchPurchaseOrders } from '../src/services/purchaseOrderService';
 import { salesforceGet } from '../src/services/salesforceClient';
+import { toDateOnlyString } from '../src/utils/dateValidation';
 
 jest.mock('../src/services/salesforceClient', () => ({
   salesforceGet: jest.fn(),
@@ -45,6 +46,8 @@ describe('fetchPurchaseOrders', () => {
           status: 'Signed by both sides',
           paidAmount: 0,
           vendor: 'ABC Construction Services',
+          // The timestamp's calendar date on this machine (it differs by time zone).
+          createdDate: toDateOnlyString(new Date('2026-09-29T20:21:34.000Z')),
         },
       ],
     });
@@ -59,7 +62,7 @@ describe('fetchPurchaseOrders', () => {
 
     const { items } = await fetchPurchaseOrders('001ACCOUNT', 'all');
 
-    expect(items[0]).toEqual({ id: 'a1w2', name: '', status: '', paidAmount: 0, vendor: '' });
+    expect(items[0]).toEqual({ id: 'a1w2', name: '', status: '', paidAmount: 0, vendor: '', createdDate: null });
   });
 
   it('throws the API message when the request is unsuccessful', async () => {
@@ -112,6 +115,69 @@ describe('fetchPurchaseOrderDetail', () => {
     });
     expect(detail.projectAddress).toBe('666 Post Street, San Francisco, CA 94109');
     expect(detail.paymentTerms).toEqual([]);
+  });
+
+  it('maps line items and falls back to their sum when the total is 0', async () => {
+    mockedGet.mockResolvedValue({
+      success: true,
+      purchaseOrder: {
+        id: 'a1w1',
+        name: 'Job-PO#0001115',
+        status: 'Signed by both sides',
+        project: null,
+        projectAddress: null,
+        totalAmount: 0,
+        poDetails: [
+          {
+            unitPrice: 400,
+            quantity: 1,
+            productOrService: 'Service',
+            description: '<p>Duct work 1st floor</p>',
+            category: 'HVAC Service',
+            amount: 400,
+          },
+          {
+            unitPrice: 400,
+            quantity: 1,
+            productOrService: 'Service',
+            description: null,
+            category: 'Plumbing Service',
+            amount: 400,
+          },
+        ],
+        paymentTerms: '[{&quot;description&quot;:false,&quot;percentage&quot;:25,&quot;amount&quot;:&quot;100.00&quot;}]',
+      },
+    });
+
+    const detail = await fetchPurchaseOrderDetail('001ACCOUNT', 'a1w1');
+
+    expect(detail.totalAmount).toBe(800);
+    expect(detail.lineItems.map((lineItem) => lineItem.description)).toEqual(['Duct work 1st floor', '']);
+    // The amount is recalculated from the total (25% of $800), not the API's "100.00".
+    expect(detail.paymentTerms).toEqual([{ id: 'term-0', percentage: 25, description: '', amount: 200 }]);
+  });
+
+  it('coerces numeric strings in line items and treats unparseable values as 0', async () => {
+    mockedGet.mockResolvedValue({
+      success: true,
+      purchaseOrder: {
+        id: 'a1w1',
+        name: 'Job-PO#0001115',
+        status: 'Ready for Signature',
+        project: null,
+        projectAddress: null,
+        totalAmount: null,
+        poDetails: [
+          { unitPrice: '250.50', quantity: '2', productOrService: null, description: null, category: null, amount: 'abc' },
+        ],
+        paymentTerms: null,
+      },
+    });
+
+    const detail = await fetchPurchaseOrderDetail('001ACCOUNT', 'a1w1');
+
+    expect(detail.lineItems[0]).toMatchObject({ quantity: 2, unitPrice: 250.5, amount: 0 });
+    expect(detail.totalAmount).toBe(0);
   });
 
   it('throws when the purchase order is missing', async () => {

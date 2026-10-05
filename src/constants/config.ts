@@ -27,6 +27,8 @@ export const SALESFORCE_CONTACT_URL = `${SALESFORCE_INSTANCE_URL}/services/apexr
 export const SALESFORCE_INVOICES_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/invoices/fetch`;
 export const SALESFORCE_PURCHASE_ORDERS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/purchaseorders`;
 export const SALESFORCE_PURCHASE_ORDER_DETAIL_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/purchaseorderdetail`;
+export const SALESFORCE_MODIFY_PAYMENT_TERMS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/modifyPaymentTerms`;
+export const SALESFORCE_SIGN_PURCHASE_ORDER_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/signPurchaseOrder`;
 export const SALESFORCE_CLIENT_ID =
   '3MVG9fIN0XOBSvWWorfqZ8cnCCukzkrft4_3c5MkpZwdPz.XSBhx30eoxlzx3R9XXzBidJ0hEVAwrt1Qs91qM';
 export const SALESFORCE_CLIENT_SECRET =

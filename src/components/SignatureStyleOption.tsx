@@ -6,7 +6,8 @@ import { SignatureFont } from '../constants/signatureFonts';
 type SignatureStyleOptionProps = {
   font: SignatureFont;
   signatureName: string;
-  initials: string;
+  /** Shown beside the signature; leave out for a signature-only option. */
+  initials?: string;
   isSelected: boolean;
   disabled?: boolean;
   onSelect: () => void;
@@ -46,12 +47,14 @@ export function SignatureStyleOption({
           </Text>
           <Text style={styles.caption}>Signature</Text>
         </View>
-        <View style={[styles.previewBox, styles.initialsBox]}>
-          <Text style={[styles.signatureText, signatureText]} numberOfLines={1}>
-            {initials || 'YN'}
-          </Text>
-          <Text style={styles.caption}>Initial</Text>
-        </View>
+        {initials !== undefined && (
+          <View style={[styles.previewBox, styles.initialsBox]}>
+            <Text style={[styles.signatureText, signatureText]} numberOfLines={1}>
+              {initials || 'YN'}
+            </Text>
+            <Text style={styles.caption}>Initial</Text>
+          </View>
+        )}
       </View>
     </Pressable>
   );

@@ -17,6 +17,8 @@ export interface DataTableColumn<Row> {
   /** Shown in the link style (blue, medium weight), like a record name. */
   isLink?: boolean;
   getValue: (row: Row) => string;
+  /** Text colour for this column's cell in `row` (e.g. green for "Signed"); the default when undefined. */
+  getColor?: (row: Row) => string | undefined;
   /** Makes this column's cells tappable (e.g. the name opens the record). */
   onPress?: (row: Row) => void;
 }
@@ -89,6 +91,8 @@ export function DataTable<Row>({
             <View key={getRowKey(row)} style={[styles.row, index > 0 && styles.rowDivider]}>
               {columns.map((column) => {
                 const { onPress } = column;
+                // Only override when a colour is given: `color: undefined` would wipe the cell's own colour.
+                const color = column.getColor?.(row);
                 const cell = (
                   <Text
                     style={[
@@ -96,6 +100,7 @@ export function DataTable<Row>({
                       columnWidth(column),
                       column.isLink && styles.linkText,
                       column.align === 'right' && styles.alignRight,
+                      color !== undefined && { color },
                     ]}
                     numberOfLines={1}
                   >

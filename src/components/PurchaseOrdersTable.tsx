@@ -18,7 +18,7 @@ function getColumns(onOrderPress: (order: PurchaseOrder) => void): DataTableColu
     {
       key: 'paidAmount',
       label: 'Paid Amount',
-      width: 128,
+      width: 90,
       getValue: (order) => formatCurrency(order.paidAmount),
     },
     { key: 'vendor', label: 'Vendor', width: 160, grow: true, getValue: (order) => order.vendor },

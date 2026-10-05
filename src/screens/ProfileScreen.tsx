@@ -9,6 +9,7 @@ import { fontFamily, portalColors, radius, shadows, welcomeColors } from '../the
 import { AuthStackParamList } from '../navigation/types';
 import { EMPTY_VALUE } from '../constants/display';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
+import { useLogout } from '../hooks/useLogout';
 import { formatPhoneNumber } from '../utils/formatPhoneNumber';
 import { getInitials } from '../utils/signature';
 
@@ -17,7 +18,8 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Profile'>;
 
 /** The user icon in the header opens this: the logged-in subcontractor's details. */
 export function ProfileScreen({ navigation }: Props): React.JSX.Element {
-  const { company, setCompany } = useSubcontractorSession();
+  const { company } = useSubcontractorSession();
+  const { confirmLogout } = useLogout();
   // The login response's companyName is the subcontractor's display name.
   const name = company?.name ?? '';
 
@@ -33,19 +35,7 @@ export function ProfileScreen({ navigation }: Props): React.JSX.Element {
     Alert.alert('Update Profile', 'Updating your profile is coming soon.');
   };
 
-  const handleLogout = (): void => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: () => {
-          setCompany(null);
-          navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
-        },
-      },
-    ]);
-  };
+  const handleLogout = (): void => confirmLogout();
 
   const handleDeleteProfile = (): void => {
     // There's no delete-account API yet, so nothing is deleted.

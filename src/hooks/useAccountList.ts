@@ -9,6 +9,8 @@ interface UseAccountListResult<Item> {
   count: number | null;
   status: LoadStatus;
   reload: () => void;
+  /** Re-fetches in the background, keeping the current items on screen. */
+  refresh: () => void;
 }
 
 const NO_ITEMS: never[] = [];
@@ -26,7 +28,7 @@ export function useAccountList<Item, View extends string>(
 ): UseAccountListResult<Item> {
   const accountId = useSubcontractorSession().company?.accountId;
   const load = useCallback(() => fetchList(accountId as string, view), [fetchList, accountId, view]);
-  const { data, status, reload } = useAsyncResource(accountId ? load : null, enabled);
+  const { data, status, reload, refresh } = useAsyncResource(accountId ? load : null, enabled);
 
-  return { items: data?.items ?? NO_ITEMS, count: data?.count ?? null, status, reload };
+  return { items: data?.items ?? NO_ITEMS, count: data?.count ?? null, status, reload, refresh };
 }

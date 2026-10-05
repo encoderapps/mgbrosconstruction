@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { DataTable, DataTableColumn } from '../components/DataTable';
 import { HomeHeader } from '../components/HomeHeader';
+import { PurchaseOrderLedger } from '../components/PurchaseOrderLedger';
+import { PurchaseOrderLineItems } from '../components/PurchaseOrderLineItems';
 import {
   ArrowLeftIcon,
   BagIcon,
@@ -24,12 +26,13 @@ import {
 } from '../assets/icons';
 import { fontFamily, radius, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
-import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { EMPTY_VALUE } from '../constants/display';
-import { useAsyncResource } from '../hooks/useAsyncResource';
-import { fetchPurchaseOrderDetail } from '../services/purchaseOrderDetailService';
+import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
+import { usePurchaseOrderDetail } from '../hooks/usePurchaseOrderDetail';
+import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
 import { formatCurrency } from '../utils/formatCurrency';
+import { formatUsDate } from '../utils/formatDate';
 import { isAwaitingSignature, isSigned } from '../utils/purchaseOrderStatus';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'PurchaseOrderDetails'>;
@@ -58,15 +61,34 @@ function showComingSoon(feature: string): void {
 
 /** A purchase order's review screen, opened from its name in a Purchase Orders table. */
 export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.JSX.Element {
-  const { poId } = route.params;
-  const accountId = useSubcontractorSession().company?.accountId;
-  const load = useCallback(() => fetchPurchaseOrderDetail(accountId as string, poId), [accountId, poId]);
-  const { data: detail, status, reload } = useAsyncResource(accountId ? load : null);
-  const [isDetailsExpanded, setIsDetailsExpanded] = useState(true);
+  const { poId, poDate, updatedPaymentTerms, updatedStatus, signedDate } = route.params;
+  const { data: detail, status, reload, refresh, setData } = usePurchaseOrderDetail(poId, poDate);
+  // Back from signing (or another screen above): pick up the PO's new status from the API.
+  useRefreshOnReturn(refresh);
+  const vendorName = useSubcontractorSession().company?.name ?? '';
+  const signed = detail ? isSigned(detail.status) : false;
+  // Open by default while the PO is being reviewed; a signed PO leads with its
+  // change orders and invoices, so its details start collapsed.
+  const [detailsExpandedChoice, setDetailsExpandedChoice] = useState<boolean | null>(null);
+  const isDetailsExpanded = detailsExpandedChoice ?? !signed;
+
+  // Terms saved on Modify Payment Terms: show them straight away, no reload needed.
+  useEffect(() => {
+    if (updatedPaymentTerms) {
+      setData((current) => current && { ...current, paymentTerms: updatedPaymentTerms });
+    }
+  }, [updatedPaymentTerms, setData]);
+
+  // Signed on the signing screen: hide Sign PO and show the new status straight away.
+  useEffect(() => {
+    if (updatedStatus) {
+      setData((current) => current && { ...current, status: updatedStatus, signedDate: signedDate ?? current.signedDate });
+    }
+  }, [updatedStatus, signedDate, setData]);
 
   const toggleDetails = (): void => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsDetailsExpanded((current) => !current);
+    setDetailsExpandedChoice(!isDetailsExpanded);
   };
 
   const renderBody = (): React.JSX.Element => {
@@ -84,7 +106,6 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
       );
     }
 
-    const signed = isSigned(detail.status);
     const paymentTerms = detail.paymentTerms.map((term, index) => ({ ...term, index: index + 1 }));
 
     return (
@@ -110,9 +131,15 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
           </View>
 
           <View style={[styles.section, styles.infoSection]}>
-            <View style={styles.statusColumn}>
+            {/* Signed: "Status [Signed] 08/24/2026" on one line, as on the printed PO. */}
+            <View style={[styles.statusColumn, signed && styles.statusInline]}>
               <Text style={styles.label}>Status</Text>
-              <View style={[styles.statusPill, signed ? styles.statusPillSigned : styles.statusPillPending]}>
+              <View
+                style={[
+                  styles.statusPill,
+                  signed ? [styles.statusPillSigned, styles.statusPillInline] : styles.statusPillPending,
+                ]}
+              >
                 <Text
                   style={[styles.statusText, signed ? styles.statusTextSigned : styles.statusTextPending]}
                   numberOfLines={2}
@@ -120,6 +147,7 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
                   {detail.status || EMPTY_VALUE}
                 </Text>
               </View>
+              {signed && detail.signedDate && <Text style={styles.signedDate}>{formatUsDate(detail.signedDate)}</Text>}
             </View>
             <View style={styles.projectColumn}>
               <Text style={styles.label}>Project</Text>
@@ -128,22 +156,34 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
             </View>
           </View>
 
-          <View style={[styles.section, styles.totalSection]}>
-            <View style={styles.flex}>
-              <Text style={styles.label}>Total Amount</Text>
-              <Text style={styles.totalAmount}>{formatCurrency(detail.totalAmount, true)}</Text>
+          {signed ? (
+            <PurchaseOrderLedger
+              purchaseOrder={detail}
+              vendorName={vendorName}
+              onAddChangeOrder={() => showComingSoon('Add Change Order')}
+              onAddInvoice={() => showComingSoon('Add Invoice')}
+              onOpenChangeOrder={(changeOrder) => showComingSoon(changeOrder.name || 'Change order')}
+              onOpenInvoice={(invoice) => showComingSoon(invoice.name || 'Invoice')}
+              onOpenDocument={() => navigation.navigate('PurchaseOrderSigning', { poId, poDate })}
+            />
+          ) : (
+            <View style={[styles.section, styles.totalSection]}>
+              <View style={styles.flex}>
+                <Text style={styles.label}>Total Amount</Text>
+                <Text style={styles.totalAmount}>{formatCurrency(detail.totalAmount, true)}</Text>
+              </View>
+              {isAwaitingSignature(detail.status) && (
+                <Pressable
+                  onPress={() => navigation.navigate('PurchaseOrderSigning', { poId, poDate })}
+                  style={({ pressed }) => [styles.signButton, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                >
+                  <CheckIcon size={12} color={welcomeColors.cardBackground} />
+                  <Text style={styles.signButtonText}>Sign PO</Text>
+                </Pressable>
+              )}
             </View>
-            {isAwaitingSignature(detail.status) && (
-              <Pressable
-                onPress={() => showComingSoon('Sign PO')}
-                style={({ pressed }) => [styles.signButton, pressed && styles.pressed]}
-                accessibilityRole="button"
-              >
-                <CheckIcon size={12} color={welcomeColors.cardBackground} />
-                <Text style={styles.signButtonText}>Sign PO</Text>
-              </Pressable>
-            )}
-          </View>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -161,30 +201,38 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
               <ChevronRightIcon size={16} color={welcomeColors.chevron} />
             </View>
           </Pressable>
-          {isDetailsExpanded && (
-            // The details API doesn't return line items or notes yet.
-            <Text style={[styles.section, styles.emptyText]}>No line items or notes for this purchase order.</Text>
-          )}
+          {isDetailsExpanded && <PurchaseOrderLineItems items={detail.lineItems} />}
 
-          <View style={[styles.section, styles.sectionHeader]}>
-            <View style={styles.iconCircle}>
-              <ClipboardCheckIcon size={16} color={welcomeColors.accent} />
-            </View>
-            <Text style={styles.sectionTitle}>Payment Terms</Text>
-            <Pressable
-              onPress={() => showComingSoon('Modify payment terms')}
-              style={({ pressed }) => [styles.modifyButton, pressed && styles.pressed]}
-              accessibilityRole="button"
-            >
-              <Text style={styles.modifyButtonText}>Modify</Text>
-            </Pressable>
-          </View>
-          <DataTable
-            columns={PAYMENT_TERM_COLUMNS}
-            rows={paymentTerms}
-            getRowKey={(term) => term.id}
-            emptyText="No payment terms for this purchase order."
-          />
+          {/* On a signed PO, the payment terms are part of its (collapsible) details. */}
+          {(!signed || isDetailsExpanded) && (
+            <>
+              <View style={[styles.section, styles.sectionHeader]}>
+                <View style={styles.iconCircle}>
+                  <ClipboardCheckIcon size={16} color={welcomeColors.accent} />
+                </View>
+                <Text style={styles.sectionTitle}>Payment Terms</Text>
+                <Pressable
+                  onPress={() =>
+                    navigation.navigate('ModifyPaymentTerms', {
+                      poId,
+                      totalAmount: detail.totalAmount,
+                      paymentTerms: detail.paymentTerms,
+                    })
+                  }
+                  style={({ pressed }) => [styles.modifyButton, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.modifyButtonText}>Modify</Text>
+                </Pressable>
+              </View>
+              <DataTable
+                columns={PAYMENT_TERM_COLUMNS}
+                rows={paymentTerms}
+                getRowKey={(term) => term.id}
+                emptyText="No payment terms for this purchase order."
+              />
+            </>
+          )}
         </View>
       </>
     );
@@ -327,6 +375,13 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  statusInline: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    alignContent: 'flex-start',
+    gap: 6,
+  },
   projectColumn: {
     flex: 1.4,
     gap: 2,
@@ -343,6 +398,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 3,
+  },
+  // The pill normally hugs the top of its column; inline it centres on the row.
+  statusPillInline: {
+    alignSelf: 'center',
   },
   statusPillPending: {
     backgroundColor: toneColors.warning.background,
@@ -362,6 +421,12 @@ const styles = StyleSheet.create({
   },
   statusTextSigned: {
     color: toneColors.success.foreground,
+  },
+  signedDate: {
+    fontFamily: fontFamily.regular,
+    fontWeight: '400',
+    fontSize: 12,
+    color: welcomeColors.textSecondary,
   },
   projectName: {
     fontFamily: fontFamily.medium,
@@ -416,12 +481,6 @@ const styles = StyleSheet.create({
   },
   chevronExpanded: {
     transform: [{ rotate: '90deg' }],
-  },
-  emptyText: {
-    fontFamily: fontFamily.regular,
-    fontWeight: '400',
-    fontSize: 12,
-    color: welcomeColors.textSecondary,
   },
   modifyButton: {
     paddingHorizontal: 12,
