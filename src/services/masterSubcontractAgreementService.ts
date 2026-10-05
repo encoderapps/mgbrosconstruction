@@ -1,9 +1,10 @@
-import { Platform } from 'react-native';
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import RNFS from 'react-native-fs';
 import { MASTER_SUBCONTRACT_AGREEMENT_PDF_BASE64 } from '../assets/pdf/masterSubcontractAgreementPdf';
-import { SignatureFontId, getSignatureFont } from '../constants/signatureFonts';
+import { SignatureFontId } from '../constants/signatureFonts';
+import { formatUsDate } from '../utils/formatDate';
+import { readSignatureFontBase64 } from '../utils/signatureFontFile';
 
 /*
  * The agreement PDF is shown exactly as provided, except for the highlighted
@@ -80,19 +81,6 @@ export interface AgreementSignature {
   fontId: SignatureFontId;
   /** Signing date as YYYY-MM-DD, shown on the "Dated:" line as MM/DD/YYYY. */
   date: string;
-}
-
-function formatDateForAgreement(isoDate: string): string {
-  const [year, month, day] = isoDate.split('-');
-  return `${month}/${day}/${year}`;
-}
-
-/** Reads a bundled signature font (linked into the native app's assets) as base64. */
-async function readSignatureFont(fontId: SignatureFontId): Promise<string> {
-  const { fileName } = getSignatureFont(fontId);
-  return Platform.OS === 'android'
-    ? RNFS.readFileAssets(`fonts/${fileName}`, 'base64')
-    : RNFS.readFile(`${RNFS.MainBundlePath}/${fileName}`, 'base64');
 }
 
 function drawPageInitials(page: PDFPage, labelFont: PDFFont, signatureFont: PDFFont, initials: string): void {
@@ -205,7 +193,7 @@ function drawSignatureBlock(
     font: signatureFont,
     color: INK_BLUE,
   });
-  page.drawText(formatDateForAgreement(signature.date), {
+  page.drawText(formatUsDate(signature.date), {
     x: date.x,
     y: PAGE_HEIGHT - date.baseline,
     size: FONT_SIZE,
@@ -240,7 +228,7 @@ export async function generateMasterSubcontractAgreement(
   drawSignatureName(pages[PAGE_10_SIGNATURE_NAME.pageIndex], boldFont, name);
 
   if (signature?.name && signature.initials) {
-    const signatureFont = await pdfDoc.embedFont(await readSignatureFont(signature.fontId), { subset: true });
+    const signatureFont = await pdfDoc.embedFont(await readSignatureFontBase64(signature.fontId), { subset: true });
     pages.forEach((page) => drawPageInitials(page, regularFont, signatureFont, signature.initials));
     drawSignatureBlock(pages[PAGE_10_SIGNATURE_LINES.pageIndex], regularFont, signatureFont, signature);
   }

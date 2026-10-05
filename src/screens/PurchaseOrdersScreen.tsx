@@ -9,13 +9,16 @@ import { BagIcon, ChevronRightIcon } from '../assets/icons';
 import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { useAccountList } from '../hooks/useAccountList';
+import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { fetchPurchaseOrders } from '../services/purchaseOrderService';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'PurchaseOrders'>;
 
 /** "View All" from the Home screen's Purchase Orders card: every purchase order. */
 export function PurchaseOrdersScreen({ navigation }: Props): React.JSX.Element {
-  const { items: orders, count, status, reload } = useAccountList(fetchPurchaseOrders, 'all');
+  const { items: orders, count, status, reload, refresh } = useAccountList(fetchPurchaseOrders, 'all');
+  // A PO opened from here may have been signed or changed since.
+  useRefreshOnReturn(refresh);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -46,7 +49,7 @@ export function PurchaseOrdersScreen({ navigation }: Props): React.JSX.Element {
               orders={orders}
               status={status}
               onRetry={reload}
-              onOrderPress={(order) => navigation.navigate('PurchaseOrderDetails', { poId: order.id })}
+              onOrderPress={(order) => navigation.navigate('PurchaseOrderDetails', { poId: order.id, poDate: order.createdDate ?? undefined })}
             />
           </View>
         </AuthCard>

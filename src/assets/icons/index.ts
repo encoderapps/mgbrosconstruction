@@ -24,3 +24,4 @@ export * from './ClipboardCheckIcon';
 export * from './CheckIcon';
 export * from './PlusIcon';
 export * from './ArrowLeftIcon';
+export * from './TrashIcon';

@@ -29,6 +29,8 @@ import { PurchaseOrdersScreen } from '../screens/PurchaseOrdersScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { PurchaseOrderDetailsScreen } from '../screens/PurchaseOrderDetailsScreen';
+import { PurchaseOrderSigningScreen } from '../screens/PurchaseOrderSigningScreen';
+import { ModifyPaymentTermsScreen } from '../screens/ModifyPaymentTermsScreen';
 import { InvoicesScreen } from '../screens/InvoicesScreen';
 import { ApprovalNeededScreen } from '../screens/ApprovalNeededScreen';
 import { TemplatePreviewScreen } from '../screens/TemplatePreviewScreen';
@@ -67,6 +69,8 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="PurchaseOrderDetails" component={PurchaseOrderDetailsScreen} />
+      <Stack.Screen name="PurchaseOrderSigning" component={PurchaseOrderSigningScreen} />
+      <Stack.Screen name="ModifyPaymentTerms" component={ModifyPaymentTermsScreen} />
       <Stack.Screen name="Invoices" component={InvoicesScreen} />
       <Stack.Screen name="ApprovalNeeded" component={ApprovalNeededScreen} />
       <Stack.Screen name="TemplatePreview" component={TemplatePreviewScreen} />

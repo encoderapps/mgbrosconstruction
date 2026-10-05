@@ -62,7 +62,8 @@ export function SubcontractorLoginScreen({ navigation }: Props): React.JSX.Eleme
         email: result.email ?? '',
         phone: result.phone ?? '',
       });
-      navigation.navigate('Home');
+      // Home replaces the login screens, so going back can't return to them (see HomeScreen).
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
     } catch {
       Alert.alert('Unable to log in', 'Something went wrong while logging in. Please try again.');
     } finally {

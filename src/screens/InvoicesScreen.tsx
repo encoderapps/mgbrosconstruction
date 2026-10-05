@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
@@ -16,11 +16,6 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Invoices'>;
 /** "View All" from the Home screen's Invoices card: every invoice. */
 export function InvoicesScreen({ navigation }: Props): React.JSX.Element {
   const { items: invoices, count: totalInvoices, status, reload } = useAccountList(fetchInvoices, 'all');
-
-  const handleAddInvoice = (): void => {
-    // There's no Add Invoice screen or create-invoice API yet.
-    Alert.alert('Add Invoice', 'Adding invoices is coming soon.');
-  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -48,14 +43,6 @@ export function InvoicesScreen({ navigation }: Props): React.JSX.Element {
             <Text style={styles.viewPosText}>View POs</Text>
           </Pressable>
         </View>
-
-        <Pressable
-          onPress={handleAddInvoice}
-          style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-          accessibilityRole="button"
-        >
-          <Text style={styles.addButtonText}>+ Add Invoice</Text>
-        </Pressable>
 
         <AuthCard style={styles.tableCard}>
           <InvoicesTable invoices={invoices} status={status} onRetry={reload} />
@@ -108,21 +95,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.medium,
     fontWeight: '500',
     fontSize: 12,
-    color: welcomeColors.textPrimary,
-  },
-  addButton: {
-    height: 46,
-    borderRadius: radius.md,
-    backgroundColor: welcomeColors.iconWrapperBackground,
-    borderWidth: 1,
-    borderColor: welcomeColors.cardBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonText: {
-    fontFamily: fontFamily.semiBold,
-    fontWeight: '600',
-    fontSize: 14,
     color: welcomeColors.textPrimary,
   },
   pressed: {

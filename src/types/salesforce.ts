@@ -130,12 +130,24 @@ export interface PurchaseOrdersApiResponse {
   purchaseOrders: PurchaseOrderApiRecord[];
 }
 
-/** Field names not yet confirmed: no purchase order tested so far had payment terms. */
+/** One payment term inside the detail API's paymentTerms. */
 export interface PurchaseOrderPaymentTermApiRecord {
   id?: string;
-  percentage?: number;
-  description?: string;
-  amount?: number;
+  percentage?: number | string | null;
+  /** false when the term has no description. */
+  description?: string | false | null;
+  /** Sent as a string, e.g. "100.00". */
+  amount?: number | string | null;
+}
+
+export interface PurchaseOrderLineItemApiRecord {
+  category: string | null;
+  productOrService: string | null;
+  /** Rich text, e.g. "<p>Duct work 1st floor</p>". */
+  description: string | null;
+  quantity: number | null;
+  unitPrice: number | null;
+  amount: number | null;
 }
 
 export interface PurchaseOrderDetailApiResponse {
@@ -154,8 +166,49 @@ export interface PurchaseOrderDetailApiResponse {
       country: string | null;
     } | null;
     totalAmount: number | null;
-    paymentTerms: PurchaseOrderPaymentTermApiRecord[] | null;
+    poDetails: PurchaseOrderLineItemApiRecord[] | null;
+    /**
+     * A JSON array serialised as an HTML-escaped string
+     * ("[{&quot;percentage&quot;:25,…}]"); an array is accepted too.
+     */
+    paymentTerms: string | PurchaseOrderPaymentTermApiRecord[] | null;
   } | null;
+}
+
+/** One term as sent to PATCH /modifyPaymentTerms; Salesforce works out the amount. */
+export interface ModifyPaymentTermApiRecord {
+  percentage: number;
+  description: string;
+}
+
+/** PATCH /modifyPaymentTerms request body. */
+export interface ModifyPaymentTermsApiPayload {
+  accountId: string;
+  poId: string;
+  paymentTerms: ModifyPaymentTermApiRecord[];
+}
+
+export interface ModifyPaymentTermsApiResponse {
+  success: boolean;
+  message?: string;
+  poId?: string;
+  paymentTermsList?: PurchaseOrderPaymentTermApiRecord[] | null;
+  /** The same terms as a JSON string; paymentTermsList is used instead. */
+  paymentTerms?: string | null;
+}
+
+/** PATCH /signPurchaseOrder request body. */
+export interface SignPurchaseOrderApiPayload {
+  accountId: string;
+  poId: string;
+}
+
+export interface SignPurchaseOrderApiResponse {
+  success: boolean;
+  /** The PO's status after signing, e.g. "Signed". */
+  status?: string | null;
+  poId?: string | null;
+  message?: string | null;
 }
 
 export interface ForgotPasswordResponse {

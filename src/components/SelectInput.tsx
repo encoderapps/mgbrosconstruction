@@ -12,6 +12,11 @@ type SelectInputProps = {
   onSelect: (value: string) => void;
   /** Display text for an option (e.g. "IL" → "Illinois (IL)"). Defaults to the value itself. */
   formatOption?: (value: string) => string;
+  /**
+   * A smaller field without the visible label (still used as the options
+   * sheet's title and the accessibility label), for use inside table rows.
+   */
+  compact?: boolean;
 };
 
 export function SelectInput({
@@ -21,23 +26,32 @@ export function SelectInput({
   options,
   onSelect,
   formatOption = (option) => option,
+  compact = false,
 }: SelectInputProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   // Edge-to-edge draws the modal under the system nav bar, so lift the sheet above it.
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={compact ? styles.compactContainer : styles.container}>
+      {!compact && <Text style={styles.label}>{label}</Text>}
       <Pressable
-        style={styles.inputWrapper}
+        style={[styles.inputWrapper, compact && styles.compactInputWrapper]}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityValue={value ? { text: formatOption(value) } : undefined}
         onPress={() => {
           // Close the keyboard so it doesn't cover the options sheet.
           Keyboard.dismiss();
           setIsOpen(true);
         }}
       >
-        <Text style={[styles.value, !value && styles.placeholder]}>{value ? formatOption(value) : placeholder}</Text>
+        <Text
+          style={[styles.value, compact && styles.compactValue, !value && styles.placeholder]}
+          numberOfLines={compact ? 1 : undefined}
+        >
+          {value ? formatOption(value) : placeholder}
+        </Text>
         <View style={styles.chevron}>
           <ChevronRightIcon size={14} color={welcomeColors.inputPlaceholder} />
         </View>
@@ -73,6 +87,9 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: 14,
   },
+  compactContainer: {
+    flex: 1,
+  },
   label: {
     fontFamily: fontFamily.semiBold,
     fontWeight: '600',
@@ -92,12 +109,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 44,
   },
+  compactInputWrapper: {
+    height: 36,
+    paddingHorizontal: 8,
+    borderRadius: radius.sm,
+  },
   value: {
     flex: 1,
     fontFamily: fontFamily.regular,
     fontWeight: '400',
     fontSize: 12,
     color: welcomeColors.textPrimary,
+  },
+  compactValue: {
+    fontSize: 11,
   },
   placeholder: {
     color: welcomeColors.inputPlaceholder,

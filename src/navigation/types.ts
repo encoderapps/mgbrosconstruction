@@ -1,6 +1,7 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 import type { CertificateTemplate } from '../services/certificateTemplateService';
 import type { SignatureFontId } from '../constants/signatureFonts';
+import type { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
 
 export interface SubcontractorIdentityData {
   firstName: string;
@@ -115,7 +116,20 @@ export type AuthStackParamList = {
   PurchaseOrders: undefined;
   Notifications: undefined;
   Profile: undefined;
-  PurchaseOrderDetails: { poId: string };
+  PurchaseOrderDetails: {
+    poId: string;
+    /** From the Purchase Orders list, which has the PO's date (the detail API doesn't). */
+    poDate?: string;
+    /** Set by Modify Payment Terms after a successful save, so the review shows them without reloading. */
+    updatedPaymentTerms?: PurchaseOrderPaymentTerm[];
+    /** Set by the signing screen once the API confirms the signing, e.g. "Signed". */
+    updatedStatus?: string;
+    /** With updatedStatus: the signing date, YYYY-MM-DD. */
+    signedDate?: string;
+  };
+  PurchaseOrderSigning: { poId: string; poDate?: string };
+  /** The PO's current terms and total, so the screen can edit them without fetching the PO again. */
+  ModifyPaymentTerms: { poId: string; totalAmount: number; paymentTerms: PurchaseOrderPaymentTerm[] };
   Invoices: undefined;
   ApprovalNeeded: undefined;
 };

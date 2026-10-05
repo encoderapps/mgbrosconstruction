@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { BackHandler, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
@@ -25,6 +26,8 @@ import { AuthStackParamList } from '../navigation/types';
 import { EMPTY_VALUE } from '../constants/display';
 import { useContacts } from '../context/ContactsContext';
 import { useAccountList } from '../hooks/useAccountList';
+import { useLogout } from '../hooks/useLogout';
+import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { fetchInvoices } from '../services/invoiceService';
 import { fetchPurchaseOrders } from '../services/purchaseOrderService';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
@@ -60,6 +63,21 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
   // Each card fetches its latest 5 (the APIs' home/recent views) when it's expanded.
   const recentPurchaseOrders = useAccountList(fetchPurchaseOrders, 'home', expandedSections.has('purchaseOrders'));
   const recentInvoices = useAccountList(fetchInvoices, 'recent', expandedSections.has('invoices'));
+  // A PO opened from here may have been signed or changed since.
+  useRefreshOnReturn(recentPurchaseOrders.refresh);
+
+  // Home is the first screen after login (the login screens are gone from the
+  // stack), so Android's back button would close the app: offer to log out instead.
+  const { confirmLogout } = useLogout();
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        confirmLogout('Going back will end your session. Do you want to log out?');
+        return true;
+      });
+      return () => subscription.remove();
+    }, [confirmLogout]),
+  );
 
   const toggleSection = (section: ExpandableSection): void => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -132,7 +150,7 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
             orders={recentPurchaseOrders.items}
             status={recentPurchaseOrders.status}
             onRetry={recentPurchaseOrders.reload}
-            onOrderPress={(order) => navigation.navigate('PurchaseOrderDetails', { poId: order.id })}
+            onOrderPress={(order) => navigation.navigate('PurchaseOrderDetails', { poId: order.id, poDate: order.createdDate ?? undefined })}
           />
         </ExpandableTableSection>
 

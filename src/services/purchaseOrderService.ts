@@ -2,7 +2,14 @@ import { SALESFORCE_PURCHASE_ORDERS_URL } from '../constants/config';
 import { AccountListResult } from '../types/list';
 import { PurchaseOrderApiRecord, PurchaseOrdersApiResponse, PurchaseOrdersView } from '../types';
 import { PurchaseOrder } from '../types/purchaseOrder';
+import { toDateOnlyString } from '../utils/dateValidation';
 import { salesforceGet } from './salesforceClient';
+
+/** "2026-09-29T20:21:34.000Z" → the device's calendar date, "2026-09-29"; null if missing or invalid. */
+function toLocalDate(timestamp: string | null): string | null {
+  const date = timestamp ? new Date(timestamp) : null;
+  return date && !Number.isNaN(date.getTime()) ? toDateOnlyString(date) : null;
+}
 
 function toPurchaseOrder(record: PurchaseOrderApiRecord): PurchaseOrder {
   return {
@@ -11,6 +18,7 @@ function toPurchaseOrder(record: PurchaseOrderApiRecord): PurchaseOrder {
     status: record.status ?? '',
     paidAmount: record.paidAmount ?? 0,
     vendor: record.vendor ?? '',
+    createdDate: toLocalDate(record.createdDate),
   };
 }
 

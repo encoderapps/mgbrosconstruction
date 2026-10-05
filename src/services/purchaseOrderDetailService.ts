@@ -1,18 +1,63 @@
 import { SALESFORCE_PURCHASE_ORDER_DETAIL_URL } from '../constants/config';
-import { PurchaseOrderDetailApiResponse, PurchaseOrderPaymentTermApiRecord } from '../types';
-import { PurchaseOrderDetail, PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
+import {
+  PurchaseOrderDetailApiResponse,
+  PurchaseOrderLineItemApiRecord,
+  PurchaseOrderPaymentTermApiRecord,
+} from '../types';
+import { PurchaseOrderDetail, PurchaseOrderLineItem, PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
+import { decodeHtmlEntities, htmlToPlainText } from '../utils/html';
+import { withCalculatedAmounts } from '../utils/paymentTerms';
 import { salesforceGet } from './salesforceClient';
 
+/** "100.00" / 100 → 100; anything unparseable → null. */
+function toNumber(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const number = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 /**
- * NOTE: the payment-term field names are assumed — every purchase order
- * tested so far returned an empty paymentTerms list. Adjust to match.
+ * The API sends paymentTerms as an HTML-escaped JSON string; accept a real
+ * array too. Malformed data yields no terms rather than failing the screen.
  */
-function toPaymentTerm(record: PurchaseOrderPaymentTermApiRecord, index: number): PurchaseOrderPaymentTerm {
+export function parsePaymentTerms(
+  raw: string | PurchaseOrderPaymentTermApiRecord[] | null | undefined,
+): PurchaseOrderPaymentTerm[] {
+  let records: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      records = JSON.parse(decodeHtmlEntities(raw));
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  return (records as unknown[])
+    // A null or non-object entry would otherwise throw and fail the whole screen.
+    .filter((record): record is PurchaseOrderPaymentTermApiRecord => typeof record === 'object' && record !== null)
+    .map((record, index) => ({
+      id: record.id ?? `term-${index}`,
+      percentage: toNumber(record.percentage),
+      // The API sends `false` for a term without a description.
+      description: typeof record.description === 'string' ? htmlToPlainText(record.description) : '',
+      amount: toNumber(record.amount),
+    }));
+}
+
+function toLineItem(record: PurchaseOrderLineItemApiRecord, index: number): PurchaseOrderLineItem {
   return {
-    id: record.id ?? `term-${index}`,
-    percentage: record.percentage ?? null,
-    description: record.description ?? '',
-    amount: record.amount ?? null,
+    id: `item-${index}`,
+    category: record.category ?? '',
+    productOrService: record.productOrService ?? '',
+    description: record.description ? htmlToPlainText(record.description) : '',
+    quantity: toNumber(record.quantity) ?? 0,
+    unitPrice: toNumber(record.unitPrice) ?? 0,
+    amount: toNumber(record.amount) ?? 0,
   };
 }
 
@@ -31,13 +76,28 @@ export async function fetchPurchaseOrderDetail(accountId: string, poId: string):
   const cityLine = [address?.city, [address?.state, address?.postalCode].filter(Boolean).join(' ')]
     .filter(Boolean)
     .join(', ');
+  const lineItems = (po.poDetails ?? []).map(toLineItem);
+  const lineItemsTotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
+  // Some POs report a total of 0 despite having priced line items; fall back to their sum.
+  const totalAmount = po.totalAmount || lineItemsTotal;
+
   return {
     id: po.id,
     name: po.name ?? '',
     status: po.status ?? '',
     project: po.project ?? '',
     projectAddress: [address?.street, cityLine].filter(Boolean).join(', '),
-    totalAmount: po.totalAmount ?? 0,
-    paymentTerms: (po.paymentTerms ?? []).map(toPaymentTerm),
+    totalAmount,
+    lineItems,
+    paymentTerms: withCalculatedAmounts(parsePaymentTerms(po.paymentTerms), totalAmount),
+    // NOTE: the detail API doesn't return these yet. Map them here once it does;
+    // the signed-PO screen and its totals already read them. Until then the PO
+    // date comes from the Purchase Orders list (see usePurchaseOrderDetail).
+    poDate: null,
+    signedDate: null,
+    // Added from this device's records by usePurchaseOrderDetail.
+    vendorSignature: null,
+    changeOrders: [],
+    invoices: [],
   };
 }
