@@ -70,8 +70,10 @@ export interface PurchaseOrderDetail {
   signedDate: string | null;
   /** The signature made in this app on this device, if any (the API doesn't store it). */
   vendorSignature: PurchaseOrderSignature | null;
-  changeOrders: PurchaseOrderLedgerEntry[];
-  invoices: PurchaseOrderLedgerEntry[];
+  /** null when they couldn't be loaded (the screen offers a retry). */
+  changeOrders: PurchaseOrderLedgerEntry[] | null;
+  /** null when they couldn't be loaded (the screen offers a retry). */
+  invoices: PurchaseOrderLedgerEntry[] | null;
 }
 
 /** Line items grouped by category, in the order the categories first appear. */
