@@ -89,8 +89,8 @@ export function W9Screen({ navigation, route }: Props): React.JSX.Element {
       identity: route.params.identity,
       company: route.params.company,
       w9: {
-        federalTaxClassification,
-        taxIdentificationNumber,
+        taxClassification: federalTaxClassification,
+        taxId: taxIdentificationNumber,
         w9SignedDate: w9SignedDate.trim(),
         w9File: uploadedW9,
       },

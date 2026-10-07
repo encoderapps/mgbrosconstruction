@@ -16,3 +16,15 @@ export function formatTaxIdInput(input: string): string {
 export function isValidTaxId(taxId: string): boolean {
   return TAX_ID_REGEX.test(taxId);
 }
+
+const VISIBLE_TAX_ID_DIGITS = 4;
+
+/**
+ * Hides all but the last 4 digits of a Tax ID for display, keeping its dashes:
+ * "15-5468978" → "XX-XXX8978". Too short to leave anything hidden → all masked.
+ */
+export function maskTaxId(taxId: string): string {
+  const digitCount = taxId.replace(/\D/g, '').length;
+  let digitsToMask = digitCount > VISIBLE_TAX_ID_DIGITS ? digitCount - VISIBLE_TAX_ID_DIGITS : digitCount;
+  return taxId.replace(/\d/g, (digit) => (digitsToMask-- > 0 ? 'X' : digit));
+}

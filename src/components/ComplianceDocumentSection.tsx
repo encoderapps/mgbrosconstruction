@@ -25,8 +25,9 @@ export function ComplianceDocumentSection({
   onAdd,
 }: ComplianceDocumentSectionProps): React.JSX.Element {
   const { label } = COMPLIANCE_DOCUMENT_INFO[document.type];
-  const Icon = isInsuranceCertificate(document) ? ShieldIcon : DocumentIcon;
-  const files = [document.current, ...document.previousVersions];
+  const Icon = isInsuranceCertificate(document.type) ? ShieldIcon : DocumentIcon;
+  const files = document.current ? [document.current, ...document.previousVersions] : document.previousVersions;
+  const summary = getDocumentSummary(document.type, document.current);
   const open = (): void => onOpen(document);
 
   return (
@@ -61,30 +62,36 @@ export function ComplianceDocumentSection({
         accessibilityRole="button"
         accessibilityHint={`Opens ${label}`}
       >
-        {getDocumentSummary(document).map((row) => (
-          <Text key={row.label} style={styles.summaryText}>
-            <Text style={styles.summaryLabel}>{row.label}: </Text>
-            {row.value}
-          </Text>
-        ))}
+        {summary.length > 0 ? (
+          summary.map((row) => (
+            <Text key={row.label} style={styles.summaryText}>
+              <Text style={styles.summaryLabel}>{row.label}: </Text>
+              {row.value}
+            </Text>
+          ))
+        ) : (
+          <Text style={styles.summaryText}>No {label} on file.</Text>
+        )}
       </Pressable>
 
-      <View style={styles.files}>
-        {files.map((file) => (
-          <Pressable
-            key={file.id}
-            onPress={open}
-            hitSlop={4}
-            style={({ pressed }) => [styles.fileLink, pressed && styles.pressed]}
-            accessibilityRole="link"
-          >
-            <DocumentIcon size={14} color={welcomeColors.link} />
-            <Text style={styles.fileLinkText} numberOfLines={1}>
-              {file.fileName}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      {files.length > 0 && (
+        <View style={styles.files}>
+          {files.map((file) => (
+            <Pressable
+              key={file.id}
+              onPress={open}
+              hitSlop={4}
+              style={({ pressed }) => [styles.fileLink, pressed && styles.pressed]}
+              accessibilityRole="link"
+            >
+              <DocumentIcon size={14} color={welcomeColors.link} />
+              <Text style={styles.fileLinkText} numberOfLines={1}>
+                {file.fileName}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
     </View>
   );
 }

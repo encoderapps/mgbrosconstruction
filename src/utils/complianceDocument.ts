@@ -1,7 +1,9 @@
 import { COMPLIANCE_DOCUMENT_INFO, EXPIRY_WARNING_DAYS } from '../constants/complianceDocuments';
+import { EMPTY_VALUE } from '../constants/display';
 import { Tone } from '../theme';
-import { ComplianceDocument, InsuranceCertificate } from '../types/document';
+import { ComplianceDocumentFile, ComplianceDocumentType } from '../types/document';
 import { daysUntil, formatShortDate, formatUsDate } from './formatDate';
+import { maskTaxId } from './taxId';
 
 export interface DocumentSummaryRow {
   label: string;
@@ -13,42 +15,59 @@ export interface DocumentStatus {
   message: string;
 }
 
-export function isInsuranceCertificate(document: ComplianceDocument): document is InsuranceCertificate {
-  return document.type !== 'w9';
+/** General Liability and Workers' Comp are certificates of insurance, which expire; a W9 doesn't. */
+export function isInsuranceCertificate(type: ComplianceDocumentType): boolean {
+  return type !== 'w9';
 }
 
-/** The key facts shown for a document in the Documents list. */
-export function getDocumentSummary(document: ComplianceDocument): DocumentSummaryRow[] {
-  if (!isInsuranceCertificate(document)) {
+function toUsDate(isoDate: string | null): string {
+  return isoDate ? formatUsDate(isoDate) : EMPTY_VALUE;
+}
+
+/** The key dates of the current copy, shown in the Documents list; none when nothing is on file. */
+export function getDocumentSummary(
+  type: ComplianceDocumentType,
+  current: ComplianceDocumentFile | null,
+): DocumentSummaryRow[] {
+  if (!current) {
+    return [];
+  }
+  if (!isInsuranceCertificate(type)) {
     return [
-      { label: 'Federal Tax Classification', value: document.federalTaxClassification },
-      { label: 'Tax Identification Number', value: document.taxIdentificationNumber },
-      { label: 'W9 Signed Date', value: formatUsDate(document.signedDate) },
+      { label: 'Federal Tax Classification', value: current.taxClassification || EMPTY_VALUE },
+      { label: 'Tax Identification Number', value: current.taxId ? maskTaxId(current.taxId) : EMPTY_VALUE },
+      { label: 'W9 Signed Date', value: toUsDate(current.signedDate) },
     ];
   }
   return [
-    { label: 'Insurance Company Name', value: document.insuranceCompanyName },
-    { label: 'Policy Number', value: document.policyNumber },
-    ...(document.additionalInsured === undefined
-      ? []
-      : [{ label: 'Additional Insured', value: document.additionalInsured ? 'Yes' : 'No' }]),
-    { label: 'Effective Date', value: formatUsDate(document.effectiveDate) },
-    { label: 'Expiration Date', value: formatUsDate(document.expirationDate) },
+    { label: 'Effective Date', value: toUsDate(current.effectiveDate) },
+    { label: 'Expiration Date', value: toUsDate(current.expirationDate) },
   ];
 }
 
 /**
- * Where the document's current copy stands: a W9 is simply on file; an
- * insurance certificate is active, expiring soon (within EXPIRY_WARNING_DAYS)
- * or expired.
+ * Where the document stands: nothing on file; a W9 on file; or an insurance
+ * certificate that's active, expiring soon (within EXPIRY_WARNING_DAYS),
+ * expired, or missing its expiration date.
  */
-export function getDocumentStatus(document: ComplianceDocument, today: Date = new Date()): DocumentStatus {
-  if (!isInsuranceCertificate(document)) {
-    return { tone: 'success', message: `This is the current ${COMPLIANCE_DOCUMENT_INFO.w9.label} on file.` };
+export function getDocumentStatus(
+  type: ComplianceDocumentType,
+  current: ComplianceDocumentFile | null,
+  today: Date = new Date(),
+): DocumentStatus {
+  const { label } = COMPLIANCE_DOCUMENT_INFO[type];
+  if (!current) {
+    return { tone: 'danger', message: `No ${label} on file.` };
+  }
+  if (!isInsuranceCertificate(type)) {
+    return { tone: 'success', message: `This is the current ${label} on file.` };
+  }
+  if (!current.expirationDate) {
+    return { tone: 'warning', message: 'This certificate has no expiration date.' };
   }
 
-  const days = daysUntil(document.expirationDate, today);
-  const date = formatShortDate(document.expirationDate);
+  const days = daysUntil(current.expirationDate, today);
+  const date = formatShortDate(current.expirationDate);
   if (days < 0) {
     return { tone: 'danger', message: `Expired on ${date}` };
   }

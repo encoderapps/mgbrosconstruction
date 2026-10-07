@@ -18,8 +18,8 @@ export function buildRegistrationData(params: SignedSubcontractorRegistrationPar
     yearsOfExperience: params.company.yearsOfExperience,
     numberOfEmployees: params.company.numberOfEmployees,
 
-    federalTaxClassification: params.w9.federalTaxClassification,
-    taxIdentificationNumber: params.w9.taxIdentificationNumber,
+    federalTaxClassification: params.w9.taxClassification,
+    taxIdentificationNumber: params.w9.taxId,
     w9SignedDate: params.w9.w9SignedDate,
     w9FileName: params.w9.w9File.name,
 

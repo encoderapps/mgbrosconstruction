@@ -1,47 +1,35 @@
 /** The compliance documents a subcontractor keeps on file with MG Bros. */
 export type ComplianceDocumentType = 'w9' | 'generalLiability' | 'workersComp';
 
-export type InsuranceCertificateType = Exclude<ComplianceDocumentType, 'w9'>;
-
-/** One uploaded copy of a compliance document. Dates are YYYY-MM-DD. */
+/** One copy of a compliance document. Dates are YYYY-MM-DD. */
 export interface ComplianceDocumentFile {
   id: string;
+  /** Salesforce record name, e.g. "Ext-File-0000000350"; shown as the document's ID. */
+  recordName: string;
+  /** With its extension when known, e.g. "W9 - ABC Construction Services.pdf". */
   fileName: string;
-  uploadedOn: string;
-  uploadedBy?: string;
-  /**
-   * Insurance certificates' previous versions only (a W9 doesn't expire). The
-   * current copy's dates are the certificate's own effectiveDate/expirationDate.
-   */
-  expirationDate?: string;
-  fileSizeKb: number;
+  /** Server-relative download path; null when the record has no file attached yet. */
+  fileUrl: string | null;
+  fileSizeBytes: number | null;
+  /** The device's local date of the upload; null when nothing has been uploaded. */
+  uploadedOn: string | null;
+  uploadedBy: string | null;
+  /** W9 only, e.g. "LLC". */
+  taxClassification: string | null;
+  /** W9 only: the full EIN as sent by the API; mask it before display (maskTaxId). */
+  taxId: string | null;
+  /** W9 only. */
+  signedDate: string | null;
+  /** Insurance certificates only. */
+  effectiveDate: string | null;
+  /** Insurance certificates only. */
+  expirationDate: string | null;
 }
 
-interface ComplianceDocumentBase {
-  /** The copy used for compliance: the most recent upload. */
-  current: ComplianceDocumentFile;
+export interface ComplianceDocument {
+  type: ComplianceDocumentType;
+  /** The copy used for compliance; null when none is on file. */
+  current: ComplianceDocumentFile | null;
   /** Older copies, newest first. */
   previousVersions: ComplianceDocumentFile[];
 }
-
-export interface W9Document extends ComplianceDocumentBase {
-  type: 'w9';
-  federalTaxClassification: string;
-  /** Already masked by the server, e.g. "XX-XXXXXXX". */
-  taxIdentificationNumber: string;
-  signedDate: string;
-}
-
-export interface InsuranceCertificate extends ComplianceDocumentBase {
-  type: InsuranceCertificateType;
-  /** Certificate ID, e.g. "WC-5829". */
-  referenceId: string;
-  insuranceCompanyName: string;
-  policyNumber: string;
-  /** General Liability only: whether MG Bros is named as additional insured. */
-  additionalInsured?: boolean;
-  effectiveDate: string;
-  expirationDate: string;
-}
-
-export type ComplianceDocument = W9Document | InsuranceCertificate;

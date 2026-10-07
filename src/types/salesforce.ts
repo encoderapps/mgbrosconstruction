@@ -41,8 +41,8 @@ export interface SubcontractorRegistrationApiPayload {
   service: string;
   numberOfEmployees: string;
 
-  federalTaxClassification: string;
-  taxIdentificationNumber: string;
+  taxClassification: string;
+  taxId: string;
   w9SignedDate: string;
   w9FileName: string;
   w9FileType: string;
@@ -254,4 +254,49 @@ export interface ForgotPasswordResponse {
   success: boolean;
   message: string;
   accountId: string | null;
+}
+
+/** One file record (a W9 or certificate of insurance) from GET /subcontractordocuments. */
+export interface SubcontractorDocumentApiRecord {
+  id: string;
+  /** Salesforce record name, e.g. "Ext-File-0000000350". */
+  name: string | null;
+  /** Without the extension, e.g. "W9 - ABC Construction Services". */
+  fileName: string | null;
+  fileExtension: string | null;
+  /** Server-relative download path; null when no file is attached to the record. */
+  fileUrl: string | null;
+  fileSizeBytes: number | null;
+  fileSizeKB: number | null;
+  /** ISO timestamp; null when no file has been uploaded. */
+  uploadedOn: string | null;
+  uploadedBy: string | null;
+  /** W9 only, e.g. "LLC". */
+  taxClassification?: string | null;
+  /** W9 only: the unmasked EIN, e.g. "15-5468978". */
+  taxId?: string | null;
+  /** YYYY-MM-DD; W9 only. */
+  signedDate: string | null;
+  /** YYYY-MM-DD; certificates only. */
+  effectiveDate: string | null;
+  /** YYYY-MM-DD; certificates only. */
+  expirationDate: string | null;
+  current: boolean | null;
+  /** ISO timestamp. */
+  createdDate: string | null;
+  recordTypeName: string | null;
+}
+
+/** All the records of one document type: "W9", "COI - General Liability" or "COI - Workers Comp". */
+export interface SubcontractorDocumentGroupApiRecord {
+  documentType: string | null;
+  currentDocument: SubcontractorDocumentApiRecord | null;
+  previousVersions: SubcontractorDocumentApiRecord[] | null;
+  allDocuments?: SubcontractorDocumentApiRecord[] | null;
+}
+
+export interface SubcontractorDocumentsApiResponse {
+  success: boolean;
+  message?: string;
+  documents: SubcontractorDocumentGroupApiRecord[] | null;
 }

@@ -1,30 +1,25 @@
-import { InsuranceCertificate, W9Document } from '../src/types/document';
+import { ComplianceDocumentFile } from '../src/types/document';
 import { getDocumentStatus, getDocumentSummary, isInsuranceCertificate } from '../src/utils/complianceDocument';
 import { daysUntil, formatShortDate } from '../src/utils/formatDate';
+import { formatFileSize } from '../src/utils/formatFileSize';
+import { maskTaxId } from '../src/utils/taxId';
 
 const TODAY = new Date(2026, 9, 7, 15, 30); // Oct 7, 2026, mid-afternoon local time
 
-const file = { id: 'f1', fileName: 'Doc.pdf', uploadedOn: '2026-01-01', fileSizeKb: 100 };
-
-const w9: W9Document = {
-  type: 'w9',
-  federalTaxClassification: 'S Corporation',
-  taxIdentificationNumber: 'XX-XXXXXXX',
-  signedDate: '2025-05-20',
-  current: file,
-  previousVersions: [],
-};
-
-function certificate(overrides: Partial<InsuranceCertificate> = {}): InsuranceCertificate {
+function file(overrides: Partial<ComplianceDocumentFile> = {}): ComplianceDocumentFile {
   return {
-    type: 'generalLiability',
-    referenceId: 'GL-1',
-    insuranceCompanyName: 'State Farm Insurance',
-    policyNumber: 'GL-123',
+    id: 'f1',
+    recordName: 'Ext-File-0000000001',
+    fileName: 'Doc.pdf',
+    fileUrl: '/sfc/servlet.shepherd/version/download/068',
+    fileSizeBytes: 580,
+    uploadedOn: '2026-09-29',
+    uploadedBy: 'Vikas Gupta',
+    taxClassification: null,
+    taxId: null,
+    signedDate: null,
     effectiveDate: '2026-01-01',
     expirationDate: '2027-01-01',
-    current: file,
-    previousVersions: [],
     ...overrides,
   };
 }
@@ -53,71 +48,116 @@ describe('daysUntil', () => {
   });
 });
 
+describe('formatFileSize', () => {
+  it('shows bytes under 1 KB', () => {
+    expect(formatFileSize(580)).toBe('580 B');
+    expect(formatFileSize(0)).toBe('0 B');
+  });
+
+  it('uses one decimal below 10 and whole numbers above', () => {
+    expect(formatFileSize(1536)).toBe('1.5 KB');
+    expect(formatFileSize(268_800)).toBe('263 KB');
+    expect(formatFileSize(1_572_864)).toBe('1.5 MB');
+  });
+});
+
 describe('getDocumentStatus', () => {
+  it('reports a missing document', () => {
+    expect(getDocumentStatus('w9', null, TODAY)).toEqual({ tone: 'danger', message: 'No W9 on file.' });
+    expect(getDocumentStatus('workersComp', null, TODAY)).toEqual({
+      tone: 'danger',
+      message: "No Workers' Comp on file.",
+    });
+  });
+
   it('reports a W9 as on file', () => {
-    expect(getDocumentStatus(w9, TODAY)).toEqual({ tone: 'success', message: 'This is the current W9 on file.' });
+    expect(getDocumentStatus('w9', file({ expirationDate: null }), TODAY)).toEqual({
+      tone: 'success',
+      message: 'This is the current W9 on file.',
+    });
   });
 
   it('reports a certificate far from expiry as active', () => {
-    expect(getDocumentStatus(certificate({ expirationDate: '2027-05-18' }), TODAY)).toEqual({
+    expect(getDocumentStatus('generalLiability', file({ expirationDate: '2027-05-18' }), TODAY)).toEqual({
       tone: 'success',
       message: 'This certificate is active.',
     });
   });
 
   it('warns when a certificate expires within 60 days', () => {
-    expect(getDocumentStatus(certificate({ expirationDate: '2026-11-21' }), TODAY)).toEqual({
+    expect(getDocumentStatus('generalLiability', file({ expirationDate: '2026-11-21' }), TODAY)).toEqual({
       tone: 'warning',
       message: 'Expires in 45 days (Nov 21, 2026)',
     });
-    expect(getDocumentStatus(certificate({ expirationDate: '2026-12-06' }), TODAY).tone).toBe('warning');
-    expect(getDocumentStatus(certificate({ expirationDate: '2026-12-07' }), TODAY).tone).toBe('success');
+    expect(getDocumentStatus('generalLiability', file({ expirationDate: '2026-12-06' }), TODAY).tone).toBe('warning');
+    expect(getDocumentStatus('generalLiability', file({ expirationDate: '2026-12-07' }), TODAY).tone).toBe('success');
   });
 
   it('uses the singular for one day and says "today" on the day itself', () => {
-    expect(getDocumentStatus(certificate({ expirationDate: '2026-10-08' }), TODAY).message).toBe(
+    expect(getDocumentStatus('workersComp', file({ expirationDate: '2026-10-08' }), TODAY).message).toBe(
       'Expires in 1 day (Oct 08, 2026)',
     );
-    expect(getDocumentStatus(certificate({ expirationDate: '2026-10-07' }), TODAY).message).toBe(
+    expect(getDocumentStatus('workersComp', file({ expirationDate: '2026-10-07' }), TODAY).message).toBe(
       'Expires today (Oct 07, 2026)',
     );
   });
 
   it('flags an expired certificate', () => {
-    expect(getDocumentStatus(certificate({ expirationDate: '2026-10-06' }), TODAY)).toEqual({
+    expect(getDocumentStatus('workersComp', file({ expirationDate: '2026-10-02' }), TODAY)).toEqual({
       tone: 'danger',
-      message: 'Expired on Oct 06, 2026',
+      message: 'Expired on Oct 02, 2026',
+    });
+  });
+
+  it('warns about a certificate with no expiration date', () => {
+    expect(getDocumentStatus('generalLiability', file({ expirationDate: null }), TODAY)).toEqual({
+      tone: 'warning',
+      message: 'This certificate has no expiration date.',
     });
   });
 });
 
 describe('getDocumentSummary', () => {
-  it('lists a W9 tax details', () => {
-    expect(getDocumentSummary(w9)).toEqual([
-      { label: 'Federal Tax Classification', value: 'S Corporation' },
-      { label: 'Tax Identification Number', value: 'XX-XXXXXXX' },
-      { label: 'W9 Signed Date', value: '05/20/2025' },
+  it('shows a W9 tax details, with the Tax ID masked', () => {
+    const w9 = file({ taxClassification: 'LLC', taxId: '15-5468978', signedDate: '2026-09-18' });
+    expect(getDocumentSummary('w9', w9)).toEqual([
+      { label: 'Federal Tax Classification', value: 'LLC' },
+      { label: 'Tax Identification Number', value: 'XX-XXX8978' },
+      { label: 'W9 Signed Date', value: '09/18/2026' },
     ]);
   });
 
-  it('lists a certificate policy details, with Additional Insured only when known', () => {
-    expect(getDocumentSummary(certificate({ additionalInsured: true }))).toContainEqual({
-      label: 'Additional Insured',
-      value: 'Yes',
-    });
-    expect(getDocumentSummary(certificate({ type: 'workersComp' })).map((row) => row.label)).toEqual([
-      'Insurance Company Name',
-      'Policy Number',
-      'Effective Date',
-      'Expiration Date',
+  it('shows a dash for W9 details the API leaves out', () => {
+    expect(getDocumentSummary('w9', file()).map((row) => row.value)).toEqual(['—', '—', '—']);
+  });
+
+  it('shows a certificate dates, with a dash for a missing one', () => {
+    expect(getDocumentSummary('generalLiability', file({ expirationDate: null }))).toEqual([
+      { label: 'Effective Date', value: '01/01/2026' },
+      { label: 'Expiration Date', value: '—' },
     ]);
+  });
+
+  it('is empty when nothing is on file', () => {
+    expect(getDocumentSummary('workersComp', null)).toEqual([]);
+  });
+});
+
+describe('maskTaxId', () => {
+  it('keeps only the last 4 digits and the dashes', () => {
+    expect(maskTaxId('15-5468978')).toBe('XX-XXX8978');
+    expect(maskTaxId('155468978')).toBe('XXXXX8978');
+  });
+
+  it('masks everything when there are 4 digits or fewer', () => {
+    expect(maskTaxId('1234')).toBe('XXXX');
   });
 });
 
 describe('isInsuranceCertificate', () => {
   it('is true for General Liability and Workers’ Comp only', () => {
-    expect(isInsuranceCertificate(w9)).toBe(false);
-    expect(isInsuranceCertificate(certificate())).toBe(true);
-    expect(isInsuranceCertificate(certificate({ type: 'workersComp' }))).toBe(true);
+    expect(isInsuranceCertificate('w9')).toBe(false);
+    expect(isInsuranceCertificate('generalLiability')).toBe(true);
+    expect(isInsuranceCertificate('workersComp')).toBe(true);
   });
 });
