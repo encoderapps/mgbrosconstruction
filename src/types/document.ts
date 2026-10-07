@@ -21,6 +21,12 @@ export interface ComplianceDocumentFile {
   /** W9 only. */
   signedDate: string | null;
   /** Insurance certificates only. */
+  insuranceCompanyName: string | null;
+  /** Insurance certificates only. */
+  policyNumber: string | null;
+  /** General Liability only: whether MG Bros is named as additional insured; null when unknown. */
+  additionalInsured: boolean | null;
+  /** Insurance certificates only. */
   effectiveDate: string | null;
   /** Insurance certificates only. */
   expirationDate: string | null;

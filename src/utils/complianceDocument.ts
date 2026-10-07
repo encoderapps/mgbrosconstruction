@@ -24,7 +24,11 @@ function toUsDate(isoDate: string | null): string {
   return isoDate ? formatUsDate(isoDate) : EMPTY_VALUE;
 }
 
-/** The key dates of the current copy, shown in the Documents list; none when nothing is on file. */
+function toYesNo(value: boolean | null): string {
+  return value === null ? EMPTY_VALUE : value ? 'Yes' : 'No';
+}
+
+/** The key facts of the current copy, shown in the Documents list; none when nothing is on file. */
 export function getDocumentSummary(
   type: ComplianceDocumentType,
   current: ComplianceDocumentFile | null,
@@ -40,6 +44,12 @@ export function getDocumentSummary(
     ];
   }
   return [
+    { label: 'Insurance Company Name', value: current.insuranceCompanyName || EMPTY_VALUE },
+    { label: 'Policy Number', value: current.policyNumber || EMPTY_VALUE },
+    // Only General Liability names MG Bros as additional insured.
+    ...(type === 'generalLiability'
+      ? [{ label: 'Additional Insured', value: toYesNo(current.additionalInsured) }]
+      : []),
     { label: 'Effective Date', value: toUsDate(current.effectiveDate) },
     { label: 'Expiration Date', value: toUsDate(current.expirationDate) },
   ];

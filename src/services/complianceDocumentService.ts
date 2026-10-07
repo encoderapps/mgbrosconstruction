@@ -50,6 +50,9 @@ function toComplianceDocumentFile(record: SubcontractorDocumentApiRecord): Compl
     taxClassification: record.taxClassification?.trim() || null,
     taxId: record.taxId?.trim() || null,
     signedDate: record.signedDate || null,
+    insuranceCompanyName: record.insuranceCompanyName?.trim() || null,
+    policyNumber: record.policyNumber?.trim() || null,
+    additionalInsured: record.additionalInsured ?? null,
     effectiveDate: record.effectiveDate || null,
     expirationDate: record.expirationDate || null,
   };

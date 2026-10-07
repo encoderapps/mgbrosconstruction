@@ -20,8 +20,9 @@ export function isValidTaxId(taxId: string): boolean {
 const VISIBLE_TAX_ID_DIGITS = 2;
 
 /**
- * Hides all but the last 4 digits of a Tax ID for display, keeping its dashes:
- * "15-5468978" → "XX-XXX8978". Too short to leave anything hidden → all masked.
+ * Hides all but the last VISIBLE_TAX_ID_DIGITS digits of a Tax ID for display,
+ * keeping its dashes: "15-5468978" → "XX-XXXXX78". Too short to leave anything
+ * hidden → all masked.
  */
 export function maskTaxId(taxId: string): string {
   const digitCount = taxId.replace(/\D/g, '').length;

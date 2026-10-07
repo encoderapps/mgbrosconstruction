@@ -18,6 +18,9 @@ function file(overrides: Partial<ComplianceDocumentFile> = {}): ComplianceDocume
     taxClassification: null,
     taxId: null,
     signedDate: null,
+    insuranceCompanyName: 'ABC Insurance Company',
+    policyNumber: 'GL-1234568',
+    additionalInsured: true,
     effectiveDate: '2026-01-01',
     expirationDate: '2027-01-01',
     ...overrides,
@@ -122,7 +125,7 @@ describe('getDocumentSummary', () => {
     const w9 = file({ taxClassification: 'LLC', taxId: '15-5468978', signedDate: '2026-09-18' });
     expect(getDocumentSummary('w9', w9)).toEqual([
       { label: 'Federal Tax Classification', value: 'LLC' },
-      { label: 'Tax Identification Number', value: 'XX-XXX8978' },
+      { label: 'Tax Identification Number', value: 'XX-XXXXX78' },
       { label: 'W9 Signed Date', value: '09/18/2026' },
     ]);
   });
@@ -131,11 +134,38 @@ describe('getDocumentSummary', () => {
     expect(getDocumentSummary('w9', file()).map((row) => row.value)).toEqual(['—', '—', '—']);
   });
 
-  it('shows a certificate dates, with a dash for a missing one', () => {
-    expect(getDocumentSummary('generalLiability', file({ expirationDate: null }))).toEqual([
+  it('shows a General Liability certificate details, including Additional Insured', () => {
+    expect(getDocumentSummary('generalLiability', file())).toEqual([
+      { label: 'Insurance Company Name', value: 'ABC Insurance Company' },
+      { label: 'Policy Number', value: 'GL-1234568' },
+      { label: 'Additional Insured', value: 'Yes' },
       { label: 'Effective Date', value: '01/01/2026' },
-      { label: 'Expiration Date', value: '—' },
+      { label: 'Expiration Date', value: '01/01/2027' },
     ]);
+    expect(getDocumentSummary('generalLiability', file({ additionalInsured: false }))).toContainEqual({
+      label: 'Additional Insured',
+      value: 'No',
+    });
+  });
+
+  it('leaves Additional Insured off a Workers’ Comp certificate', () => {
+    expect(getDocumentSummary('workersComp', file()).map((row) => row.label)).toEqual([
+      'Insurance Company Name',
+      'Policy Number',
+      'Effective Date',
+      'Expiration Date',
+    ]);
+  });
+
+  it('shows a dash for certificate details the API leaves out', () => {
+    const blank = file({
+      insuranceCompanyName: null,
+      policyNumber: null,
+      additionalInsured: null,
+      effectiveDate: null,
+      expirationDate: null,
+    });
+    expect(getDocumentSummary('generalLiability', blank).map((row) => row.value)).toEqual(['—', '—', '—', '—', '—']);
   });
 
   it('is empty when nothing is on file', () => {
@@ -144,13 +174,13 @@ describe('getDocumentSummary', () => {
 });
 
 describe('maskTaxId', () => {
-  it('keeps only the last 4 digits and the dashes', () => {
-    expect(maskTaxId('15-5468978')).toBe('XX-XXX8978');
-    expect(maskTaxId('155468978')).toBe('XXXXX8978');
+  it('keeps only the last 2 digits and the dashes', () => {
+    expect(maskTaxId('15-5468978')).toBe('XX-XXXXX78');
+    expect(maskTaxId('155468978')).toBe('XXXXXXX78');
   });
 
-  it('masks everything when there are 4 digits or fewer', () => {
-    expect(maskTaxId('1234')).toBe('XXXX');
+  it('masks everything when there are 2 digits or fewer', () => {
+    expect(maskTaxId('12')).toBe('XX');
   });
 });
 
