@@ -9,6 +9,7 @@ import { ContactsSection } from '../components/ContactsSection';
 import { HomeHeader } from '../components/HomeHeader';
 import { ExpandableTableSection } from '../components/ExpandableTableSection';
 import { InvoicesTable } from '../components/InvoicesTable';
+import { ProjectsTable } from '../components/ProjectsTable';
 import { PurchaseOrdersTable } from '../components/PurchaseOrdersTable';
 import {
   BagIcon,
@@ -27,6 +28,8 @@ import { useLogout } from '../hooks/useLogout';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { fetchInvoices } from '../services/invoiceService';
 import { fetchPurchaseOrders } from '../services/purchaseOrderService';
+import { fetchSubcontractorProjects } from '../services/subcontractorProjectService';
+import { showComingSoon } from '../utils/comingSoon';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Home'>;
 
@@ -38,11 +41,10 @@ type MenuItem = {
   screen?: 'Documents';
 };
 
-// Contacts, Purchase Orders and Invoices are rendered separately since they
-// expand in place; these are the plain menu rows around them.
-const MENU_ITEMS_BEFORE_INVOICES: MenuItem[] = [
+// Contacts, Purchase Orders, Projects and Invoices are rendered separately
+// since they expand in place; these are the plain menu rows around them.
+const MENU_ITEMS_BEFORE_PROJECTS: MenuItem[] = [
   { key: 'bids', label: 'Bids', icon: <ClipboardCheckIcon size={18} color={welcomeColors.accent} /> },
-  { key: 'projects', label: 'Projects', icon: <BriefcaseIcon size={18} color={welcomeColors.accent} /> },
 ];
 const MENU_ITEMS_AFTER_INVOICES: MenuItem[] = [
   {
@@ -54,15 +56,16 @@ const MENU_ITEMS_AFTER_INVOICES: MenuItem[] = [
   { key: 'paymentSettings', label: 'Payment Settings', icon: <CardIcon size={18} color={welcomeColors.accent} /> },
 ];
 
-type ExpandableSection = 'contacts' | 'purchaseOrders' | 'invoices';
+type ExpandableSection = 'contacts' | 'purchaseOrders' | 'projects' | 'invoices';
 
 export function HomeScreen({ navigation }: Props): React.JSX.Element {
   const { contacts } = useContacts();
   // Each section expands independently, so several can be open at once.
   const [expandedSections, setExpandedSections] = useState<ReadonlySet<ExpandableSection>>(new Set());
 
-  // Each card fetches its latest 5 (the APIs' home/recent views) when it's expanded.
+  // Each card loads its latest 5 when it's expanded (the APIs' home/recent views; Projects trims the full list).
   const recentPurchaseOrders = useAccountList(fetchPurchaseOrders, 'home', expandedSections.has('purchaseOrders'));
+  const recentProjects = useAccountList(fetchSubcontractorProjects, 'home', expandedSections.has('projects'));
   const recentInvoices = useAccountList(fetchInvoices, 'recent', expandedSections.has('invoices'));
   // A PO opened from here may have been signed or changed since.
   useRefreshOnReturn(recentPurchaseOrders.refresh);
@@ -136,7 +139,24 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
           />
         </ExpandableTableSection>
 
-        {MENU_ITEMS_BEFORE_INVOICES.map(renderMenuItem)}
+        {MENU_ITEMS_BEFORE_PROJECTS.map(renderMenuItem)}
+
+        <ExpandableTableSection
+          title="Projects"
+          icon={<BriefcaseIcon size={18} color={welcomeColors.accent} />}
+          count={recentProjects.count ?? undefined}
+          isExpanded={expandedSections.has('projects')}
+          onToggle={() => toggleSection('projects')}
+          onViewAllPress={() => navigation.navigate('Projects')}
+        >
+          <ProjectsTable
+            projects={recentProjects.items}
+            status={recentProjects.status}
+            onRetry={recentProjects.reload}
+            // TODO: open the project once its screen is designed.
+            onProjectPress={(project) => showComingSoon(project.name)}
+          />
+        </ExpandableTableSection>
 
         <ExpandableTableSection
           title="Invoices"

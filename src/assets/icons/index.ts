@@ -29,3 +29,5 @@ export * from './InfoIcon';
 export * from './WarningIcon';
 export * from './MoreVerticalIcon';
 export * from './CheckCircleOutlineIcon';
+export * from './CameraIcon';
+export * from './RulerIcon';

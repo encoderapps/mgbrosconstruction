@@ -132,6 +132,7 @@ export type AuthStackParamList = {
   /** The PO's current terms and total, so the screen can edit them without fetching the PO again. */
   ModifyPaymentTerms: { poId: string; totalAmount: number; paymentTerms: PurchaseOrderPaymentTerm[] };
   Invoices: undefined;
+  Projects: undefined;
   Documents: undefined;
   DocumentDetails: { documentType: ComplianceDocumentType };
   ApprovalNeeded: undefined;

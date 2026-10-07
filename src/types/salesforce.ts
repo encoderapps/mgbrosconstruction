@@ -321,3 +321,59 @@ export interface SubcontractorDocumentsApiResponse {
   message?: string;
   documents: SubcontractorDocumentGroupApiRecord[] | null;
 }
+
+/** A Salesforce compound address field, as in a project's jobAddress. */
+export interface SalesforceAddressApiRecord {
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  stateCode: string | null;
+  postalCode: string | null;
+  country: string | null;
+  countryCode: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  geocodeAccuracy: string | null;
+}
+
+/** One project from GET /projects/fetch/*. */
+export interface SubcontractorProjectApiRecord {
+  id: string;
+  /** The full job address, e.g. "930 Mountain View Avenue, Phoenix, AZ, 85016". */
+  name: string | null;
+  jobAddress: SalesforceAddressApiRecord | null;
+  /** e.g. "Created". */
+  status: string | null;
+  /** e.g. "Residential" or "Commercial". */
+  type: string | null;
+  typeOfProject: string | null;
+  description: string | null;
+  /** YYYY-MM-DD. */
+  startDate: string | null;
+  /** YYYY-MM-DD. */
+  finishDate: string | null;
+  /** YYYY-MM-DD. */
+  clientDeadline: string | null;
+  workingDays: number | null;
+  estimatedBudget: number | null;
+  clientAccountId: string | null;
+  contractorAccountId: string | null;
+  projectManagerId: string | null;
+  /** e.g. "MyProject". */
+  source: string | null;
+  // The project's files, behind the Projects screen's shortcut buttons. Their
+  // record shape isn't known yet (every sandbox project returns empty lists).
+  blueprint: unknown[] | null;
+  designPanel: unknown[] | null;
+  scans: unknown[] | null;
+  photos: unknown[] | null;
+}
+
+export interface SubcontractorProjectsApiResponse {
+  success: boolean;
+  message?: string;
+  accountId?: string;
+  /** The account's total number of projects. */
+  count: number | null;
+  projects: SubcontractorProjectApiRecord[] | null;
+}
