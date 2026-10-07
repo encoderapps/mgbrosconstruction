@@ -17,7 +17,7 @@ export function isValidTaxId(taxId: string): boolean {
   return TAX_ID_REGEX.test(taxId);
 }
 
-const VISIBLE_TAX_ID_DIGITS = 4;
+const VISIBLE_TAX_ID_DIGITS = 2;
 
 /**
  * Hides all but the last 4 digits of a Tax ID for display, keeping its dashes:
