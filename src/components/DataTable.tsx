@@ -1,7 +1,8 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LoadStatus } from '../hooks/useAsyncResource';
 import { fontFamily, welcomeColors } from '../theme';
+import { TableStatusMessage } from './TableStatusMessage';
 
 export interface DataTableColumn<Row> {
   key: string;
@@ -44,24 +45,8 @@ export function DataTable<Row>({
   errorText = 'Unable to load this list.',
   onRetry,
 }: DataTableProps<Row>): React.JSX.Element {
-  if (status === 'idle' || status === 'loading') {
-    return (
-      <View style={styles.message}>
-        <ActivityIndicator color={welcomeColors.accent} />
-      </View>
-    );
-  }
-  if (status === 'error') {
-    return (
-      <View style={styles.message}>
-        <Text style={styles.messageText}>{errorText}</Text>
-        {onRetry && (
-          <Pressable onPress={onRetry} hitSlop={8} accessibilityRole="button">
-            <Text style={styles.retryText}>Try again</Text>
-          </Pressable>
-        )}
-      </View>
-    );
+  if (status !== 'success') {
+    return <TableStatusMessage status={status} errorText={errorText} onRetry={onRetry} />;
   }
   return (
     <ScrollView
@@ -170,23 +155,6 @@ const styles = StyleSheet.create({
   },
   alignRight: {
     textAlign: 'right',
-  },
-  message: {
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 18,
-  },
-  messageText: {
-    fontFamily: fontFamily.regular,
-    fontWeight: '400',
-    fontSize: 12,
-    color: welcomeColors.textSecondary,
-  },
-  retryText: {
-    fontFamily: fontFamily.semiBold,
-    fontWeight: '600',
-    fontSize: 12,
-    color: welcomeColors.link,
   },
   emptyText: {
     fontFamily: fontFamily.regular,
