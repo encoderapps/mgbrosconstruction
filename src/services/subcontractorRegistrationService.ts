@@ -30,8 +30,8 @@ function buildApiPayload(
     service: params.company.service.join(';'),
     numberOfEmployees: params.company.numberOfEmployees,
 
-    federalTaxClassification: params.w9.federalTaxClassification,
-    taxIdentificationNumber: params.w9.taxIdentificationNumber,
+    taxClassification: params.w9.taxClassification,
+    taxId: params.w9.taxId,
     w9SignedDate: params.w9.w9SignedDate,
     w9FileName: params.w9.w9File.name,
     w9FileType: UPLOADED_FILE_TYPE,

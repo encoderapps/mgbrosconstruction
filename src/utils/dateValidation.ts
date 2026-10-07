@@ -13,6 +13,12 @@ export function toDateOnlyString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** "2026-09-29T20:21:34.000Z" → the device's calendar date, "2026-09-29"; null if missing or invalid. */
+export function timestampToLocalDate(timestamp: string | null | undefined): string | null {
+  const date = timestamp ? new Date(timestamp) : null;
+  return date && !Number.isNaN(date.getTime()) ? toDateOnlyString(date) : null;
+}
+
 /**
  * Parses "YYYY-MM-DD" as a LOCAL date. (`new Date("YYYY-MM-DD")` parses it as
  * UTC midnight, which is the previous day in timezones west of UTC.)

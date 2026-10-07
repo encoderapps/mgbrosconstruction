@@ -4,6 +4,7 @@ import { ChevronRightIcon, DocumentIcon, MoreVerticalIcon } from '../assets/icon
 import { fontFamily, portalColors, radius, welcomeColors } from '../theme';
 import { ComplianceDocumentFile } from '../types/document';
 import { formatShortDate } from '../utils/formatDate';
+import { formatFileSize } from '../utils/formatFileSize';
 import { AuthCard } from './AuthCard';
 
 type PreviousVersionsCardProps = {
@@ -55,17 +56,21 @@ function VersionRow({ version, onMenuPress }: VersionRowProps): React.JSX.Elemen
       </View>
       <View style={styles.info}>
         <Text style={styles.fileName}>{version.fileName}</Text>
-        <Text style={styles.detail}>
-          Uploaded on: <Text style={styles.value}>{formatShortDate(version.uploadedOn)}</Text>
-        </Text>
+        {!!version.uploadedOn && (
+          <Text style={styles.detail}>
+            Uploaded on: <Text style={styles.value}>{formatShortDate(version.uploadedOn)}</Text>
+          </Text>
+        )}
         {!!version.expirationDate && (
           <Text style={styles.detail}>
             Expires: <Text style={styles.value}>{formatShortDate(version.expirationDate)}</Text>
           </Text>
         )}
-        <Text style={styles.detail}>
-          File size: <Text style={styles.value}>{version.fileSizeKb} KB</Text>
-        </Text>
+        {version.fileSizeBytes !== null && (
+          <Text style={styles.detail}>
+            File size: <Text style={styles.value}>{formatFileSize(version.fileSizeBytes)}</Text>
+          </Text>
+        )}
       </View>
       <Pressable
         onPress={() => onMenuPress(version)}

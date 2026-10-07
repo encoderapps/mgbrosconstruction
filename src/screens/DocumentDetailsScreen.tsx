@@ -2,7 +2,9 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AuthCard } from '../components/AuthCard';
 import { CurrentDocumentCard } from '../components/CurrentDocumentCard';
+import { DocumentStatusMessage } from '../components/DocumentStatusMessage';
 import { HomeHeader } from '../components/HomeHeader';
 import { InfoNote } from '../components/InfoNote';
 import { LoadStateMessage } from '../components/LoadStateMessage';
@@ -15,7 +17,7 @@ import { useSubcontractorSession } from '../context/SubcontractorSessionContext'
 import { useComplianceDocuments } from '../hooks/useComplianceDocuments';
 import { ComplianceDocumentFile } from '../types/document';
 import { showComingSoon } from '../utils/comingSoon';
-import { isInsuranceCertificate } from '../utils/complianceDocument';
+import { getDocumentStatus, isInsuranceCertificate } from '../utils/complianceDocument';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'DocumentDetails'>;
 
@@ -43,10 +45,16 @@ export function DocumentDetailsScreen({ navigation, route }: Props): React.JSX.E
       return <Text style={styles.notFound}>This document could not be found.</Text>;
     }
 
-    const isCertificate = isInsuranceCertificate(document);
+    const isCertificate = isInsuranceCertificate(documentType);
     return (
       <>
-        <CurrentDocumentCard document={document} />
+        {document.current ? (
+          <CurrentDocumentCard type={documentType} file={document.current} />
+        ) : (
+          <AuthCard>
+            <DocumentStatusMessage status={getDocumentStatus(documentType, null)} />
+          </AuthCard>
+        )}
         {document.previousVersions.length > 0 && (
           <PreviousVersionsCard versions={document.previousVersions} onVersionMenuPress={openVersionMenu} />
         )}

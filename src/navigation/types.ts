@@ -32,8 +32,8 @@ export interface RegistrationFile {
 }
 
 export interface SubcontractorW9Data {
-  federalTaxClassification: string;
-  taxIdentificationNumber: string;
+  taxClassification: string;
+  taxId: string;
   w9SignedDate: string;
   w9File: RegistrationFile;
 }

@@ -41,8 +41,8 @@ export interface SubcontractorRegistrationApiPayload {
   service: string;
   numberOfEmployees: string;
 
-  federalTaxClassification: string;
-  taxIdentificationNumber: string;
+  taxClassification: string;
+  taxId: string;
   w9SignedDate: string;
   w9FileName: string;
   w9FileType: string;
@@ -254,4 +254,70 @@ export interface ForgotPasswordResponse {
   success: boolean;
   message: string;
   accountId: string | null;
+}
+
+/**
+ * One file record (a W9 or certificate of insurance) from GET /subcontractordocuments.
+ * Every record carries every field; those that don't apply to its type are null.
+ */
+export interface SubcontractorDocumentApiRecord {
+  id: string;
+  /** Salesforce record name, e.g. "Ext-File-0000000350". */
+  name: string | null;
+  /** "W9", "COI - General Liability" or "COI - Workers Comp". */
+  recordTypeName: string | null;
+  recordTypeId: string | null;
+  /** Whether this is the copy used for compliance. */
+  current: boolean | null;
+  /** ISO timestamp. */
+  createdDate: string | null;
+  description: string | null;
+
+  /** Without the extension, e.g. "W9 - ABC Construction Services". */
+  fileName: string | null;
+  fileExtension: string | null;
+  /** e.g. "Internal" (a Salesforce file). */
+  fileType: string | null;
+  /** Server-relative download path; null when no file is attached to the record. */
+  fileUrl: string | null;
+  /** An external link to the file, when it isn't stored in Salesforce. */
+  fileLink: string | null;
+  contentVersionId: string | null;
+  fileSizeBytes: number | null;
+  fileSizeKB: number | null;
+  /** ISO timestamp; null when no file has been uploaded. */
+  uploadedOn: string | null;
+  uploadedBy: string | null;
+
+  /** W9 only, e.g. "LLC". */
+  taxClassification: string | null;
+  /** W9 only: the unmasked EIN, e.g. "15-5468978". */
+  taxId: string | null;
+  /** YYYY-MM-DD; W9 only. */
+  signedDate: string | null;
+
+  /** Certificates only. */
+  insuranceCompanyName: string | null;
+  /** Certificates only. */
+  policyNumber: string | null;
+  /** General Liability: whether MG Bros is named as additional insured (false on other types). */
+  additionalInsured: boolean | null;
+  /** YYYY-MM-DD; certificates only. */
+  effectiveDate: string | null;
+  /** YYYY-MM-DD; certificates only. */
+  expirationDate: string | null;
+}
+
+/** All the records of one document type: "W9", "COI - General Liability" or "COI - Workers Comp". */
+export interface SubcontractorDocumentGroupApiRecord {
+  documentType: string | null;
+  currentDocument: SubcontractorDocumentApiRecord | null;
+  previousVersions: SubcontractorDocumentApiRecord[] | null;
+  allDocuments?: SubcontractorDocumentApiRecord[] | null;
+}
+
+export interface SubcontractorDocumentsApiResponse {
+  success: boolean;
+  message?: string;
+  documents: SubcontractorDocumentGroupApiRecord[] | null;
 }
