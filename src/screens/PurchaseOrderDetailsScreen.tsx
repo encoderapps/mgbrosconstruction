@@ -165,6 +165,7 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
               onOpenChangeOrder={(changeOrder) => showComingSoon(changeOrder.name || 'Change order')}
               onOpenInvoice={(invoice) => showComingSoon(invoice.name || 'Invoice')}
               onOpenDocument={() => navigation.navigate('PurchaseOrderSigning', { poId, poDate })}
+              onRetry={reload}
             />
           ) : (
             <View style={[styles.section, styles.totalSection]}>

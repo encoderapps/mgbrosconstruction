@@ -211,6 +211,45 @@ export interface SignPurchaseOrderApiResponse {
   message?: string | null;
 }
 
+/** POST /purchaseorderchangeorder request body. */
+export interface PurchaseOrderChangeOrdersApiPayload {
+  accountId: string;
+  poId: string;
+}
+
+export interface ChangeOrderApiRecord {
+  id: string;
+  /** e.g. "CO#01". */
+  changeOrderNo: string | null;
+  /** e.g. "Signed by Both Parties", "Draft". */
+  status: string | null;
+  description: string | null;
+  amount: number | string | null;
+}
+
+/** NOTE: field names not yet confirmed — every PO tested so far returned no invoices. */
+export interface PurchaseOrderInvoiceApiRecord {
+  id?: string;
+  invoiceNo?: string | null;
+  name?: string | null;
+  status?: string | null;
+  amount?: number | string | null;
+}
+
+export interface PurchaseOrderChangeOrdersApiResponse {
+  success: boolean;
+  message?: string | null;
+  poId?: string | null;
+  poName?: string | null;
+  status?: string | null;
+  poAmount?: number | null;
+  totalAmount?: number | null;
+  paidInvoiceAmount?: number | null;
+  balanceDue?: number | null;
+  changeOrders?: ChangeOrderApiRecord[] | null;
+  invoices?: PurchaseOrderInvoiceApiRecord[] | null;
+}
+
 export interface ForgotPasswordResponse {
   success: boolean;
   message: string;

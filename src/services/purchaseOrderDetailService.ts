@@ -7,16 +7,8 @@ import {
 import { PurchaseOrderDetail, PurchaseOrderLineItem, PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
 import { decodeHtmlEntities, htmlToPlainText } from '../utils/html';
 import { withCalculatedAmounts } from '../utils/paymentTerms';
+import { toNumber } from '../utils/toNumber';
 import { salesforceGet } from './salesforceClient';
-
-/** "100.00" / 100 → 100; anything unparseable → null. */
-function toNumber(value: number | string | null | undefined): number | null {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-  const number = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(number) ? number : null;
-}
 
 /**
  * The API sends paymentTerms as an HTML-escaped JSON string; accept a real
@@ -90,14 +82,13 @@ export async function fetchPurchaseOrderDetail(accountId: string, poId: string):
     totalAmount,
     lineItems,
     paymentTerms: withCalculatedAmounts(parsePaymentTerms(po.paymentTerms), totalAmount),
-    // NOTE: the detail API doesn't return these yet. Map them here once it does;
-    // the signed-PO screen and its totals already read them. Until then the PO
-    // date comes from the Purchase Orders list (see usePurchaseOrderDetail).
+    // NOTE: the detail API doesn't return these. usePurchaseOrderDetail adds the PO
+    // date (from the Purchase Orders list), the signing (from this device) and the
+    // change orders and invoices (from the change order API).
     poDate: null,
     signedDate: null,
-    // Added from this device's records by usePurchaseOrderDetail.
     vendorSignature: null,
-    changeOrders: [],
-    invoices: [],
+    changeOrders: null,
+    invoices: null,
   };
 }

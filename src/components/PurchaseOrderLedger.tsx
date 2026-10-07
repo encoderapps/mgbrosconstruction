@@ -18,6 +18,8 @@ type PurchaseOrderLedgerProps = {
   onOpenChangeOrder: (changeOrder: PurchaseOrderLedgerEntry) => void;
   onOpenInvoice: (invoice: PurchaseOrderLedgerEntry) => void;
   onOpenDocument: () => void;
+  /** Re-loads the PO when its change orders and invoices couldn't be loaded. */
+  onRetry: () => void;
 };
 
 type LedgerRow = PurchaseOrderLedgerEntry & { index: number };
@@ -65,6 +67,7 @@ export function PurchaseOrderLedger({
   onOpenChangeOrder,
   onOpenInvoice,
   onOpenDocument,
+  onRetry,
 }: PurchaseOrderLedgerProps): React.JSX.Element {
   const totals = calculatePurchaseOrderTotals(purchaseOrder);
   const documentName = ['PO', vendorName, purchaseOrder.projectAddress].filter(Boolean).join(' - ');
@@ -74,17 +77,23 @@ export function PurchaseOrderLedger({
       <AmountRow label="PO Amount" amount={totals.poAmount} actionLabel="Add Change Order" onAction={onAddChangeOrder} />
       <DataTable
         columns={ledgerColumns('Change Order', onOpenChangeOrder)}
-        rows={withIndex(purchaseOrder.changeOrders)}
+        rows={withIndex(purchaseOrder.changeOrders ?? [])}
         getRowKey={(entry) => entry.id}
         emptyText="No change orders for this purchase order."
+        status={purchaseOrder.changeOrders ? 'success' : 'error'}
+        errorText="Unable to load the change orders."
+        onRetry={onRetry}
       />
 
       <AmountRow label="Total Amount" amount={totals.totalAmount} actionLabel="Add Invoice" onAction={onAddInvoice} />
       <DataTable
         columns={ledgerColumns('Invoice', onOpenInvoice)}
-        rows={withIndex(purchaseOrder.invoices)}
+        rows={withIndex(purchaseOrder.invoices ?? [])}
         getRowKey={(entry) => entry.id}
         emptyText="No invoices for this purchase order."
+        status={purchaseOrder.invoices ? 'success' : 'error'}
+        errorText="Unable to load the invoices."
+        onRetry={onRetry}
       />
 
       <AmountRow label="Balance Due" amount={totals.balanceDue} />
@@ -111,7 +120,8 @@ function AmountRow({
   onAction,
 }: {
   label: string;
-  amount: number;
+  /** null when it can't be worked out (shown as a dash). */
+  amount: number | null;
   actionLabel?: string;
   onAction?: () => void;
 }): React.JSX.Element {
@@ -119,7 +129,7 @@ function AmountRow({
     <View style={[styles.section, styles.amountRow]}>
       <View style={styles.flex}>
         <Text style={styles.label}>{label}</Text>
-        <Text style={styles.amount}>{formatCurrency(amount, true)}</Text>
+        <Text style={styles.amount}>{amount === null ? EMPTY_VALUE : formatCurrency(amount, true)}</Text>
       </View>
       {actionLabel && onAction && (
         <Pressable

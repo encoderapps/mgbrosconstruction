@@ -34,6 +34,32 @@ describe('calculatePurchaseOrderTotals', () => {
     });
   });
 
+  it("has no total or balance when the change orders couldn't be loaded", () => {
+    expect(calculatePurchaseOrderTotals({ ...PO, changeOrders: null })).toEqual({
+      poAmount: 15750,
+      totalAmount: null,
+      balanceDue: null,
+    });
+    expect(calculatePurchaseOrderTotals({ ...PO, invoices: null })).toEqual({
+      poAmount: 15750,
+      totalAmount: 18250,
+      balanceDue: null,
+    });
+  });
+
+  it('counts "Signed by Both Parties" change orders but not drafts', () => {
+    const totals = calculatePurchaseOrderTotals({
+      ...PO,
+      totalAmount: 0,
+      changeOrders: [
+        { id: 'co1', name: 'CO#01', status: 'Signed by Both Parties', amount: 200 },
+        { id: 'co2', name: 'CO#02', status: 'Draft', amount: 500 },
+      ],
+      invoices: [],
+    });
+    expect(totals).toEqual({ poAmount: 0, totalAmount: 200, balanceDue: 200 });
+  });
+
   it("doesn't count unpaid invoices and keeps cents exact", () => {
     const totals = calculatePurchaseOrderTotals({
       ...PO,
