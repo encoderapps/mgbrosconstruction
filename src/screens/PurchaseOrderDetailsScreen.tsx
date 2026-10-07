@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   LayoutAnimation,
   Pressable,
   ScrollView,
@@ -31,6 +30,7 @@ import { useSubcontractorSession } from '../context/SubcontractorSessionContext'
 import { usePurchaseOrderDetail } from '../hooks/usePurchaseOrderDetail';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
+import { showComingSoon } from '../utils/comingSoon';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatUsDate } from '../utils/formatDate';
 import { isAwaitingSignature, isSigned } from '../utils/purchaseOrderStatus';
@@ -54,10 +54,6 @@ const PAYMENT_TERM_COLUMNS: DataTableColumn<PurchaseOrderPaymentTerm & { index: 
     getValue: (term) => (term.amount === null ? EMPTY_VALUE : formatCurrency(term.amount, true)),
   },
 ];
-
-function showComingSoon(feature: string): void {
-  Alert.alert(feature, `${feature} is coming soon.`);
-}
 
 /** A purchase order's review screen, opened from its name in a Purchase Orders table. */
 export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.JSX.Element {
