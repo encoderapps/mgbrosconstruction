@@ -64,6 +64,9 @@ export const portalColors = {
   headerBorder: '#E8E0D8',
   unreadBackground: '#F7F3EE',
   danger: '#D32F2F',
+  /** Stand-in document preview: the grey backdrop and the page's text lines. */
+  thumbnailBackground: '#E4E1DD',
+  thumbnailLine: '#CFCAC4',
 } as const;
 
 /** Foreground / background / border for status badges and notification icons. */

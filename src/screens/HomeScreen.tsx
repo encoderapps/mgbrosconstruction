@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
+import { CompanyCard } from '../components/CompanyCard';
 import { ContactsSection } from '../components/ContactsSection';
 import { HomeHeader } from '../components/HomeHeader';
 import { ExpandableTableSection } from '../components/ExpandableTableSection';
@@ -17,21 +18,15 @@ import {
   BriefcaseIcon,
   DocumentIcon,
   FolderIcon,
-  LocationIcon,
-  MailIcon,
-  PhoneIcon,
 } from '../assets/icons';
 import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
-import { EMPTY_VALUE } from '../constants/display';
 import { useContacts } from '../context/ContactsContext';
 import { useAccountList } from '../hooks/useAccountList';
 import { useLogout } from '../hooks/useLogout';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { fetchInvoices } from '../services/invoiceService';
 import { fetchPurchaseOrders } from '../services/purchaseOrderService';
-import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
-import { formatPhoneNumber } from '../utils/formatPhoneNumber';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Home'>;
 
@@ -39,6 +34,8 @@ type MenuItem = {
   key: string;
   label: string;
   icon: React.ReactNode;
+  /** The screen the row opens; rows without one aren't built yet. */
+  screen?: 'Documents';
 };
 
 // Contacts, Purchase Orders and Invoices are rendered separately since they
@@ -48,14 +45,18 @@ const MENU_ITEMS_BEFORE_INVOICES: MenuItem[] = [
   { key: 'projects', label: 'Projects', icon: <BriefcaseIcon size={18} color={welcomeColors.accent} /> },
 ];
 const MENU_ITEMS_AFTER_INVOICES: MenuItem[] = [
-  { key: 'documents', label: 'Documents', icon: <FolderIcon size={18} color={welcomeColors.accent} /> },
+  {
+    key: 'documents',
+    label: 'Documents',
+    icon: <FolderIcon size={18} color={welcomeColors.accent} />,
+    screen: 'Documents',
+  },
   { key: 'paymentSettings', label: 'Payment Settings', icon: <CardIcon size={18} color={welcomeColors.accent} /> },
 ];
 
 type ExpandableSection = 'contacts' | 'purchaseOrders' | 'invoices';
 
 export function HomeScreen({ navigation }: Props): React.JSX.Element {
-  const { company } = useSubcontractorSession();
   const { contacts } = useContacts();
   // Each section expands independently, so several can be open at once.
   const [expandedSections, setExpandedSections] = useState<ReadonlySet<ExpandableSection>>(new Set());
@@ -90,11 +91,16 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
     });
   };
 
-  const renderMenuItem = (item: MenuItem): React.JSX.Element => (
-    <Pressable key={item.key} hitSlop={4}>
+  const renderMenuItem = ({ key, label, icon, screen }: MenuItem): React.JSX.Element => (
+    <Pressable
+      key={key}
+      hitSlop={4}
+      onPress={screen && (() => navigation.navigate(screen))}
+      accessibilityRole="button"
+    >
       <AuthCard style={styles.menuCard}>
-        <View style={styles.menuIconWrapper}>{item.icon}</View>
-        <Text style={styles.menuLabel}>{item.label}</Text>
+        <View style={styles.menuIconWrapper}>{icon}</View>
+        <Text style={styles.menuLabel}>{label}</Text>
         <ChevronRightIcon size={16} color={welcomeColors.chevron} />
       </AuthCard>
     </Pressable>
@@ -104,31 +110,7 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <HomeHeader />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <AuthCard style={styles.companyCard}>
-          <Text style={styles.companyName}>{company?.name || EMPTY_VALUE}</Text>
-
-          <View style={styles.companyInfoRow}>
-            <View style={styles.companyInfoColumn}>
-              <View style={styles.companyInfoLine}>
-                <LocationIcon size={14} color={welcomeColors.link} />
-                <Text style={styles.companyInfoText}>{company?.address || EMPTY_VALUE}</Text>
-              </View>
-            </View>
-
-            <View style={styles.companyInfoColumn}>
-              <View style={styles.companyInfoLine}>
-                <MailIcon size={13} color={welcomeColors.link} />
-                <Text style={styles.companyInfoText}>{company?.email || EMPTY_VALUE}</Text>
-              </View>
-              <View style={styles.companyInfoLine}>
-                <PhoneIcon size={13} color={welcomeColors.link} />
-                <Text style={styles.companyInfoText}>
-                  {company?.phone ? formatPhoneNumber(company.phone) : EMPTY_VALUE}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </AuthCard>
+        <CompanyCard />
 
         <ContactsSection
           contacts={contacts}
@@ -188,37 +170,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
     gap: 12,
-  },
-  companyCard: {
-    alignItems: 'stretch',
-  },
-  companyName: {
-    fontFamily: fontFamily.bold,
-    fontWeight: '700',
-    fontSize: 16,
-    color: welcomeColors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  companyInfoRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  companyInfoColumn: {
-    flex: 1,
-    gap: 6,
-  },
-  companyInfoLine: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  companyInfoText: {
-    flex: 1,
-    fontFamily: fontFamily.regular,
-    fontWeight: '400',
-    fontSize: 11,
-    lineHeight: 16,
-    color: welcomeColors.link,
   },
   menuCard: {
     flexDirection: 'row',

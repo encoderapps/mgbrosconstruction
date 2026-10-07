@@ -25,3 +25,7 @@ export * from './CheckIcon';
 export * from './PlusIcon';
 export * from './ArrowLeftIcon';
 export * from './TrashIcon';
+export * from './InfoIcon';
+export * from './WarningIcon';
+export * from './MoreVerticalIcon';
+export * from './CheckCircleOutlineIcon';

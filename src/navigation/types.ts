@@ -2,6 +2,7 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 import type { CertificateTemplate } from '../services/certificateTemplateService';
 import type { SignatureFontId } from '../constants/signatureFonts';
 import type { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
+import type { ComplianceDocumentType } from '../types/document';
 
 export interface SubcontractorIdentityData {
   firstName: string;
@@ -131,6 +132,8 @@ export type AuthStackParamList = {
   /** The PO's current terms and total, so the screen can edit them without fetching the PO again. */
   ModifyPaymentTerms: { poId: string; totalAmount: number; paymentTerms: PurchaseOrderPaymentTerm[] };
   Invoices: undefined;
+  Documents: undefined;
+  DocumentDetails: { documentType: ComplianceDocumentType };
   ApprovalNeeded: undefined;
 };
 
