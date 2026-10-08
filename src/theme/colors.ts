@@ -75,6 +75,8 @@ export const toneColors = {
   info: { foreground: '#3B6FD4', background: '#E8EFFB', border: '#C5D6F5' },
   warning: { foreground: '#E69500', background: '#FFF6E5', border: '#FFD89A' },
   danger: { foreground: '#E5484D', background: '#FDECEC', border: '#F5C2C3' },
+  /** Not good or bad yet, e.g. a draft. */
+  neutral: { foreground: '#5F5852', background: '#F1EEEA', border: '#E0DAD3' },
 } as const;
 
 export type Tone = keyof typeof toneColors;

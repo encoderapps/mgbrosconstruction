@@ -32,6 +32,10 @@ import { PurchaseOrderDetailsScreen } from '../screens/PurchaseOrderDetailsScree
 import { PurchaseOrderSigningScreen } from '../screens/PurchaseOrderSigningScreen';
 import { ModifyPaymentTermsScreen } from '../screens/ModifyPaymentTermsScreen';
 import { InvoicesScreen } from '../screens/InvoicesScreen';
+import { BidsScreen } from '../screens/BidsScreen';
+import { BidDetailsScreen } from '../screens/BidDetailsScreen';
+import { AddBidLineItemScreen } from '../screens/AddBidLineItemScreen';
+import { CompleteBidScreen } from '../screens/CompleteBidScreen';
 import { ProjectsScreen } from '../screens/ProjectsScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { DocumentDetailsScreen } from '../screens/DocumentDetailsScreen';
@@ -75,6 +79,10 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="PurchaseOrderSigning" component={PurchaseOrderSigningScreen} />
       <Stack.Screen name="ModifyPaymentTerms" component={ModifyPaymentTermsScreen} />
       <Stack.Screen name="Invoices" component={InvoicesScreen} />
+      <Stack.Screen name="Bids" component={BidsScreen} />
+      <Stack.Screen name="BidDetails" component={BidDetailsScreen} />
+      <Stack.Screen name="AddBidLineItem" component={AddBidLineItemScreen} />
+      <Stack.Screen name="CompleteBid" component={CompleteBidScreen} />
       <Stack.Screen name="Projects" component={ProjectsScreen} />
       <Stack.Screen name="Documents" component={DocumentsScreen} />
       <Stack.Screen name="DocumentDetails" component={DocumentDetailsScreen} />

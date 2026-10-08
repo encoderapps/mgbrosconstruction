@@ -22,6 +22,8 @@ export interface DataTableColumn<Row> {
   getColor?: (row: Row) => string | undefined;
   /** Makes this column's cells tappable (e.g. the name opens the record). */
   onPress?: (row: Row) => void;
+  /** Custom cell content (e.g. a status pill) in place of the getValue text, which stays the accessible label. */
+  renderCell?: (row: Row) => React.ReactNode;
 }
 
 type DataTableProps<Row> = {
@@ -78,7 +80,15 @@ export function DataTable<Row>({
                 const { onPress } = column;
                 // Only override when a colour is given: `color: undefined` would wipe the cell's own colour.
                 const color = column.getColor?.(row);
-                const cell = (
+                const cell = column.renderCell ? (
+                  <View
+                    style={[styles.customCell, columnWidth(column), column.align === 'right' && styles.alignEnd]}
+                    accessible
+                    accessibilityLabel={column.getValue(row)}
+                  >
+                    {column.renderCell(row)}
+                  </View>
+                ) : (
                   <Text
                     style={[
                       styles.cellText,
@@ -155,6 +165,12 @@ const styles = StyleSheet.create({
   },
   alignRight: {
     textAlign: 'right',
+  },
+  customCell: {
+    alignItems: 'flex-start',
+  },
+  alignEnd: {
+    alignItems: 'flex-end',
   },
   emptyText: {
     fontFamily: fontFamily.regular,

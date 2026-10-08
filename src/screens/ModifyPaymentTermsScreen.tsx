@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeHeader } from '../components/HomeHeader';
@@ -10,6 +10,7 @@ import { PAYMENT_TERM_DESCRIPTION_OPTIONS } from '../constants/paymentTermOption
 import { fontFamily, portalColors, radius, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
+import { useBlockBackWhile } from '../hooks/useBlockBackWhile';
 import { modifyPaymentTerms } from '../services/paymentTermsService';
 import { PaymentTermUpdate, PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
 import {
@@ -72,16 +73,8 @@ export function ModifyPaymentTermsScreen({ navigation, route }: Props): React.JS
     };
   }, []);
 
-  // Don't let the user leave mid-save (Android back button, iOS swipe), so the
-  // review screen always receives the result.
-  useEffect(() => {
-    navigation.setOptions({ gestureEnabled: !isSaving });
-    if (!isSaving) {
-      return;
-    }
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => true);
-    return () => subscription.remove();
-  }, [isSaving, navigation]);
+  // Don't let the user leave mid-save, so the review screen always receives the result.
+  useBlockBackWhile(isSaving);
 
   const handleDescriptionChange = useCallback((key: string, description: string) => {
     setDrafts((current) => current.map((draft) => (draft.key === key ? { ...draft, description } : draft)));

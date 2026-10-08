@@ -132,6 +132,11 @@ export type AuthStackParamList = {
   /** The PO's current terms and total, so the screen can edit them without fetching the PO again. */
   ModifyPaymentTerms: { poId: string; totalAmount: number; paymentTerms: PurchaseOrderPaymentTerm[] };
   Invoices: undefined;
+  Bids: undefined;
+  BidDetails: { bidId: string };
+  /** bidNumber is only for the screen's title, so it needn't load the bid. */
+  AddBidLineItem: { bidId: string; bidNumber: string };
+  CompleteBid: { bidId: string; bidNumber: string };
   Projects: undefined;
   Documents: undefined;
   DocumentDetails: { documentType: ComplianceDocumentType };

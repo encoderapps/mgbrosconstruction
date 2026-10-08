@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
+import { BidsTable } from '../components/BidsTable';
 import { CompanyCard } from '../components/CompanyCard';
 import { ContactsSection } from '../components/ContactsSection';
 import { HomeHeader } from '../components/HomeHeader';
@@ -26,6 +27,8 @@ import { useContacts } from '../context/ContactsContext';
 import { useAccountList } from '../hooks/useAccountList';
 import { useLogout } from '../hooks/useLogout';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
+import { fetchBids } from '../services/bidService';
+import { Bid } from '../types/bid';
 import { fetchInvoices } from '../services/invoiceService';
 import { fetchPurchaseOrders } from '../services/purchaseOrderService';
 import { fetchSubcontractorProjects } from '../services/subcontractorProjectService';
@@ -41,11 +44,8 @@ type MenuItem = {
   screen?: 'Documents';
 };
 
-// Contacts, Purchase Orders, Projects and Invoices are rendered separately
-// since they expand in place; these are the plain menu rows around them.
-const MENU_ITEMS_BEFORE_PROJECTS: MenuItem[] = [
-  { key: 'bids', label: 'Bids', icon: <ClipboardCheckIcon size={18} color={welcomeColors.accent} /> },
-];
+// Contacts, Purchase Orders, Bids, Projects and Invoices are rendered
+// separately since they expand in place; these are the plain menu rows after them.
 const MENU_ITEMS_AFTER_INVOICES: MenuItem[] = [
   {
     key: 'documents',
@@ -56,7 +56,7 @@ const MENU_ITEMS_AFTER_INVOICES: MenuItem[] = [
   { key: 'paymentSettings', label: 'Payment Settings', icon: <CardIcon size={18} color={welcomeColors.accent} /> },
 ];
 
-type ExpandableSection = 'contacts' | 'purchaseOrders' | 'projects' | 'invoices';
+type ExpandableSection = 'contacts' | 'purchaseOrders' | 'bids' | 'projects' | 'invoices';
 
 export function HomeScreen({ navigation }: Props): React.JSX.Element {
   const { contacts } = useContacts();
@@ -65,10 +65,13 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
 
   // Each card loads its latest 5 when it's expanded (the APIs' home/recent views; Projects trims the full list).
   const recentPurchaseOrders = useAccountList(fetchPurchaseOrders, 'home', expandedSections.has('purchaseOrders'));
+  const recentBids = useAccountList(fetchBids, 'home', expandedSections.has('bids'));
   const recentProjects = useAccountList(fetchSubcontractorProjects, 'home', expandedSections.has('projects'));
   const recentInvoices = useAccountList(fetchInvoices, 'recent', expandedSections.has('invoices'));
-  // A PO opened from here may have been signed or changed since.
+  // A PO opened from here may have been signed or changed since; a bid may have a new total or be completed.
   useRefreshOnReturn(recentPurchaseOrders.refresh);
+  useRefreshOnReturn(recentBids.refresh);
+  const openBid = useCallback((bid: Bid) => navigation.navigate('BidDetails', { bidId: bid.id }), [navigation]);
 
   // Home is the first screen after login (the login screens are gone from the
   // stack), so Android's back button would close the app: offer to log out instead.
@@ -139,7 +142,22 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
           />
         </ExpandableTableSection>
 
-        {MENU_ITEMS_BEFORE_PROJECTS.map(renderMenuItem)}
+        <ExpandableTableSection
+          title="Bids"
+          icon={<ClipboardCheckIcon size={18} color={welcomeColors.accent} />}
+          count={recentBids.count ?? undefined}
+          isExpanded={expandedSections.has('bids')}
+          onToggle={() => toggleSection('bids')}
+          onViewAllPress={() => navigation.navigate('Bids')}
+        >
+          <BidsTable
+            bids={recentBids.items}
+            status={recentBids.status}
+            onRetry={recentBids.reload}
+            variant="preview"
+            onBidPress={openBid}
+          />
+        </ExpandableTableSection>
 
         <ExpandableTableSection
           title="Projects"

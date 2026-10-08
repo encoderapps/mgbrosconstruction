@@ -1,8 +1,9 @@
 import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraIcon, ChevronRightIcon, DocumentIcon, FolderIcon, RulerIcon } from '../assets/icons';
-import { fontFamily, radius, welcomeColors } from '../theme';
+import { fontFamily, welcomeColors } from '../theme';
 import { SubcontractorProject } from '../types/subcontractorProject';
+import { ActionChip } from './ActionChip';
 import { AuthCard } from './AuthCard';
 
 export type ProjectAction = 'blueprint' | 'designPanel' | 'scans' | 'photos';
@@ -15,10 +16,8 @@ export const PROJECT_ACTION_LABELS: Record<ProjectAction, string> = {
   photos: 'Photos',
 };
 
-type IconComponent = (props: { size?: number; color?: string }) => React.JSX.Element;
-
 /** The shortcut buttons, in display order. */
-const ACTIONS: readonly { key: ProjectAction; Icon: IconComponent }[] = [
+const ACTIONS: readonly { key: ProjectAction; Icon: React.ComponentProps<typeof ActionChip>['Icon'] }[] = [
   { key: 'blueprint', Icon: DocumentIcon },
   { key: 'designPanel', Icon: RulerIcon },
   { key: 'scans', Icon: DocumentIcon },
@@ -60,19 +59,13 @@ export const SubcontractorProjectCard = memo(function SubcontractorProjectCardVi
 
       <View style={styles.actions}>
         {ACTIONS.map(({ key, Icon }) => (
-          <Pressable
+          <ActionChip
             key={key}
+            label={PROJECT_ACTION_LABELS[key]}
+            Icon={Icon}
             onPress={() => onAction(project, key)}
-            hitSlop={4}
-            style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-            accessibilityRole="button"
             accessibilityLabel={`${PROJECT_ACTION_LABELS[key]}, ${project.name}`}
-          >
-            <Icon size={11} color={welcomeColors.accent} />
-            <Text style={styles.actionText} numberOfLines={1}>
-              {PROJECT_ACTION_LABELS[key]}
-            </Text>
-          </Pressable>
+          />
         ))}
       </View>
     </AuthCard>
@@ -112,22 +105,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderColor: welcomeColors.accent,
-    borderRadius: radius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 5,
-  },
-  actionText: {
-    fontFamily: fontFamily.medium,
-    fontWeight: '500',
-    fontSize: 10,
-    color: welcomeColors.textPrimary,
   },
   pressed: {
     opacity: 0.7,
