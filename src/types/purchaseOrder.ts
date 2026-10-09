@@ -52,6 +52,8 @@ export interface PurchaseOrderLedgerEntry {
   name: string;
   status: string;
   amount: number;
+  /** Change orders only, e.g. "Labor and Material are included". */
+  description?: string;
 }
 
 export interface PurchaseOrderDetail {

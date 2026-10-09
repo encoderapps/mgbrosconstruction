@@ -30,11 +30,14 @@ import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { PurchaseOrderDetailsScreen } from '../screens/PurchaseOrderDetailsScreen';
 import { PurchaseOrderSigningScreen } from '../screens/PurchaseOrderSigningScreen';
+import { ChangeOrderDetailsScreen } from '../screens/ChangeOrderDetailsScreen';
+import { AddChangeOrderItemScreen } from '../screens/AddChangeOrderItemScreen';
 import { ModifyPaymentTermsScreen } from '../screens/ModifyPaymentTermsScreen';
 import { InvoicesScreen } from '../screens/InvoicesScreen';
 import { ProjectsScreen } from '../screens/ProjectsScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { DocumentDetailsScreen } from '../screens/DocumentDetailsScreen';
+import { DocumentViewerScreen } from '../screens/DocumentViewerScreen';
 import { ApprovalNeededScreen } from '../screens/ApprovalNeededScreen';
 import { TemplatePreviewScreen } from '../screens/TemplatePreviewScreen';
 
@@ -73,11 +76,14 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="PurchaseOrderDetails" component={PurchaseOrderDetailsScreen} />
       <Stack.Screen name="PurchaseOrderSigning" component={PurchaseOrderSigningScreen} />
+      <Stack.Screen name="ChangeOrderDetails" component={ChangeOrderDetailsScreen} />
+      <Stack.Screen name="AddChangeOrderItem" component={AddChangeOrderItemScreen} />
       <Stack.Screen name="ModifyPaymentTerms" component={ModifyPaymentTermsScreen} />
       <Stack.Screen name="Invoices" component={InvoicesScreen} />
       <Stack.Screen name="Projects" component={ProjectsScreen} />
       <Stack.Screen name="Documents" component={DocumentsScreen} />
       <Stack.Screen name="DocumentDetails" component={DocumentDetailsScreen} />
+      <Stack.Screen name="DocumentViewer" component={DocumentViewerScreen} />
       <Stack.Screen name="ApprovalNeeded" component={ApprovalNeededScreen} />
       <Stack.Screen name="TemplatePreview" component={TemplatePreviewScreen} />
     </Stack.Navigator>

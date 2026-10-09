@@ -1,6 +1,5 @@
 import { Project, ProjectDetails } from '../types/project';
 import { Task } from '../types/task';
-import { Contact } from '../types/contact';
 import { AppNotification } from '../types/notification';
 
 /**
@@ -72,36 +71,6 @@ export const MOCK_PROJECT_DETAILS: Record<string, ProjectDetails> = Object.fromE
     },
   ]),
 );
-
-/** Seed contacts for the Home screen Contacts section until a contacts API exists. */
-export const MOCK_CONTACTS: Contact[] = [
-  {
-    id: 'c1',
-    salutation: 'Mr.',
-    firstName: 'John',
-    middleName: '',
-    lastName: 'Smith',
-    suffix: '',
-    contactOwner: '',
-    address: '123 Main St, Chicago, IL 60601',
-    phone: '(312) 555-1234',
-    email: 'john@email.com',
-    role: 'Manager',
-  },
-  {
-    id: 'c2',
-    salutation: 'Ms.',
-    firstName: 'Jane',
-    middleName: '',
-    lastName: 'Doe',
-    suffix: '',
-    contactOwner: '',
-    address: '450 Oak Ave, Evanston, IL 60201',
-    phone: '(224) 619-6823',
-    email: 'jane@email.com',
-    role: 'Estimator',
-  },
-];
 
 export const MOCK_TASKS: Task[] = [
   {

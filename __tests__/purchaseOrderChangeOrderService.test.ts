@@ -24,7 +24,13 @@ const RESPONSE = {
   message: 'Purchase Order details fetched successfully.',
   invoices: [],
   changeOrders: [
-    { status: 'Signed by Both Parties', id: 'a1uQL00000J9OxpYAF', description: null, changeOrderNo: 'CO#01', amount: 200.0 },
+    {
+      status: 'Signed by Both Parties',
+      id: 'a1uQL00000J9OxpYAF',
+      description: ' Labor and Material are included ',
+      changeOrderNo: 'CO#01',
+      amount: 200.0,
+    },
     { status: 'Draft', id: 'a1uQL00000JJlRhYAL', description: null, changeOrderNo: 'CO#02', amount: 500.0 },
   ],
   changeOrderDetail: null,
@@ -45,8 +51,14 @@ describe('fetchPurchaseOrderChangeOrders', () => {
 
     await expect(fetchPurchaseOrderChangeOrders(ACCOUNT_ID, PO_ID)).resolves.toEqual({
       changeOrders: [
-        { id: 'a1uQL00000J9OxpYAF', name: 'CO#01', status: 'Signed by Both Parties', amount: 200 },
-        { id: 'a1uQL00000JJlRhYAL', name: 'CO#02', status: 'Draft', amount: 500 },
+        {
+          id: 'a1uQL00000J9OxpYAF',
+          name: 'CO#01',
+          status: 'Signed by Both Parties',
+          amount: 200,
+          description: 'Labor and Material are included',
+        },
+        { id: 'a1uQL00000JJlRhYAL', name: 'CO#02', status: 'Draft', amount: 500, description: '' },
       ],
       invoices: [],
     });
@@ -69,7 +81,7 @@ describe('fetchPurchaseOrderChangeOrders', () => {
     });
 
     await expect(fetchPurchaseOrderChangeOrders(ACCOUNT_ID, PO_ID)).resolves.toEqual({
-      changeOrders: [{ id: 'change-order-0', name: '', status: '', amount: 75.5 }],
+      changeOrders: [{ id: 'change-order-0', name: '', status: '', amount: 75.5, description: '' }],
       invoices: [],
     });
   });

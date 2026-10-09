@@ -2,6 +2,7 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 import type { CertificateTemplate } from '../services/certificateTemplateService';
 import type { SignatureFontId } from '../constants/signatureFonts';
 import type { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
+import type { ChangeOrderSummary } from '../types/changeOrder';
 import type { ComplianceDocumentType } from '../types/document';
 
 export interface SubcontractorIdentityData {
@@ -129,12 +130,17 @@ export type AuthStackParamList = {
     signedDate?: string;
   };
   PurchaseOrderSigning: { poId: string; poDate?: string };
+  /** The change order as listed on its PO, so the screen can show it without fetching the PO's change orders again. */
+  ChangeOrderDetails: { poId: string; changeOrder: ChangeOrderSummary };
+  AddChangeOrderItem: { poId: string; changeOrder: ChangeOrderSummary };
   /** The PO's current terms and total, so the screen can edit them without fetching the PO again. */
   ModifyPaymentTerms: { poId: string; totalAmount: number; paymentTerms: PurchaseOrderPaymentTerm[] };
   Invoices: undefined;
   Projects: undefined;
   Documents: undefined;
   DocumentDetails: { documentType: ComplianceDocumentType };
+  /** A document already written to the cache (path), so the viewer never handles the base64 itself. */
+  DocumentViewer: { fileName: string; path: string };
   ApprovalNeeded: undefined;
 };
 

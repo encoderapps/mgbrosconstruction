@@ -4,8 +4,11 @@ import { PurchaseOrder } from '../types/purchaseOrder';
 import { formatCurrency } from '../utils/formatCurrency';
 import { DataTable, DataTableColumn } from './DataTable';
 
-function getColumns(onOrderPress: (order: PurchaseOrder) => void): DataTableColumn<PurchaseOrder>[] {
-  return [
+function getColumns(
+  onOrderPress: (order: PurchaseOrder) => void,
+  showStatus: boolean,
+): DataTableColumn<PurchaseOrder>[] {
+  const columns: DataTableColumn<PurchaseOrder>[] = [
     {
       key: 'name',
       label: 'Name',
@@ -23,6 +26,7 @@ function getColumns(onOrderPress: (order: PurchaseOrder) => void): DataTableColu
     },
     { key: 'vendor', label: 'Vendor', width: 160, grow: true, getValue: (order) => order.vendor },
   ];
+  return showStatus ? columns : columns.filter((column) => column.key !== 'status');
 }
 
 type PurchaseOrdersTableProps = {
@@ -31,6 +35,8 @@ type PurchaseOrdersTableProps = {
   onRetry: () => void;
   /** Tapping a purchase order's name opens its details. */
   onOrderPress: (order: PurchaseOrder) => void;
+  /** Off when the table already sits under its status, e.g. on the Purchase Orders screen. */
+  showStatus?: boolean;
 };
 
 export function PurchaseOrdersTable({
@@ -38,8 +44,9 @@ export function PurchaseOrdersTable({
   status,
   onRetry,
   onOrderPress,
+  showStatus = true,
 }: PurchaseOrdersTableProps): React.JSX.Element {
-  const columns = useMemo(() => getColumns(onOrderPress), [onOrderPress]);
+  const columns = useMemo(() => getColumns(onOrderPress, showStatus), [onOrderPress, showStatus]);
   return (
     <DataTable
       columns={columns}

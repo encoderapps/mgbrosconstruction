@@ -95,12 +95,13 @@ export type InvoicesView = 'recent' | 'all';
 
 /** One invoice as returned by the invoices API (field names not yet confirmed). */
 export interface InvoiceApiRecord {
-  id?: string;
-  invoiceId?: string;
-  company?: string;
-  toFrom?: string;
-  status?: string;
-  vendorNumber?: string;
+  id?: string | null;
+  invoiceId?: string | null;
+  invoiceNumber?: string | null;
+  vendorInvoiceNumber?: string | null;
+  /** Salesforce may send amounts as text, e.g. "1000.00". */
+  amount?: number | string | null;
+  status?: string | null;
 }
 
 export interface InvoicesApiResponse {
@@ -215,6 +216,36 @@ export interface SignPurchaseOrderApiResponse {
 export interface PurchaseOrderChangeOrdersApiPayload {
   accountId: string;
   poId: string;
+  /** Adds that change order's items etc. to the response, as changeOrderDetail. */
+  changeOrderId?: string;
+}
+
+/** One item of a change order, in changeOrderDetail. */
+export interface ChangeOrderDetailItemApiRecord {
+  id: string;
+  /** Rich text, e.g. "<p>Air conditioning not responding</p>". */
+  description: string | null;
+  qty: number | string | null;
+  unitPrice: number | string | null;
+  cost: number | string | null;
+  /** e.g. "Service". */
+  productOrServices: string | null;
+  /** e.g. "HVAC Service". */
+  categoryName: string | null;
+  serviceCategoryId: string | null;
+}
+
+/** The change order asked for with changeOrderId. */
+export interface ChangeOrderDetailApiRecord {
+  id: string;
+  changeOrderNo: string | null;
+  status: string | null;
+  description: string | null;
+  amount: number | string | null;
+  cost: number | string | null;
+  markup: number | string | null;
+  destinationPrice: number | string | null;
+  items: ChangeOrderDetailItemApiRecord[] | null;
 }
 
 export interface ChangeOrderApiRecord {
@@ -248,6 +279,8 @@ export interface PurchaseOrderChangeOrdersApiResponse {
   balanceDue?: number | null;
   changeOrders?: ChangeOrderApiRecord[] | null;
   invoices?: PurchaseOrderInvoiceApiRecord[] | null;
+  /** Only when the request names a changeOrderId. */
+  changeOrderDetail?: ChangeOrderDetailApiRecord | null;
 }
 
 export interface ForgotPasswordResponse {
@@ -283,6 +316,8 @@ export interface SubcontractorDocumentApiRecord {
   /** An external link to the file, when it isn't stored in Salesforce. */
   fileLink: string | null;
   contentVersionId: string | null;
+  /** The file itself, base64-encoded; null when no file is attached. */
+  fileContentBase64: string | null;
   fileSizeBytes: number | null;
   fileSizeKB: number | null;
   /** ISO timestamp; null when no file has been uploaded. */
@@ -376,4 +411,34 @@ export interface SubcontractorProjectsApiResponse {
   /** The account's total number of projects. */
   count: number | null;
   projects: SubcontractorProjectApiRecord[] | null;
+}
+
+/** One contact from GET /getcontact/*. */
+export interface ContactApiRecord {
+  contactId: string;
+  /** Full name, e.g. "Peter Grace williams". */
+  contactName: string | null;
+  salutation: string | null;
+  firstName: string | null;
+  middleName: string | null;
+  lastName: string | null;
+  suffix: string | null;
+  email: string | null;
+  phone: string | null;
+  /** One line, e.g. "456 Industrial Area, Jaipur, Rajasthan". */
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
+  accountId: string | null;
+  accountName: string | null;
+}
+
+export interface ContactsApiResponse {
+  success: boolean;
+  message?: string;
+  accountId?: string;
+  totalContacts?: number | null;
+  contacts: ContactApiRecord[] | null;
 }

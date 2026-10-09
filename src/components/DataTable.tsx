@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LoadStatus } from '../hooks/useAsyncResource';
+import { EMPTY_VALUE } from '../constants/display';
 import { fontFamily, welcomeColors } from '../theme';
 import { TableStatusMessage } from './TableStatusMessage';
 
@@ -17,6 +18,7 @@ export interface DataTableColumn<Row> {
   align?: 'left' | 'right';
   /** Shown in the link style (blue, medium weight), like a record name. */
   isLink?: boolean;
+  /** The cell's text; an empty or blank value shows as a dash. */
   getValue: (row: Row) => string;
   /** Text colour for this column's cell in `row` (e.g. green for "Signed"); the default when undefined. */
   getColor?: (row: Row) => string | undefined;
@@ -89,7 +91,7 @@ export function DataTable<Row>({
                     ]}
                     numberOfLines={1}
                   >
-                    {column.getValue(row)}
+                    {column.getValue(row).trim() || EMPTY_VALUE}
                   </Text>
                 );
                 return onPress ? (

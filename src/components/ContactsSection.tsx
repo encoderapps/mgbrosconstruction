@@ -6,10 +6,14 @@ import { Contact } from '../types/contact';
 import { EMPTY_VALUE } from '../constants/display';
 import { formatPhoneNumber } from '../utils/formatPhoneNumber';
 import { getInitials } from '../utils/signature';
+import { LoadStatus } from '../hooks/useAsyncResource';
 import { AuthCard } from './AuthCard';
+import { TableStatusMessage } from './TableStatusMessage';
 
 type ContactsSectionProps = {
   contacts: Contact[];
+  status: LoadStatus;
+  onRetry: () => void;
   isExpanded: boolean;
   onToggle: () => void;
   onAddPress: () => void;
@@ -23,6 +27,8 @@ export function getContactDisplayName(contact: Contact): string {
 /** Home screen Contacts card: collapsed it's a menu row; expanded it shows the contacts table. */
 export function ContactsSection({
   contacts,
+  status,
+  onRetry,
   isExpanded,
   onToggle,
   onAddPress,
@@ -58,7 +64,15 @@ export function ContactsSection({
         </View>
       </Pressable>
 
-      {isExpanded && <ContactList contacts={contacts} onContactPress={onContactPress} />}
+      {isExpanded &&
+        // A list already on screen stays while it refreshes or if a refresh fails.
+        (contacts.length === 0 && status !== 'success' ? (
+          <View style={styles.table}>
+            <TableStatusMessage status={status} errorText="Unable to load contacts." onRetry={onRetry} />
+          </View>
+        ) : (
+          <ContactList contacts={contacts} onContactPress={onContactPress} />
+        ))}
     </AuthCard>
   );
 }

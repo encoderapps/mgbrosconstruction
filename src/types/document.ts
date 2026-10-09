@@ -10,6 +10,8 @@ export interface ComplianceDocumentFile {
   fileName: string;
   /** Server-relative download path; null when the record has no file attached yet. */
   fileUrl: string | null;
+  /** The PDF itself, base64-encoded, for viewing and saving; null when the API didn't send it. */
+  contentBase64: string | null;
   fileSizeBytes: number | null;
   /** The device's local date of the upload; null when nothing has been uploaded. */
   uploadedOn: string | null;

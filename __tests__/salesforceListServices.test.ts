@@ -84,6 +84,25 @@ describe('fetchInvoices', () => {
     });
     expect(result).toEqual({ items: [], count: 55 });
   });
+
+  it('maps each invoice, reading text amounts and leaving missing values empty (shown as a dash)', async () => {
+    mockedGet.mockResolvedValue({
+      success: true,
+      view: 'all',
+      totalInvoices: 2,
+      invoices: [
+        { invoiceId: 'a0n1', invoiceNumber: 'INV-000004645', vendorInvoiceNumber: 'V-77', amount: '1000.00', status: 'New' },
+        { id: 'a0n2', invoiceNumber: null, vendorInvoiceNumber: null, amount: null, status: null },
+      ],
+    });
+
+    const { items } = await fetchInvoices('001ACCOUNT', 'all');
+
+    expect(items).toEqual([
+      { id: 'a0n1', invoiceNumber: 'INV-000004645', vendorInvoiceNumber: 'V-77', amount: 1000, status: 'New' },
+      { id: 'a0n2', invoiceNumber: '', vendorInvoiceNumber: '', amount: null, status: '' },
+    ]);
+  });
 });
 
 describe('fetchPurchaseOrderDetail', () => {

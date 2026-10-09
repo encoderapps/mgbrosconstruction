@@ -44,6 +44,7 @@ function toComplianceDocumentFile(record: SubcontractorDocumentApiRecord): Compl
     recordName: record.name?.trim() || record.id,
     fileName: toFileName(record),
     fileUrl: record.fileUrl || null,
+    contentBase64: record.fileContentBase64?.trim() || null,
     fileSizeBytes: toFileSizeBytes(record),
     uploadedOn: timestampToLocalDate(record.uploadedOn),
     uploadedBy: record.uploadedBy?.trim() || null,
