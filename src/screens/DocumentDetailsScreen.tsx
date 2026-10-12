@@ -15,8 +15,7 @@ import { AuthStackParamList } from '../navigation/types';
 import { COMPLIANCE_DOCUMENT_INFO } from '../constants/complianceDocuments';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { useComplianceDocuments } from '../hooks/useComplianceDocuments';
-import { ComplianceDocumentFile } from '../types/document';
-import { showComingSoon } from '../utils/comingSoon';
+import { useDocumentFileActions } from '../hooks/useDocumentFileActions';
 import { getDocumentStatus, isInsuranceCertificate } from '../utils/complianceDocument';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'DocumentDetails'>;
@@ -30,9 +29,7 @@ export function DocumentDetailsScreen({ navigation, route }: Props): React.JSX.E
 
   const pageTitle = [COMPLIANCE_DOCUMENT_INFO[documentType].label, companyName].filter(Boolean).join(' - ');
 
-  const openVersionMenu = (version: ComplianceDocumentFile): void => {
-    showComingSoon(version.fileName);
-  };
+  const { busyFileId, openFile, downloadFile } = useDocumentFileActions();
 
   const renderBody = (): React.JSX.Element => {
     if (status === 'error') {
@@ -49,14 +46,26 @@ export function DocumentDetailsScreen({ navigation, route }: Props): React.JSX.E
     return (
       <>
         {document.current ? (
-          <CurrentDocumentCard type={documentType} file={document.current} />
+          <CurrentDocumentCard
+            type={documentType}
+            file={document.current}
+            isBusy={busyFileId === document.current.id}
+            isDisabled={busyFileId !== null}
+            onOpen={openFile}
+            onDownload={downloadFile}
+          />
         ) : (
           <AuthCard>
             <DocumentStatusMessage status={getDocumentStatus(documentType, null)} />
           </AuthCard>
         )}
         {document.previousVersions.length > 0 && (
-          <PreviousVersionsCard versions={document.previousVersions} onVersionMenuPress={openVersionMenu} />
+          <PreviousVersionsCard
+            versions={document.previousVersions}
+            busyFileId={busyFileId}
+            onOpen={openFile}
+            onDownload={downloadFile}
+          />
         )}
         <InfoNote>
           {isCertificate

@@ -22,6 +22,7 @@ function toChangeOrder(record: ChangeOrderApiRecord, index: number): PurchaseOrd
     name: record.changeOrderNo ?? '',
     status: record.status ?? '',
     amount: toNumber(record.amount) ?? 0,
+    description: record.description?.trim() ?? '',
   };
 }
 

@@ -24,6 +24,8 @@ export const SALESFORCE_CHECK_EXISTING_EMAIL_URL = `${SALESFORCE_INSTANCE_URL}/s
 export const SALESFORCE_SUBCONTRACTOR_LOGIN_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorlogin`;
 export const SALESFORCE_FORGOT_PASSWORD_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorforgotpassword`;
 export const SALESFORCE_CONTACT_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/contact`;
+// The trailing "*" is part of the Apex REST URL mapping (/getcontact/*).
+export const SALESFORCE_GET_CONTACTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/getcontact/*`;
 export const SALESFORCE_INVOICES_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/invoices/fetch`;
 export const SALESFORCE_PURCHASE_ORDERS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/purchaseorders`;
 export const SALESFORCE_PURCHASE_ORDER_DETAIL_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/purchaseorderdetail`;

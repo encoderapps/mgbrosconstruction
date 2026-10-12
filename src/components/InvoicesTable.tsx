@@ -1,19 +1,32 @@
 import React from 'react';
 import { LoadStatus } from '../hooks/useAsyncResource';
 import { Invoice } from '../types/invoice';
+import { formatCurrency } from '../utils/formatCurrency';
 import { DataTable, DataTableColumn } from './DataTable';
 
 const COLUMNS: DataTableColumn<Invoice>[] = [
-  { key: 'company', label: 'Company', width: 96, isLink: true, getValue: (invoice) => invoice.company },
-  { key: 'toFrom', label: 'To/From', width: 104, grow: true, getValue: (invoice) => invoice.toFrom },
-  { key: 'status', label: 'Status', width: 88, align: 'right', getValue: (invoice) => invoice.status },
   {
-    key: 'vendorNumber',
-    label: 'Vendor Number',
+    key: 'invoiceNumber',
+    label: 'Invoice Number',
     width: 92,
-    align: 'right',
-    getValue: (invoice) => invoice.vendorNumber,
+    align: 'left',
+    getValue: (invoice) => invoice.invoiceNumber,
   },
+  {
+    key: 'vendorInvoiceNumber',
+    label: 'Vendor Invoice Number',
+    width: 125,
+    align: 'left',
+    getValue: (invoice) => invoice.vendorInvoiceNumber,
+  },
+  {
+    key: 'amount',
+    label: 'Amount',
+    width: 92,
+    align: 'left',
+    getValue: (invoice) => (invoice.amount === null ? '' : formatCurrency(invoice.amount, true)),
+  },
+  { key: 'status', label: 'Status', width: 88, align: 'left', getValue: (invoice) => invoice.status },
 ];
 
 type InvoicesTableProps = {

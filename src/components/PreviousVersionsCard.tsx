@@ -1,19 +1,28 @@
 import React, { useState } from 'react';
-import { LayoutAnimation, Pressable, StyleSheet, Text, View } from 'react-native';
-import { ChevronRightIcon, DocumentIcon, MoreVerticalIcon } from '../assets/icons';
+import { ActivityIndicator, LayoutAnimation, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ChevronRightIcon, DocumentIcon, DownloadIcon } from '../assets/icons';
 import { fontFamily, portalColors, radius, welcomeColors } from '../theme';
 import { ComplianceDocumentFile } from '../types/document';
 import { formatShortDate } from '../utils/formatDate';
 import { formatFileSize } from '../utils/formatFileSize';
 import { AuthCard } from './AuthCard';
 
-type PreviousVersionsCardProps = {
-  versions: ComplianceDocumentFile[];
-  onVersionMenuPress: (version: ComplianceDocumentFile) => void;
+type FileHandlers = {
+  /** The file being opened or saved; every file's buttons wait for it. */
+  busyFileId: string | null;
+  onOpen: (version: ComplianceDocumentFile) => void;
+  onDownload: (version: ComplianceDocumentFile) => void;
 };
 
-/** A document's older copies, newest first, in a card that collapses to its header. */
-export function PreviousVersionsCard({ versions, onVersionMenuPress }: PreviousVersionsCardProps): React.JSX.Element {
+type PreviousVersionsCardProps = FileHandlers & {
+  versions: ComplianceDocumentFile[];
+};
+
+/**
+ * A document's older copies, newest first, in a card that collapses to its
+ * header. Tapping a copy opens its PDF; its download button saves it.
+ */
+export function PreviousVersionsCard({ versions, ...handlers }: PreviousVersionsCardProps): React.JSX.Element {
   const [isExpanded, setIsExpanded] = useState(true);
 
   const toggle = (): void => {
@@ -36,21 +45,28 @@ export function PreviousVersionsCard({ versions, onVersionMenuPress }: PreviousV
       </Pressable>
 
       {isExpanded &&
-        versions.map((version) => (
-          <VersionRow key={version.id} version={version} onMenuPress={onVersionMenuPress} />
-        ))}
+        versions.map((version) => <VersionRow key={version.id} version={version} {...handlers} />)}
     </AuthCard>
   );
 }
 
-type VersionRowProps = {
+type VersionRowProps = FileHandlers & {
   version: ComplianceDocumentFile;
-  onMenuPress: (version: ComplianceDocumentFile) => void;
 };
 
-function VersionRow({ version, onMenuPress }: VersionRowProps): React.JSX.Element {
+function VersionRow({ version, busyFileId, onOpen, onDownload }: VersionRowProps): React.JSX.Element {
+  const hasFile = !!version.contentBase64;
+  const isBusy = busyFileId === version.id;
+  const isDisabled = busyFileId !== null;
+
   return (
-    <View style={styles.row}>
+    <Pressable
+      onPress={() => onOpen(version)}
+      disabled={!hasFile || isDisabled}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      accessibilityRole={hasFile ? 'button' : undefined}
+      accessibilityLabel={hasFile ? `Open ${version.fileName}` : undefined}
+    >
       <View style={styles.iconWrapper}>
         <DocumentIcon size={20} color={welcomeColors.accent} />
       </View>
@@ -66,22 +82,34 @@ function VersionRow({ version, onMenuPress }: VersionRowProps): React.JSX.Elemen
             Expires: <Text style={styles.value}>{formatShortDate(version.expirationDate)}</Text>
           </Text>
         )}
-        {version.fileSizeBytes !== null && (
-          <Text style={styles.detail}>
-            File size: <Text style={styles.value}>{formatFileSize(version.fileSizeBytes)}</Text>
-          </Text>
+        {hasFile ? (
+          version.fileSizeBytes !== null && (
+            <Text style={styles.detail}>
+              File size: <Text style={styles.value}>{formatFileSize(version.fileSizeBytes)}</Text>
+            </Text>
+          )
+        ) : (
+          <Text style={styles.detail}>No file attached</Text>
         )}
       </View>
-      <Pressable
-        onPress={() => onMenuPress(version)}
-        hitSlop={10}
-        style={({ pressed }) => pressed && styles.pressed}
-        accessibilityRole="button"
-        accessibilityLabel={`More options for ${version.fileName}`}
-      >
-        <MoreVerticalIcon size={20} color={welcomeColors.textSecondary} />
-      </Pressable>
-    </View>
+      {hasFile && (
+        <Pressable
+          onPress={() => onDownload(version)}
+          disabled={isDisabled}
+          hitSlop={10}
+          style={({ pressed }) => [styles.downloadButton, (pressed || (isDisabled && !isBusy)) && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={`Download ${version.fileName}`}
+          accessibilityState={{ disabled: isDisabled, busy: isBusy }}
+        >
+          {isBusy ? (
+            <ActivityIndicator size="small" color={welcomeColors.accent} />
+          ) : (
+            <DownloadIcon size={20} color={welcomeColors.accent} />
+          )}
+        </Pressable>
+      )}
+    </Pressable>
   );
 }
 
@@ -148,6 +176,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semiBold,
     fontWeight: '600',
     color: welcomeColors.textPrimary,
+  },
+  downloadButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.6,

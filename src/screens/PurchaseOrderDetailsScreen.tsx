@@ -63,6 +63,8 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
   useRefreshOnReturn(refresh);
   const vendorName = useSubcontractorSession().company?.name ?? '';
   const signed = detail ? isSigned(detail.status) : false;
+  // Payment terms can only change before the PO is signed, while it waits for the subcontractor's signature.
+  const canModifyPaymentTerms = detail ? isAwaitingSignature(detail.status) : false;
   // Open by default while the PO is being reviewed; a signed PO leads with its
   // change orders and invoices, so its details start collapsed.
   const [detailsExpandedChoice, setDetailsExpandedChoice] = useState<boolean | null>(null);
@@ -158,7 +160,12 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
               vendorName={vendorName}
               onAddChangeOrder={() => showComingSoon('Add Change Order')}
               onAddInvoice={() => showComingSoon('Add Invoice')}
-              onOpenChangeOrder={(changeOrder) => showComingSoon(changeOrder.name || 'Change order')}
+              onOpenChangeOrder={({ id, name, status: changeOrderStatus, amount, description }) =>
+                navigation.navigate('ChangeOrderDetails', {
+                  poId,
+                  changeOrder: { id, name, status: changeOrderStatus, amount, description: description ?? '' },
+                })
+              }
               onOpenInvoice={(invoice) => showComingSoon(invoice.name || 'Invoice')}
               onOpenDocument={() => navigation.navigate('PurchaseOrderSigning', { poId, poDate })}
               onRetry={reload}
@@ -216,8 +223,17 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
                       paymentTerms: detail.paymentTerms,
                     })
                   }
-                  style={({ pressed }) => [styles.modifyButton, pressed && styles.pressed]}
+                  disabled={!canModifyPaymentTerms}
+                  style={({ pressed }) => [
+                    styles.modifyButton,
+                    !canModifyPaymentTerms && styles.modifyButtonDisabled,
+                    pressed && styles.pressed,
+                  ]}
                   accessibilityRole="button"
+                  accessibilityState={{ disabled: !canModifyPaymentTerms }}
+                  accessibilityHint={
+                    canModifyPaymentTerms ? undefined : 'Payment terms can only be changed before the purchase order is signed.'
+                  }
                 >
                   <Text style={styles.modifyButtonText}>Modify</Text>
                 </Pressable>
@@ -484,6 +500,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: radius.sm,
     backgroundColor: welcomeColors.chevron,
+  },
+  modifyButtonDisabled: {
+    opacity: 0.45,
   },
   modifyButtonText: {
     fontFamily: fontFamily.semiBold,

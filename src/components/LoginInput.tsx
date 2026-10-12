@@ -7,7 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { fontFamily, radius, welcomeColors } from '../theme';
+import { fontFamily, portalColors, radius, welcomeColors } from '../theme';
 import { useScrollFocusedInputIntoView } from './AuthScreenLayout';
 
 type LoginInputProps = {
@@ -22,6 +22,10 @@ type LoginInputProps = {
   keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   maxLength?: number;
+  /** Adds a red asterisk after the label. */
+  required?: boolean;
+  /** Off while the form is saving. */
+  editable?: boolean;
 };
 
 export function LoginInput({
@@ -36,13 +40,18 @@ export function LoginInput({
   keyboardType,
   autoCapitalize,
   maxLength,
+  required,
+  editable = true,
 }: LoginInputProps): React.JSX.Element {
   const scrollFocusedInputIntoView = useScrollFocusedInputIntoView();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputWrapper}>
+      <Text style={styles.label}>
+        {label}
+        {required && <Text style={styles.required}> *</Text>}
+      </Text>
+      <View style={[styles.inputWrapper, !editable && styles.inputDisabled]}>
         {!!leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
         <TextInput
           style={styles.input}
@@ -54,6 +63,8 @@ export function LoginInput({
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize ?? 'none'}
           maxLength={maxLength}
+          editable={editable}
+          accessibilityLabel={label}
           onFocus={() => scrollFocusedInputIntoView?.()}
         />
         {!!rightIcon && (
@@ -78,6 +89,9 @@ const styles = StyleSheet.create({
     color: welcomeColors.textPrimary,
     marginBottom: 6,
   },
+  required: {
+    color: portalColors.danger,
+  },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -87,6 +101,9 @@ const styles = StyleSheet.create({
     backgroundColor: welcomeColors.inputBackground,
     paddingHorizontal: 12,
     height: 44,
+  },
+  inputDisabled: {
+    opacity: 0.6,
   },
   leftIcon: {
     marginRight: 8,

@@ -2,6 +2,7 @@ import { SALESFORCE_INVOICES_URL } from '../constants/config';
 import { AccountListResult } from '../types/list';
 import { InvoiceApiRecord, InvoicesApiResponse, InvoicesView } from '../types';
 import { Invoice } from '../types/invoice';
+import { toNumber } from '../utils/toNumber';
 import { salesforceGet } from './salesforceClient';
 
 /**
@@ -11,11 +12,11 @@ import { salesforceGet } from './salesforceClient';
  */
 function toInvoice(record: InvoiceApiRecord, index: number): Invoice {
   return {
-    id: record.invoiceId ?? record.id ?? `invoice-${index}`,
-    company: record.company ?? '',
-    toFrom: record.toFrom ?? '',
-    status: record.status ?? '',
-    vendorNumber: record.vendorNumber ?? '',
+    id: record.invoiceId || record.id || `invoice-${index}`,
+    invoiceNumber: record.invoiceNumber?.trim() ?? '',
+    vendorInvoiceNumber: record.vendorInvoiceNumber?.trim() ?? '',
+    amount: toNumber(record.amount),
+    status: record.status?.trim() ?? '',
   };
 }
 

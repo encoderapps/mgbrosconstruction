@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { DownloadIcon, EyeIcon } from '../assets/icons';
 import { fontFamily, toneColors, welcomeColors } from '../theme';
 import { COMPLIANCE_DOCUMENT_INFO } from '../constants/complianceDocuments';
 import { EMPTY_VALUE } from '../constants/display';
@@ -16,6 +17,12 @@ type CurrentDocumentCardProps = {
   type: ComplianceDocumentType;
   /** The copy used for compliance. */
   file: ComplianceDocumentFile;
+  /** This file is being opened or saved. */
+  isBusy: boolean;
+  /** Another file is being opened or saved, so this one waits. */
+  isDisabled: boolean;
+  onOpen: (file: ComplianceDocumentFile) => void;
+  onDownload: (file: ComplianceDocumentFile) => void;
 };
 
 function toShortDate(isoDate: string | null): string {
@@ -27,8 +34,16 @@ function toShortDate(isoDate: string | null): string {
  * dates and status. An insurance certificate gets a heading with its record
  * ID; a W9 has its title beside the preview instead.
  */
-export function CurrentDocumentCard({ type, file }: CurrentDocumentCardProps): React.JSX.Element {
+export function CurrentDocumentCard({
+  type,
+  file,
+  isBusy,
+  isDisabled,
+  onOpen,
+  onDownload,
+}: CurrentDocumentCardProps): React.JSX.Element {
   const { title } = COMPLIANCE_DOCUMENT_INFO[type];
+  const hasFile = !!file.contentBase64;
   const isCertificate = isInsuranceCertificate(type);
   const status = getDocumentStatus(type, file);
 
@@ -42,7 +57,15 @@ export function CurrentDocumentCard({ type, file }: CurrentDocumentCardProps): R
       )}
 
       <View style={styles.body}>
-        <DocumentThumbnail />
+        <Pressable
+          onPress={() => onOpen(file)}
+          disabled={!hasFile || isDisabled}
+          style={({ pressed }) => pressed && styles.pressed}
+          accessibilityRole={hasFile ? 'button' : undefined}
+          accessibilityLabel={hasFile ? `Open ${file.fileName}` : undefined}
+        >
+          <DocumentThumbnail />
+        </Pressable>
         <View style={styles.details}>
           {!isCertificate && <Text style={styles.title}>{title}</Text>}
           <View>
@@ -70,10 +93,41 @@ export function CurrentDocumentCard({ type, file }: CurrentDocumentCardProps): R
             </Text>
           )}
           <Text style={styles.fileSize}>
-            {file.fileUrl
+            {hasFile
               ? `File size: ${file.fileSizeBytes === null ? EMPTY_VALUE : formatFileSize(file.fileSizeBytes)}`
               : 'No file attached'}
           </Text>
+          {hasFile && (
+            <View style={styles.fileActions}>
+              <Pressable
+                onPress={() => onOpen(file)}
+                disabled={isDisabled}
+                hitSlop={6}
+                style={({ pressed }) => [styles.fileAction, (pressed || isDisabled) && styles.pressed]}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${file.fileName}`}
+              >
+                <EyeIcon width={16} height={11} color={welcomeColors.link} visible />
+                <Text style={styles.fileActionText}>View</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => onDownload(file)}
+                disabled={isDisabled}
+                hitSlop={6}
+                style={({ pressed }) => [styles.fileAction, (pressed || isDisabled) && styles.pressed]}
+                accessibilityRole="button"
+                accessibilityLabel={`Download ${file.fileName}`}
+                accessibilityState={{ disabled: isDisabled, busy: isBusy }}
+              >
+                {isBusy ? (
+                  <ActivityIndicator size="small" color={welcomeColors.link} />
+                ) : (
+                  <DownloadIcon size={14} color={welcomeColors.link} />
+                )}
+                <Text style={styles.fileActionText}>Download</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </View>
 
@@ -146,6 +200,25 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     fontSize: 12,
     color: welcomeColors.textSecondary,
+  },
+  fileActions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 2,
+  },
+  fileAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  fileActionText: {
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    fontSize: 12,
+    color: welcomeColors.link,
+  },
+  pressed: {
+    opacity: 0.6,
   },
   // A W9's status sits under a divider, as there's no heading above the preview.
   divided: {

@@ -59,7 +59,7 @@ const MENU_ITEMS_AFTER_INVOICES: MenuItem[] = [
 type ExpandableSection = 'contacts' | 'purchaseOrders' | 'projects' | 'invoices';
 
 export function HomeScreen({ navigation }: Props): React.JSX.Element {
-  const { contacts } = useContacts();
+  const contactList = useContacts();
   // Each section expands independently, so several can be open at once.
   const [expandedSections, setExpandedSections] = useState<ReadonlySet<ExpandableSection>>(new Set());
 
@@ -116,9 +116,17 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
         <CompanyCard />
 
         <ContactsSection
-          contacts={contacts}
+          contacts={contactList.contacts}
+          status={contactList.status}
+          onRetry={contactList.reload}
           isExpanded={expandedSections.has('contacts')}
-          onToggle={() => toggleSection('contacts')}
+          onToggle={() => {
+            // Opening the card picks up contacts added or changed elsewhere since they were loaded.
+            if (!expandedSections.has('contacts')) {
+              contactList.refresh();
+            }
+            toggleSection('contacts');
+          }}
           onAddPress={() => navigation.navigate('AddContact')}
           onContactPress={(contact) => navigation.navigate('ContactDetails', { contactId: contact.id })}
         />

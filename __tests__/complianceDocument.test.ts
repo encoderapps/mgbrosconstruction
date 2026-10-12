@@ -12,6 +12,7 @@ function file(overrides: Partial<ComplianceDocumentFile> = {}): ComplianceDocume
     recordName: 'Ext-File-0000000001',
     fileName: 'Doc.pdf',
     fileUrl: '/sfc/servlet.shepherd/version/download/068',
+    contentBase64: 'JVBERi0xLjQK',
     fileSizeBytes: 580,
     uploadedOn: '2026-09-29',
     uploadedBy: 'Vikas Gupta',
