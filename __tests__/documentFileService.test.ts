@@ -41,6 +41,8 @@ describe('toSafePdfFileName', () => {
     expect(toSafePdfFileName('W9 - ABC Construction Services')).toBe('W9 - ABC Construction Services.pdf');
     expect(toSafePdfFileName('GL 1/1/2026: "Final"?.PDF')).toBe('GL 1 - 1 - 2026 - Final.pdf');
     expect(toSafePdfFileName('  ...  ')).toBe('Document.pdf');
+    // "#" and "%" would break the file:// URI the viewer opens.
+    expect(toSafePdfFileName('Job-PO#0001115 100%')).toBe('Job-PO - 0001115 100.pdf');
   });
 });
 

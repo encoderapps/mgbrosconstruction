@@ -3,6 +3,7 @@ import type { CertificateTemplate } from '../services/certificateTemplateService
 import type { SignatureFontId } from '../constants/signatureFonts';
 import type { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
 import type { ChangeOrderSummary } from '../types/changeOrder';
+import type { AchInfo } from '../types/paymentSettings';
 import type { ComplianceDocumentType } from '../types/document';
 
 export interface SubcontractorIdentityData {
@@ -158,6 +159,12 @@ export type AuthStackParamList = {
   DocumentDetails: { documentType: ComplianceDocumentType };
   /** A document already written to the cache (path), so the viewer never handles the base64 itself. */
   DocumentViewer: { fileName: string; path: string };
+  PaymentSettings: undefined;
+  /** existing: the bank details on file, to start from when replacing them. */
+  AchInformation: { existing?: AchInfo } | undefined;
+  /** The details just saved, so these screens needn't load them again. */
+  AchFormGenerated: { ach: AchInfo };
+  AchFormPreview: { ach: AchInfo };
   ApprovalNeeded: undefined;
 };
 

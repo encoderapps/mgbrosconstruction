@@ -39,6 +39,10 @@ import { ProjectsScreen } from '../screens/ProjectsScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { DocumentDetailsScreen } from '../screens/DocumentDetailsScreen';
 import { DocumentViewerScreen } from '../screens/DocumentViewerScreen';
+import { PaymentSettingsScreen } from '../screens/PaymentSettingsScreen';
+import { AchInformationScreen } from '../screens/AchInformationScreen';
+import { AchFormGeneratedScreen } from '../screens/AchFormGeneratedScreen';
+import { AchFormPreviewScreen } from '../screens/AchFormPreviewScreen';
 import { ApprovalNeededScreen } from '../screens/ApprovalNeededScreen';
 import { TemplatePreviewScreen } from '../screens/TemplatePreviewScreen';
 
@@ -86,6 +90,10 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="Documents" component={DocumentsScreen} />
       <Stack.Screen name="DocumentDetails" component={DocumentDetailsScreen} />
       <Stack.Screen name="DocumentViewer" component={DocumentViewerScreen} />
+      <Stack.Screen name="PaymentSettings" component={PaymentSettingsScreen} />
+      <Stack.Screen name="AchInformation" component={AchInformationScreen} />
+      <Stack.Screen name="AchFormGenerated" component={AchFormGeneratedScreen} />
+      <Stack.Screen name="AchFormPreview" component={AchFormPreviewScreen} />
       <Stack.Screen name="ApprovalNeeded" component={ApprovalNeededScreen} />
       <Stack.Screen name="TemplatePreview" component={TemplatePreviewScreen} />
     </Stack.Navigator>
