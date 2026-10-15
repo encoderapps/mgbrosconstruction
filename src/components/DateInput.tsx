@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CalendarIcon } from '../assets/icons';
-import { fontFamily, radius, welcomeColors } from '../theme';
+import { fontFamily, portalColors, radius, welcomeColors } from '../theme';
 import { parseDateOnlyString, toDateOnlyString } from '../utils/dateValidation';
 
 type DateInputProps = {
@@ -15,6 +15,10 @@ type DateInputProps = {
   minimumDate?: Date;
   /** Latest selectable date in the picker. */
   maximumDate?: Date;
+  /** Can't be opened (e.g. while the form is saving); shown dimmed. */
+  disabled?: boolean;
+  /** Adds a red asterisk after the label. */
+  required?: boolean;
 };
 
 export function DateInput({
@@ -24,6 +28,8 @@ export function DateInput({
   onChange,
   minimumDate,
   maximumDate,
+  disabled = false,
+  required,
 }: DateInputProps): React.JSX.Element {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
 
@@ -33,9 +39,20 @@ export function DateInput({
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
-      <Pressable style={styles.inputWrapper} onPress={() => setIsPickerOpen(true)}>
+    // collapsable={false}: see LoginInput.
+    <View style={styles.container} collapsable={false}>
+      <Text style={styles.label}>
+        {label}
+        {required && <Text style={styles.required}> *</Text>}
+      </Text>
+      <Pressable
+        style={[styles.inputWrapper, disabled && styles.disabled]}
+        onPress={() => setIsPickerOpen(true)}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ disabled }}
+      >
         <Text style={[styles.value, !value && styles.placeholder]}>{value || placeholder}</Text>
         <CalendarIcon size={16} color={welcomeColors.inputPlaceholder} />
       </Pressable>
@@ -67,6 +84,9 @@ const styles = StyleSheet.create({
     color: welcomeColors.textPrimary,
     marginBottom: 6,
   },
+  required: {
+    color: portalColors.danger,
+  },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -77,6 +97,9 @@ const styles = StyleSheet.create({
     backgroundColor: welcomeColors.inputBackground,
     paddingHorizontal: 12,
     height: 44,
+  },
+  disabled: {
+    opacity: 0.6,
   },
   value: {
     flex: 1,

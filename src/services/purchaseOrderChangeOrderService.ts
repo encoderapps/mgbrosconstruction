@@ -31,6 +31,7 @@ function toInvoice(record: PurchaseOrderInvoiceApiRecord, index: number): Purcha
   return {
     id: record.id || `invoice-${index}`,
     name: record.invoiceNo ?? record.name ?? '',
+    vendorInvoiceNumber: record.vendorInvoiceNumber?.trim() ?? '',
     status: record.status ?? '',
     amount: toNumber(record.amount) ?? 0,
   };

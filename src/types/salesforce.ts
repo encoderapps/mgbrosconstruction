@@ -24,6 +24,14 @@ export interface SubcontractorLoginResponse {
   email?: string | null;
   phone?: string | null;
   homeAddress?: string | null;
+  /**
+   * The signature registered with (the same fields the registration API
+   * takes). Not returned yet; when the API returns them they're used instead
+   * of the copy kept on the registering device.
+   */
+  subcontractorFullName?: string | null;
+  signatureBase64Data?: string | null;
+  signatureInitialsBase64Data?: string | null;
 }
 
 export interface SubcontractorRegistrationApiPayload {
@@ -64,6 +72,21 @@ export interface SubcontractorRegistrationApiPayload {
   wcFileName: string;
   wcFileType: string;
   wcBase64Data: string;
+
+  /** The signer's full name, as signed on the agreement. */
+  subcontractorFullName: string;
+  /** The signature (name in the chosen style), as a base64 PNG. */
+  signatureBase64Data: string;
+  /** The initials in the chosen style, as a base64 PNG. */
+  signatureInitialsBase64Data: string;
+
+  /** The signed Master Subcontract Agreement. */
+  msaFileName: string;
+  /** YYYY-MM-DD. */
+  msaSignedDate: string;
+  msaFileType: string;
+  msaDescription: string;
+  msaBase64Data: string;
 }
 
 export interface CreateContactApiPayload {
@@ -173,6 +196,28 @@ export interface PurchaseOrderDetailApiResponse {
      * ("[{&quot;percentage&quot;:25,…}]"); an array is accepted too.
      */
     paymentTerms: string | PurchaseOrderPaymentTermApiRecord[] | null;
+    /** The signer's full name, as registered. */
+    subcontractorFullName?: string | null;
+    /** The registration signature, as a base64 PNG. */
+    signatureBase64Data?: string | null;
+    /** The registration initials, as a base64 PNG. */
+    signatureInitialsBase64Data?: string | null;
+    signatureFileId?: string | null;
+    signatureInitialsFileId?: string | null;
+    /** YYYY-MM-DD: the date to show with the signature. */
+    signedDate?: string | null;
+    signed?: boolean | null;
+    /** Whether the subcontractor has signed, and when (YYYY-MM-DD). */
+    vendorSigned?: boolean | null;
+    vendorSignedDate?: string | null;
+    /** Whether MG Bros has signed, and when (YYYY-MM-DD). */
+    contractorSigned?: boolean | null;
+    contractorSignedDate?: string | null;
+    /**
+     * The job (Opportunity) the PO belongs to, which a new invoice is created on.
+     * NOTE: not returned yet; the PO record has it (Job__c / Opportunity__c).
+     */
+    opportunityId?: string | null;
   } | null;
 }
 
@@ -202,6 +247,9 @@ export interface ModifyPaymentTermsApiResponse {
 export interface SignPurchaseOrderApiPayload {
   accountId: string;
   poId: string;
+  /** The signed purchase order. */
+  pdfFileName: string;
+  pdfBase64Data: string;
 }
 
 export interface SignPurchaseOrderApiResponse {
@@ -210,6 +258,32 @@ export interface SignPurchaseOrderApiResponse {
   status?: string | null;
   poId?: string | null;
   message?: string | null;
+}
+
+/** POST /subcontractor/signchangeorder request body. */
+export interface SignChangeOrderApiPayload {
+  accountId: string;
+  changeOrderId: string;
+  /** The subcontractor confirmed signing (with the signature on file). */
+  confirmSignature: true;
+  /** The signed change order. */
+  pdfFileName: string;
+  pdfBase64Data: string;
+}
+
+export interface SignChangeOrderApiResponse {
+  success: boolean;
+  /** e.g. "Change Order signed successfully." or "Change Order is already signed." */
+  message?: string | null;
+  /** The change order's status after signing, e.g. "Signed". */
+  status?: string | null;
+  changeOrderId?: string | null;
+  changeOrderName?: string | null;
+  vendorSigned?: boolean | null;
+  /** YYYY-MM-DD. */
+  vendorSignedDate?: string | null;
+  /** YYYY-MM-DD. */
+  signedDate?: string | null;
 }
 
 /** POST /purchaseorderchangeorder request body. */
@@ -258,13 +332,53 @@ export interface ChangeOrderApiRecord {
   amount: number | string | null;
 }
 
+/** A SOQL query's response (GET /services/data/vXX.X/query). */
+export interface SoqlQueryResponse<SObject> {
+  totalSize: number;
+  done: boolean;
+  records: SObject[];
+}
+
+/** POST /invoices/create request body. Dates are YYYY-MM-DD. */
+export interface CreateInvoiceApiPayload {
+  poId: string;
+  /** The PO's job (Job__c). */
+  opportunityId: string;
+  vendorInvoiceNumber: string;
+  createdDate: string;
+  dueDate: string;
+  status: string;
+}
+
+export interface CreateInvoiceApiResponse {
+  success: boolean;
+  /** e.g. "Invoice created successfully". */
+  message?: string | null;
+  invoice?: {
+    id?: string | null;
+    /** Assigned by Salesforce, e.g. "INV-000004661". */
+    invoiceNumber?: string | null;
+    vendorInvoiceNumber?: string | null;
+    status?: string | null;
+    /** YYYY-MM-DD. */
+    dueDate?: string | null;
+    /** ISO timestamp, e.g. "2026-10-15T00:00:00.000Z". */
+    createdDate?: string | null;
+    poId?: string | null;
+    opportunityId?: string | null;
+  } | null;
+}
+
 /** NOTE: field names not yet confirmed — every PO tested so far returned no invoices. */
 export interface PurchaseOrderInvoiceApiRecord {
   id?: string;
   invoiceNo?: string | null;
   name?: string | null;
+  /** NOTE: field name assumed; the sample responses don't include one yet. */
+  vendorInvoiceNumber?: string | null;
   status?: string | null;
   amount?: number | string | null;
+  balanceDue?: number | string | null;
 }
 
 export interface PurchaseOrderChangeOrdersApiResponse {

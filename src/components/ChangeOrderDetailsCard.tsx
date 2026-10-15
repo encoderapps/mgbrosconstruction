@@ -34,7 +34,7 @@ export function ChangeOrderDetailsCard({ purchaseOrderLineItems, notes }: Change
           <DocumentIcon size={16} color={welcomeColors.accent} />
         </View>
         <Text style={styles.title}>CO Details</Text>
-        <View style={isExpanded ? styles.chevronExpanded : undefined}>
+        <View style={isExpanded ? styles.chevronExpanded : styles.chevronCollapsed}>
           <ChevronRightIcon size={16} color={welcomeColors.chevron} />
         </View>
       </Pressable>
@@ -79,6 +79,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     color: welcomeColors.textPrimary,
+  },
+  // Always rotated (0° or 90°), so the View is never flattened away on Android: switching
+  // between flattened and not re-parents its child and can crash ("child already has a parent").
+  chevronCollapsed: {
+    transform: [{ rotate: '0deg' }],
   },
   chevronExpanded: {
     transform: [{ rotate: '90deg' }],

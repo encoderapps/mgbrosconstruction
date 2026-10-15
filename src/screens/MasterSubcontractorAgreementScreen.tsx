@@ -9,6 +9,10 @@ import { AuthHeader } from '../components/AuthHeader';
 import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { LoginInput } from '../components/LoginInput';
 import { RegistrationProgress } from '../components/RegistrationProgress';
+import {
+  SignatureImageCapture,
+  SignatureImageCaptureHandle,
+} from '../components/SignatureImageCapture';
 import { SignatureStyleOption } from '../components/SignatureStyleOption';
 import { DocumentIcon } from '../assets/icons';
 import { fontFamily, welcomeColors } from '../theme';
@@ -16,6 +20,7 @@ import { AuthStackParamList } from '../navigation/types';
 import { SIGNATURE_FONTS, SignatureFontId } from '../constants/signatureFonts';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import {
+  buildMasterSubcontractAgreementBase64,
   deleteMasterSubcontractAgreement,
   generateMasterSubcontractAgreement,
 } from '../services/masterSubcontractAgreementService';
@@ -28,6 +33,12 @@ const TOTAL_STEPS = 6;
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
 const SIGNATURE_DEBOUNCE_MS = 600;
+
+/** "Mitchell Air Systems" → "MSA_Mitchell_Air_Systems.pdf", as the registration API's samples. */
+function agreementFileName(companyName: string): string {
+  const safeName = companyName.trim().replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return `MSA_${safeName || 'Company'}.pdf`;
+}
 
 export function MasterSubcontractorAgreementScreen({ navigation, route }: Props): React.JSX.Element {
   const companyName = route.params.company.company;
@@ -42,6 +53,8 @@ export function MasterSubcontractorAgreementScreen({ navigation, route }: Props)
   const [hasReadAgreement, setHasReadAgreement] = useState(false);
   const [fullName, setFullName] = useState('');
   const [signatureFont, setSignatureFont] = useState<SignatureFontId | null>(null);
+  const [isCreatingSignature, setIsCreatingSignature] = useState(false);
+  const signatureCaptureRef = useRef<SignatureImageCaptureHandle>(null);
   const keyboardHeight = useKeyboardHeight();
   const hasPdfRef = useRef(false);
 
@@ -112,8 +125,8 @@ export function MasterSubcontractorAgreementScreen({ navigation, route }: Props)
 
   const pdfSource = useMemo(() => (pdfPath ? { uri: `file://${pdfPath}` } : null), [pdfPath]);
 
-  const handleContinue = (): void => {
-    if (!hasReadAgreement) {
+  const handleContinue = async (): Promise<void> => {
+    if (!hasReadAgreement || isCreatingSignature) {
       return;
     }
     if (!hasName) {
@@ -124,10 +137,39 @@ export function MasterSubcontractorAgreementScreen({ navigation, route }: Props)
       Alert.alert('Missing signature', 'Please choose a signature style.');
       return;
     }
-    navigation.navigate('AcceptPolicyTerms', {
-      ...route.params,
-      signature: { signatureName, signatureFont, signatureInitials: initials, signatureDate: todayDateString() },
-    });
+    // The registration API takes the signature and initials as images, drawn in the chosen style,
+    // and the signed agreement itself as a PDF.
+    setIsCreatingSignature(true);
+    try {
+      const images = await signatureCaptureRef.current?.capture();
+      if (!images) {
+        throw new Error('The signature is not ready yet.');
+      }
+      const signedDate = todayDateString();
+      const agreementBase64 = await buildMasterSubcontractAgreementBase64(companyName, {
+        name: signatureName,
+        initials,
+        fontId: signatureFont,
+        date: signedDate,
+      });
+      navigation.navigate('AcceptPolicyTerms', {
+        ...route.params,
+        signature: {
+          signatureName,
+          signatureFont,
+          signatureInitials: initials,
+          signatureDate: signedDate,
+          signatureImageBase64: images.signature,
+          initialsImageBase64: images.initials,
+        },
+        agreement: { fileName: agreementFileName(companyName), base64: agreementBase64, signedDate },
+      });
+    } catch (error) {
+      console.error('Failed to create the signature images:', error);
+      Alert.alert('Unable to create your signature', 'Please try again.');
+    } finally {
+      setIsCreatingSignature(false);
+    }
   };
 
   // The screen doesn't scroll (so the PDF owns its gestures) and the Android
@@ -223,11 +265,19 @@ export function MasterSubcontractorAgreementScreen({ navigation, route }: Props)
           )}
 
           <AuthPrimaryButton
-            title="Continue"
+            title={isCreatingSignature ? 'Please wait…' : 'Continue'}
             onPress={handleContinue}
-            disabled={!hasReadAgreement}
+            disabled={!hasReadAgreement || isCreatingSignature}
             style={styles.continueButton}
           />
+          {hasName && signatureFont && (
+            <SignatureImageCapture
+              ref={signatureCaptureRef}
+              name={signatureName}
+              initials={initials}
+              fontId={signatureFont}
+            />
+          )}
         </AuthCard>
       </View>
     </SafeAreaView>

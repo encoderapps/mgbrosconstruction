@@ -1,3 +1,5 @@
+import type { SignatureFontId } from '../constants/signatureFonts';
+
 /** What the purchase order's change-order table already knows about a change order (from the API). */
 export interface ChangeOrderSummary {
   id: string;
@@ -28,6 +30,8 @@ export type NewChangeOrderItem = Pick<ChangeOrderItem, 'description' | 'quantity
 export interface ChangeOrderSignature {
   /** The signer's name as typed. */
   name: string;
+  /** The handwriting style it's shown in. */
+  fontId: SignatureFontId;
   /** YYYY-MM-DD. */
   date: string;
 }

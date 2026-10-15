@@ -59,7 +59,7 @@ const PAYMENT_TERM_COLUMNS: DataTableColumn<PurchaseOrderPaymentTerm & { index: 
 export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.JSX.Element {
   const { poId, poDate, updatedPaymentTerms, updatedStatus, signedDate } = route.params;
   const { data: detail, status, reload, refresh, setData } = usePurchaseOrderDetail(poId, poDate);
-  // Back from signing (or another screen above): pick up the PO's new status from the API.
+  // Back from signing, adding an invoice etc.: pick up the PO's new status and invoices from the API.
   useRefreshOnReturn(refresh);
   const vendorName = useSubcontractorSession().company?.name ?? '';
   const signed = detail ? isSigned(detail.status) : false;
@@ -159,7 +159,13 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
               purchaseOrder={detail}
               vendorName={vendorName}
               onAddChangeOrder={() => showComingSoon('Add Change Order')}
-              onAddInvoice={() => showComingSoon('Add Invoice')}
+              onAddInvoice={() =>
+                navigation.navigate('AddPurchaseOrderInvoice', {
+                  poId,
+                  poName: detail.name,
+                  opportunityId: detail.opportunityId,
+                })
+              }
               onOpenChangeOrder={({ id, name, status: changeOrderStatus, amount, description }) =>
                 navigation.navigate('ChangeOrderDetails', {
                   poId,
@@ -201,7 +207,7 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
               <DocumentIcon size={16} color={welcomeColors.accent} />
             </View>
             <Text style={styles.sectionTitle}>PO Details</Text>
-            <View style={isDetailsExpanded ? styles.chevronExpanded : undefined}>
+            <View style={isDetailsExpanded ? styles.chevronExpanded : styles.chevronCollapsed}>
               <ChevronRightIcon size={16} color={welcomeColors.chevron} />
             </View>
           </Pressable>
@@ -491,6 +497,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     color: welcomeColors.textPrimary,
+  },
+  // Always rotated (0° or 90°), so the View is never flattened away on Android: switching
+  // between flattened and not re-parents its child and can crash ("child already has a parent").
+  chevronCollapsed: {
+    transform: [{ rotate: '0deg' }],
   },
   chevronExpanded: {
     transform: [{ rotate: '90deg' }],

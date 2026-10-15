@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import RNFS from 'react-native-fs';
 import { generatePurchaseOrderPdf, wrapText } from '../src/services/purchaseOrderPdfService';
+import { readSignatureFontBase64 } from '../src/utils/signatureFontFile';
 import { PurchaseOrderDetail } from '../src/types/purchaseOrder';
 import { formatLongDate, formatUsDate } from '../src/utils/formatDate';
 
@@ -38,6 +39,8 @@ const PURCHASE_ORDER: PurchaseOrderDetail = {
   poDate: '2026-08-21',
   signedDate: null,
   vendorSignature: null,
+  signatureOnFile: null,
+  opportunityId: null,
   changeOrders: [],
   invoices: [],
 };
@@ -105,6 +108,24 @@ describe('generatePurchaseOrderPdf', () => {
     expect((await writtenPdf()).document.getPageCount()).toBe(unsignedSize);
     // The embedded (subset) signature font makes the signed file larger.
     expect(signedBytes).toBeGreaterThan(unsignedBytes);
+  });
+
+  it('draws the registration signature image instead of a font when there is one', async () => {
+    const mockedReadFont = readSignatureFontBase64 as jest.MockedFunction<typeof readSignatureFontBase64>;
+    mockedReadFont.mockClear();
+    await generatePurchaseOrderPdf(PURCHASE_ORDER, VENDOR);
+    const unsignedBytes = mockedWriteFile.mock.calls[0][1].length;
+
+    await generatePurchaseOrderPdf(PURCHASE_ORDER, VENDOR, {
+      name: 'Maya Bennett',
+      fontId: null,
+      imageBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+      date: '2026-10-13',
+    });
+
+    expect(mockedWriteFile.mock.calls[1][1].length).toBeGreaterThan(unsignedBytes);
+    expect(mockedReadFont).not.toHaveBeenCalled();
+    expect((await writtenPdf()).document.getPageCount()).toBe(1);
   });
 });
 

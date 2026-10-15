@@ -136,6 +136,85 @@ describe('fetchPurchaseOrderDetail', () => {
     expect(detail.paymentTerms).toEqual([]);
   });
 
+  it('maps the signature on file, and the vendor signature once signed', async () => {
+    const purchaseOrder = {
+      id: 'a1wQL000008z68mYAA',
+      name: 'Job-PO#0001142',
+      status: 'Ready For Signature',
+      project: null,
+      projectAddress: null,
+      totalAmount: 0,
+      paymentTerms: null,
+      subcontractorFullName: ' Sachin Ramesh Tendulkar ',
+      // Line breaks inside the base64 are dropped.
+      signatureBase64Data: 'iVBORw0K\nGgoSIG',
+      signatureInitialsBase64Data: 'iVBORw0KGgoINI',
+      signedDate: '2026-10-14',
+      vendorSigned: false,
+      vendorSignedDate: null,
+    };
+    mockedGet.mockResolvedValue({ success: true, purchaseOrder });
+
+    const unsigned = await fetchPurchaseOrderDetail('001ACCOUNT', 'a1w1');
+
+    expect(unsigned.signatureOnFile).toEqual({
+      name: 'Sachin Ramesh Tendulkar',
+      imageBase64: 'iVBORw0KGgoSIG',
+      initialsImageBase64: 'iVBORw0KGgoINI',
+      date: '2026-10-14',
+    });
+    expect(unsigned.signedDate).toBeNull();
+    expect(unsigned.vendorSignature).toBeNull();
+
+    mockedGet.mockResolvedValue({
+      success: true,
+      purchaseOrder: { ...purchaseOrder, status: 'Signed', vendorSigned: true, vendorSignedDate: '2026-10-15' },
+    });
+    const signed = await fetchPurchaseOrderDetail('001ACCOUNT', 'a1w1');
+
+    expect(signed.signedDate).toBe('2026-10-15');
+    expect(signed.vendorSignature).toEqual({
+      name: 'Sachin Ramesh Tendulkar',
+      fontId: null,
+      imageBase64: 'iVBORw0KGgoSIG',
+      date: '2026-10-15',
+    });
+  });
+
+  it('has no signature on file when the API sends none', async () => {
+    mockedGet.mockResolvedValue({
+      success: true,
+      purchaseOrder: { id: 'a1w1', name: 'PO', status: 'Draft', project: null, projectAddress: null, totalAmount: 0, paymentTerms: null },
+    });
+
+    await expect(fetchPurchaseOrderDetail('001ACCOUNT', 'a1w1')).resolves.toMatchObject({
+      signatureOnFile: null,
+      vendorSignature: null,
+      signedDate: null,
+      opportunityId: null,
+    });
+  });
+
+  it("reads the PO's job (opportunityId), for creating invoices on it", async () => {
+    mockedGet.mockResolvedValue({
+      success: true,
+      purchaseOrder: {
+        id: 'a1w1',
+        name: 'PO',
+        status: 'Signed',
+        project: 'ABC Construction opportunity',
+        projectAddress: null,
+        totalAmount: 0,
+        paymentTerms: null,
+        opportunityId: ' 006QL00000iYFEtYAO ',
+      },
+    });
+
+    await expect(fetchPurchaseOrderDetail('001ACCOUNT', 'a1w1')).resolves.toMatchObject({
+      opportunityId: '006QL00000iYFEtYAO',
+    });
+  });
+
   it('maps line items and falls back to their sum when the total is 0', async () => {
     mockedGet.mockResolvedValue({
       success: true,

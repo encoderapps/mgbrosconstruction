@@ -41,7 +41,9 @@ export const PaymentTermEditorRow = memo(function PaymentTermEditorRowView({
   onDelete,
 }: PaymentTermEditorRowProps): React.JSX.Element {
   return (
-    <View style={styles.row} pointerEvents={disabled ? 'none' : 'auto'}>
+    // Each control is disabled itself: toggling pointerEvents on this View crashes Android
+    // ("the specified child already has a parent") when it changes whether the View is flattened.
+    <View style={styles.row}>
       <Text style={[styles.text, styles.indexColumn]}>{position}</Text>
       <SelectInput
         compact
@@ -50,6 +52,7 @@ export const PaymentTermEditorRow = memo(function PaymentTermEditorRowView({
         value={draft.description}
         options={descriptionOptions}
         onSelect={(description) => onDescriptionChange(draft.key, description)}
+        disabled={disabled}
       />
       <TextInput
         style={[styles.text, styles.percentageInput]}

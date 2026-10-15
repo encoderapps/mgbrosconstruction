@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, TextInput } from 'react-native';
-import { SIGNATURE_FONTS } from '../constants/signatureFonts';
+import { SIGNATURE_FONTS, SignatureFontId, getSignatureFont } from '../constants/signatureFonts';
 import { fontFamily, radius, welcomeColors } from '../theme';
 import { useScrollFocusedInputIntoView } from './KeyboardAwareScrollView';
 
@@ -8,23 +8,31 @@ type SignatureInputProps = {
   value: string;
   onChangeText: (text: string) => void;
   editable?: boolean;
+  /** The handwriting style to show the name in (the first style by default). */
+  fontId?: SignatureFontId;
 };
 
 const SIGNATURE_MAX_LENGTH = 80;
 
-/** The handwriting font typed signatures are shown in (here and once signed). */
-export const SIGNATURE_DISPLAY_FONT = SIGNATURE_FONTS[0].fontFamily;
+/** The font family for a signature style; the first style when none is given. */
+export function getSignatureFontFamily(fontId?: SignatureFontId): string {
+  return fontId ? getSignatureFont(fontId).fontFamily : SIGNATURE_FONTS[0].fontFamily;
+}
 
 /**
  * The "Sign here" box: the signer types their name, shown in a handwriting
  * font (the placeholder stays in the regular font so it reads as a prompt).
  */
-export function SignatureInput({ value, onChangeText, editable = true }: SignatureInputProps): React.JSX.Element {
+export function SignatureInput({ value, onChangeText, editable = true, fontId }: SignatureInputProps): React.JSX.Element {
   const scrollFocusedInputIntoView = useScrollFocusedInputIntoView();
 
   return (
     <TextInput
-      style={[styles.input, value ? styles.signature : styles.placeholder, !editable && styles.disabled]}
+      style={[
+        styles.input,
+        value ? [styles.signature, { fontFamily: getSignatureFontFamily(fontId) }] : styles.placeholder,
+        !editable && styles.disabled,
+      ]}
       value={value}
       onChangeText={onChangeText}
       placeholder="Sign here"
@@ -55,7 +63,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   signature: {
-    fontFamily: SIGNATURE_DISPLAY_FONT,
     fontSize: 30,
   },
   disabled: {

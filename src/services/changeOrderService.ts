@@ -1,10 +1,13 @@
-import { SALESFORCE_PURCHASE_ORDER_CHANGE_ORDERS_URL } from '../constants/config';
+import { SALESFORCE_PURCHASE_ORDER_CHANGE_ORDERS_URL, SALESFORCE_SIGN_CHANGE_ORDER_URL } from '../constants/config';
+import type { SignatureFontId } from '../constants/signatureFonts';
 import { EMPTY_VALUE } from '../constants/display';
 import {
   ChangeOrderDetailApiRecord,
   ChangeOrderDetailItemApiRecord,
   PurchaseOrderChangeOrdersApiPayload,
   PurchaseOrderChangeOrdersApiResponse,
+  SignChangeOrderApiPayload,
+  SignChangeOrderApiResponse,
 } from '../types';
 import {
   ChangeOrderDetail,
@@ -17,17 +20,22 @@ import { isChangeOrderSigned, lineItemAmount } from '../utils/changeOrder';
 import { todayDateString } from '../utils/dateValidation';
 import { htmlToPlainText } from '../utils/html';
 import { toNumber } from '../utils/toNumber';
+import { SignedPdf } from '../types/signedDocument';
 import { salesforceSend } from './salesforceClient';
 
 const LOAD_ERROR_MESSAGE = 'Unable to load this change order.';
-/** The status a change order shows once the subcontractor signs it in the app. */
+const SIGN_ERROR_MESSAGE = 'Unable to sign this change order. Please try again.';
+/** Used if a successful signing response leaves out the new status. */
 const SIGNED_STATUS = 'Signed';
 
 /*
- * TODO: there's no API yet for adding a line item to a change order or for
- * signing one. Until there is, both are kept in memory here (until the app
- * restarts) and laid over the change order the API returns. Replace them with
- * their Salesforce calls once the endpoints ship.
+ * TODO: there's no API yet for adding a line item to a change order, so added
+ * items are kept in memory here (until the app restarts) and laid over the
+ * change order the API returns. Replace them with the Salesforce call once the
+ * endpoint ships.
+ *
+ * Signing is done by the API (signChangeOrder), which doesn't return who
+ * signed or in what style, so the signature shown afterwards is also kept here.
  */
 interface LocalChanges {
   addedItems: ChangeOrderItem[];
@@ -82,7 +90,8 @@ function withLocalChanges(changeOrder: ChangeOrderDetail): ChangeOrderDetail {
   return {
     ...changeOrder,
     items: [...changeOrder.items, ...changes.addedItems.map((item) => ({ ...item }))],
-    ...(changes.signature && { status: SIGNED_STATUS, signature: { ...changes.signature } }),
+    // Only shows who signed: the status is the API's.
+    ...(changes.signature && { signature: { ...changes.signature } }),
   };
 }
 
@@ -141,18 +150,55 @@ export async function addChangeOrderItem(
   return fetchChangeOrderDetail(accountId, poId, summary);
 }
 
-/** Signs an unsigned change order with the typed name and today's date; returns the signed change order. */
+export interface SignChangeOrderResult {
+  /** The change order's status after signing, as the API reports it, e.g. "Signed". */
+  status: string;
+  /** Who signed, in what style, and the signing date (the API's). */
+  signature: ChangeOrderSignature;
+  /** The API's message, e.g. "Change Order is already signed." */
+  message: string;
+}
+
+/**
+ * Signs a change order (POST /subcontractor/signchangeorder), uploading the
+ * signed change order, and returns its new status and signing date. `signer`
+ * is the name and style shown as the signature. A change order that's already
+ * signed comes back as signed too. Throws an Error with a message fit to show
+ * the user.
+ */
 export async function signChangeOrder(
   accountId: string,
-  poId: string,
-  summary: ChangeOrderSummary,
-  signerName: string,
-): Promise<ChangeOrderDetail> {
-  const name = signerName.trim().replace(/\s+/g, ' ');
+  changeOrderId: string,
+  signer: { name: string; fontId: SignatureFontId },
+  signedPdf: SignedPdf,
+): Promise<SignChangeOrderResult> {
+  const name = signer.name.trim().replace(/\s+/g, ' ');
   if (!name) {
     throw new Error('Please sign with your full name.');
   }
-  await assertChangeOrderOpen(accountId, poId, summary);
-  getLocalChanges(summary.id).signature = { name, date: todayDateString() };
-  return fetchChangeOrderDetail(accountId, poId, summary);
+  const payload: SignChangeOrderApiPayload = {
+    accountId,
+    changeOrderId,
+    confirmSignature: true,
+    pdfFileName: signedPdf.fileName,
+    pdfBase64Data: signedPdf.base64,
+  };
+  const data = await salesforceSend<SignChangeOrderApiResponse>(
+    { method: 'post', url: SALESFORCE_SIGN_CHANGE_ORDER_URL, data: payload },
+    SIGN_ERROR_MESSAGE,
+  );
+  if (!data.success) {
+    throw new Error(data.message || SIGN_ERROR_MESSAGE);
+  }
+  const signature: ChangeOrderSignature = {
+    name,
+    fontId: signer.fontId,
+    date: data.vendorSignedDate || data.signedDate || todayDateString(),
+  };
+  getLocalChanges(changeOrderId).signature = signature;
+  return {
+    status: data.status?.trim() || SIGNED_STATUS,
+    signature: { ...signature },
+    message: data.message || 'Change Order signed successfully.',
+  };
 }

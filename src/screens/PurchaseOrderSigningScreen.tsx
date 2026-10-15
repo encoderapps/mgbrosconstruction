@@ -1,5 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, BackHandler, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  BackHandler,
+  Image,
+  LayoutChangeEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Pdf from 'react-native-pdf';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CommonActions } from '@react-navigation/native';
@@ -15,13 +25,19 @@ import { fontFamily, radius, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { usePurchaseOrderDetail } from '../hooks/usePurchaseOrderDetail';
-import { deletePurchaseOrderPdf, generatePurchaseOrderPdf } from '../services/purchaseOrderPdfService';
-import { PurchaseOrderSignature } from '../types/purchaseOrder';
+import {
+  buildPurchaseOrderPdfBase64,
+  deletePurchaseOrderPdf,
+  generatePurchaseOrderPdf,
+} from '../services/purchaseOrderPdfService';
+import { PurchaseOrderSignature, SignatureOnFile } from '../types/purchaseOrder';
 import { savePurchaseOrderSignature } from '../services/purchaseOrderSignatureStore';
 import { signPurchaseOrder } from '../services/signPurchaseOrderService';
 import { todayDateString } from '../utils/dateValidation';
 import { formatLongDate } from '../utils/formatDate';
 import { isAwaitingSignature, isSigned } from '../utils/purchaseOrderStatus';
+import { getInitials } from '../utils/signature';
+import { signedPurchaseOrderFileName } from '../utils/signedDocument';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'PurchaseOrderSigning'>;
 
@@ -38,9 +54,10 @@ const DEFAULT_PAGE_ASPECT_RATIO = 792 / 612;
  */
 export function PurchaseOrderSigningScreen({ navigation, route }: Props): React.JSX.Element {
   const { poId, poDate } = route.params;
-  const { company } = useSubcontractorSession();
+  const { company, signature: savedSignature } = useSubcontractorSession();
   const { data: purchaseOrder, status, reload, refresh, setData } = usePurchaseOrderDetail(poId, poDate);
 
+  // Only used when there's no registration signature to sign with (see renderSignatureSection).
   const [fullName, setFullName] = useState('');
   const [signatureFont, setSignatureFont] = useState<SignatureFontId | null>(null);
   const [isSigning, setIsSigning] = useState(false);
@@ -61,6 +78,17 @@ export function PurchaseOrderSigningScreen({ navigation, route }: Props): React.
   const signatureName = fullName.trim().replace(/\s+/g, ' ');
   const hasName = signatureName.length > 0;
   const canSign = !signedSignature && !!purchaseOrder && isAwaitingSignature(purchaseOrder.status);
+  // The signature to sign with: the one the API has on file (sent at registration), else the copy kept
+  // when registering on this device. Neither → the name-and-style form below.
+  const registeredSignature: SignatureOnFile | null =
+    purchaseOrder?.signatureOnFile ??
+    (savedSignature && {
+      name: savedSignature.name,
+      imageBase64: savedSignature.imageBase64,
+      initialsImageBase64: savedSignature.initialsImageBase64,
+      date: null,
+    });
+  const registeredSignatureDate = registeredSignature?.date ?? todayDateString();
 
   // Stable, so the PDF isn't rebuilt on every render.
   const vendor = useMemo(
@@ -141,11 +169,11 @@ export function PurchaseOrderSigningScreen({ navigation, route }: Props): React.
     if (isSigning || !canSign) {
       return;
     }
-    if (!hasName) {
+    if (!registeredSignature && !hasName) {
       Alert.alert('Full name required', 'Please enter your full name.');
       return;
     }
-    if (!signatureFont) {
+    if (!registeredSignature && !signatureFont) {
       Alert.alert('Signature required', 'Please select a signature.');
       return;
     }
@@ -157,8 +185,21 @@ export function PurchaseOrderSigningScreen({ navigation, route }: Props): React.
 
     setIsSigning(true);
     try {
-      const result = await signPurchaseOrder(accountId, poId);
-      const signature: PurchaseOrderSignature = { name: signatureName, fontId: signatureFont, date: todayDateString() };
+      // The registration signature when there is one; otherwise the name and style entered here.
+      const signature: PurchaseOrderSignature = registeredSignature
+        ? {
+            name: registeredSignature.name,
+            fontId: null,
+            imageBase64: registeredSignature.imageBase64,
+            date: registeredSignatureDate,
+          }
+        : { name: signatureName, fontId: signatureFont, date: todayDateString() };
+      // The API takes the signed purchase order itself: the PO with this signature and date on it.
+      const signedPdf = {
+        fileName: signedPurchaseOrderFileName(purchaseOrder.name),
+        base64: await buildPurchaseOrderPdfBase64(purchaseOrder, vendor, signature),
+      };
+      const result = await signPurchaseOrder(accountId, poId, signedPdf);
       const signedDate = signature.date;
       // Kept on the device, since the API doesn't store it; if saving fails, only later views lose it.
       savePurchaseOrderSignature(poId, signature).catch((error) =>
@@ -254,6 +295,36 @@ export function PurchaseOrderSigningScreen({ navigation, route }: Props): React.
         </Text>
       );
     }
+    if (registeredSignature) {
+      // The signature made when registering, with its date: nothing to fill in, just Sign.
+      return (
+        <>
+          <View style={styles.signatureSection}>
+            <Text style={styles.sectionTitle}>Your Signature</Text>
+            <View style={styles.savedSignatureCard}>
+              <Image
+                source={{ uri: `data:image/png;base64,${registeredSignature.imageBase64}` }}
+                style={styles.savedSignatureImage}
+                resizeMode="contain"
+                accessibilityLabel={`Signature of ${registeredSignature.name}`}
+              />
+              <View style={styles.savedSignatureDetails}>
+                <Text style={styles.savedSignatureName}>{registeredSignature.name}</Text>
+                <Text style={styles.savedSignatureDate}>Date: {formatLongDate(registeredSignatureDate)}</Text>
+              </View>
+            </View>
+            <Text style={styles.hintText}>This is the signature you created when you registered.</Text>
+          </View>
+          <AuthPrimaryButton
+            title={isSigning ? 'Signing...' : 'Sign'}
+            onPress={handleSign}
+            disabled={isSigning}
+            style={styles.signButton}
+          />
+        </>
+      );
+    }
+    // No registration signature on this device (and none from the API): sign with a name and style.
     return (
       <>
         <View style={styles.signatureSection}>
@@ -273,6 +344,7 @@ export function PurchaseOrderSigningScreen({ navigation, route }: Props): React.
                 key={font.id}
                 font={font}
                 signatureName={signatureName}
+                initials={getInitials(signatureName)}
                 isSelected={signatureFont === font.id}
                 disabled={!hasName || isSigning}
                 onSelect={() => setSignatureFont(font.id)}
@@ -477,6 +549,40 @@ const styles = StyleSheet.create({
     color: welcomeColors.textSecondary,
     textAlign: 'center',
     marginBottom: 10,
+  },
+  savedSignatureCard: {
+    borderWidth: 1,
+    borderColor: welcomeColors.cardBorder,
+    borderRadius: radius.md,
+    backgroundColor: welcomeColors.cardBackground,
+    padding: 12,
+    gap: 8,
+  },
+  savedSignatureImage: {
+    width: '100%',
+    height: 80,
+  },
+  savedSignatureDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: welcomeColors.cardBorder,
+    paddingTop: 8,
+    gap: 12,
+  },
+  savedSignatureName: {
+    flex: 1,
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    fontSize: 13,
+    color: welcomeColors.textPrimary,
+  },
+  savedSignatureDate: {
+    fontFamily: fontFamily.regular,
+    fontWeight: '400',
+    fontSize: 12,
+    color: welcomeColors.textSecondary,
   },
   signButton: {
     marginTop: 2,

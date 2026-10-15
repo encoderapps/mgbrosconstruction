@@ -34,6 +34,8 @@ const PO: PurchaseOrderDetail = {
   poDate: null,
   signedDate: null,
   vendorSignature: null,
+  signatureOnFile: null,
+  opportunityId: null,
   changeOrders: [],
   invoices: [],
 };
@@ -57,6 +59,13 @@ describe('purchase order signature store', () => {
     await expect(getPurchaseOrderSignature('bad-font')).resolves.toBeNull();
     await expect(getPurchaseOrderSignature('bad-date')).resolves.toBeNull();
   });
+
+  it('keeps a signature drawn from the registration image, which has no style', async () => {
+    const imageSignature = { name: 'Maya Bennett', fontId: null, imageBase64: 'iVBORw0KGgo', date: '2026-10-13' };
+    await savePurchaseOrderSignature('a1w2', imageSignature);
+
+    await expect(getPurchaseOrderSignature('a1w2')).resolves.toEqual(imageSignature);
+  });
 });
 
 describe('withStoredSignature', () => {
@@ -72,5 +81,15 @@ describe('withStoredSignature', () => {
     const readyForSignature = { ...PO, status: 'Ready for Signature' };
     expect(withStoredSignature(readyForSignature, SIGNATURE)).toBe(readyForSignature);
     expect(withStoredSignature(PO, null)).toBe(PO);
+  });
+
+  it('keeps the signature from the API over the one kept on this device', () => {
+    const apiSignature = { name: 'Sachin Ramesh Tendulkar', fontId: null, imageBase64: 'iVBORw0KGgo', date: '2026-10-14' };
+    const fromApi = { ...PO, signedDate: '2026-10-14', vendorSignature: apiSignature };
+
+    expect(withStoredSignature(fromApi, SIGNATURE)).toMatchObject({
+      signedDate: '2026-10-14',
+      vendorSignature: apiSignature,
+    });
   });
 });

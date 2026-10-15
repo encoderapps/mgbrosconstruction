@@ -64,6 +64,10 @@ export interface SubcontractorSignatureData {
   signatureInitials: string;
   /** Date the agreement was signed, as YYYY-MM-DD (the device's local date). */
   signatureDate: string;
+  /** The name drawn in the chosen style, as a base64 PNG (sent to the registration API). */
+  signatureImageBase64: string;
+  /** The initials drawn in the chosen style, as a base64 PNG (sent to the registration API). */
+  initialsImageBase64: string;
 }
 
 export type SubcontractorRegistrationParams = {
@@ -75,8 +79,19 @@ export type SubcontractorRegistrationParams = {
 };
 
 /** Registration params once the Master Subcontractor Agreement has been signed (Step 6 onward). */
+/** The Master Subcontract Agreement as signed on the agreement step, sent with the registration. */
+export interface SubcontractorAgreementData {
+  /** e.g. "MSA_Mitchell_Air_Systems.pdf". */
+  fileName: string;
+  /** The signed agreement PDF, base64. */
+  base64: string;
+  /** YYYY-MM-DD. */
+  signedDate: string;
+}
+
 export type SignedSubcontractorRegistrationParams = SubcontractorRegistrationParams & {
   signature: SubcontractorSignatureData;
+  agreement: SubcontractorAgreementData;
 };
 
 export type AuthStackParamList = {
@@ -130,6 +145,8 @@ export type AuthStackParamList = {
     signedDate?: string;
   };
   PurchaseOrderSigning: { poId: string; poDate?: string };
+  /** poName is only for the screen's subtitle; opportunityId is the PO's job (null when unknown). */
+  AddPurchaseOrderInvoice: { poId: string; poName: string; opportunityId: string | null };
   /** The change order as listed on its PO, so the screen can show it without fetching the PO's change orders again. */
   ChangeOrderDetails: { poId: string; changeOrder: ChangeOrderSummary };
   AddChangeOrderItem: { poId: string; changeOrder: ChangeOrderSummary };

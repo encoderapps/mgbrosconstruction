@@ -46,7 +46,9 @@ export function LoginInput({
   const scrollFocusedInputIntoView = useScrollFocusedInputIntoView();
 
   return (
-    <View style={styles.container}>
+    // collapsable={false}: never flattened by Android's Fabric renderer, so its children can't be moved
+    // between parents mid-update (the "specified child already has a parent" crash).
+    <View style={styles.container} collapsable={false}>
       <Text style={styles.label}>
         {label}
         {required && <Text style={styles.required}> *</Text>}
