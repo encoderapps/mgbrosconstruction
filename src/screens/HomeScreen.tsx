@@ -38,7 +38,7 @@ type MenuItem = {
   label: string;
   icon: React.ReactNode;
   /** The screen the row opens; rows without one aren't built yet. */
-  screen?: 'Documents';
+  screen?: 'Documents' | 'PaymentSettings';
 };
 
 // Contacts, Purchase Orders, Projects and Invoices are rendered separately
@@ -53,7 +53,12 @@ const MENU_ITEMS_AFTER_INVOICES: MenuItem[] = [
     icon: <FolderIcon size={18} color={welcomeColors.accent} />,
     screen: 'Documents',
   },
-  { key: 'paymentSettings', label: 'Payment Settings', icon: <CardIcon size={18} color={welcomeColors.accent} /> },
+  {
+    key: 'paymentSettings',
+    label: 'Payment Settings',
+    icon: <CardIcon size={18} color={welcomeColors.accent} />,
+    screen: 'PaymentSettings',
+  },
 ];
 
 type ExpandableSection = 'contacts' | 'purchaseOrders' | 'projects' | 'invoices';

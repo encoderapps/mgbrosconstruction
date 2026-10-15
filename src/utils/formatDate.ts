@@ -43,3 +43,16 @@ export function daysUntil(isoDate: string, today: Date = new Date()): number {
   // Rounded, since a daylight-saving change makes a day 23 or 25 hours long.
   return Math.round((new Date(year, month - 1, day).getTime() - startOfToday.getTime()) / MS_PER_DAY);
 }
+
+/** An ISO timestamp → the device's local date and time, e.g. "May 18, 2025 10:30 AM"; empty if invalid. */
+export function formatDateTime(isoTimestamp: string): string {
+  const date = new Date(isoTimestamp);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const hour12 = hours % 12 || 12;
+  const month = MONTH_NAMES[date.getMonth()].slice(0, 3);
+  return `${month} ${date.getDate()}, ${date.getFullYear()} ${hour12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
+}

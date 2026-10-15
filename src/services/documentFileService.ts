@@ -1,6 +1,7 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import RNFS from 'react-native-fs';
+import FileViewer from 'react-native-file-viewer';
 
 const PDF_MIME_TYPE = 'application/pdf';
 /** Saved documents go in Downloads/<this folder> on Android 10+. */
@@ -22,8 +23,11 @@ export type DocumentSaveResult =
   /** iOS: the share sheet was shown, where the user picks "Save to Files" or an app. */
   | { kind: 'shared' };
 
-/** Characters Android or iOS file systems reject in a file name. */
-const INVALID_FILE_NAME_CHARACTERS = /[\\/:*?"<>|]+/;
+/**
+ * Characters Android or iOS file systems reject in a file name, plus "#" and
+ * "%", which would break the file:// URI the PDF viewer opens it by.
+ */
+const INVALID_FILE_NAME_CHARACTERS = /[\\/:*?"<>|#%]+/;
 const MAX_FILE_NAME_LENGTH = 120;
 
 /** "W9 / ABC: Co.pdf" → "W9 - ABC - Co.pdf": safe as a file name on Android and iOS. */
@@ -117,4 +121,17 @@ export async function saveCachedDocumentToDevice(cachePath: string, fileName: st
 /** writeDocumentToCache, then saveCachedDocumentToDevice. */
 export async function saveDocumentToDevice(source: DocumentFileSource): Promise<DocumentSaveResult> {
   return saveCachedDocumentToDevice(await writeDocumentToCache(source), source.fileName);
+}
+
+/**
+ * Hands a cached document to the system, to print or share it: the share sheet
+ * on iOS (Print, Save to Files, Mail…), and on Android the "open with" chooser,
+ * as Android can only print or share a PDF from the app that opens it.
+ */
+export async function openCachedDocumentInOtherApp(cachePath: string, fileName: string): Promise<void> {
+  if (Platform.OS === 'android') {
+    await FileViewer.open(cachePath, { showOpenWithDialog: true, displayName: fileName });
+    return;
+  }
+  ReactNativeBlobUtil.ios.presentOptionsMenu(cachePath);
 }
