@@ -58,7 +58,8 @@ export function DataTable<Row>({
       nestedScrollEnabled
       contentContainerStyle={styles.scrollContent}
     >
-      <View style={styles.table}>
+      {/* collapsable={false} here and on each row: see LoginInput (rows are added as data arrives). */}
+      <View style={styles.table} collapsable={false}>
         <View style={[styles.row, styles.headerRow]}>
           {columns.map((column) => (
             <Text
@@ -75,7 +76,7 @@ export function DataTable<Row>({
           <Text style={styles.emptyText}>{emptyText}</Text>
         ) : (
           rows.map((row, index) => (
-            <View key={getRowKey(row)} style={[styles.row, index > 0 && styles.rowDivider]}>
+            <View key={getRowKey(row)} style={[styles.row, index > 0 && styles.rowDivider]} collapsable={false}>
               {columns.map((column) => {
                 const { onPress } = column;
                 // Only override when a colour is given: `color: undefined` would wipe the cell's own colour.

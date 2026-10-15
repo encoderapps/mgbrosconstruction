@@ -12,6 +12,8 @@ import { PasswordRequirements } from '../components/PasswordRequirements';
 import { EyeIcon, LockIcon } from '../assets/icons';
 import { welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
+import { saveRegistrationSignature } from '../services/registrationSignatureStore';
+import { toUserSignature } from '../utils/signature';
 import { submitSubcontractorRegistration } from '../services/subcontractorRegistrationService';
 import { validateNewPassword } from '../utils/passwordValidation';
 
@@ -39,6 +41,11 @@ export function CreatePasswordScreen({ navigation, route }: Props): React.JSX.El
     setIsSubmitting(true);
     try {
       await submitSubcontractorRegistration(route.params, password, confirmPassword);
+      // Kept on this device so the signature can be reused to sign after logging in. Not
+      // being able to keep it only means signing starts empty, so it never fails registration.
+      await saveRegistrationSignature(route.params.identity.email, toUserSignature(route.params.signature)).catch((error) =>
+        console.error('Failed to save the registration signature:', error),
+      );
       navigation.reset({
         index: 0,
         routes: [{ name: 'RegistrationComplete' }],

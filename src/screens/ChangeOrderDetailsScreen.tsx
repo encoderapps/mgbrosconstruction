@@ -9,18 +9,23 @@ import { ChangeOrderItemsCard } from '../components/ChangeOrderItemsCard';
 import { HomeHeader } from '../components/HomeHeader';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 import { LoadStateMessage } from '../components/LoadStateMessage';
-import { SIGNATURE_DISPLAY_FONT, SignatureInput } from '../components/SignatureInput';
+import { SignatureInput, getSignatureFontFamily } from '../components/SignatureInput';
 import { BagIcon, CheckCircleIcon, ChevronRightIcon } from '../assets/icons';
 import { fontFamily, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
+import { SIGNATURE_FONTS } from '../constants/signatureFonts';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { useBlockBackWhile } from '../hooks/useBlockBackWhile';
 import { ChangeOrderScreenData, useChangeOrderDetail } from '../hooks/useChangeOrderDetail';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { signChangeOrder } from '../services/changeOrderService';
+import { buildChangeOrderPdfBase64 } from '../services/purchaseOrderPdfService';
 import { ChangeOrderDetail } from '../types/changeOrder';
+import { PurchaseOrderSignature } from '../types/purchaseOrder';
 import { isChangeOrderSigned } from '../utils/changeOrder';
+import { todayDateString } from '../utils/dateValidation';
 import { formatUsDate } from '../utils/formatDate';
+import { signedChangeOrderFileName } from '../utils/signedDocument';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ChangeOrderDetails'>;
 
@@ -30,9 +35,13 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'ChangeOrderDetails'>;
  */
 export function ChangeOrderDetailsScreen({ navigation, route }: Props): React.JSX.Element {
   const { poId, changeOrder: summary } = route.params;
-  const accountId = useSubcontractorSession().company?.accountId;
+  const { company, signature: savedSignature } = useSubcontractorSession();
+  const accountId = company?.accountId;
+  // The style the signature is drawn in: the one chosen when registering, if any.
+  const signatureFontId = savedSignature?.fontId ?? SIGNATURE_FONTS[0].id;
   const { data, status, reload, refresh, setData } = useChangeOrderDetail(poId, summary);
-  const [signatureName, setSignatureName] = useState('');
+  // Starts from the signature made when registering, so signing is one tap; it can still be changed.
+  const [signatureName, setSignatureName] = useState(savedSignature?.name ?? '');
   const [isSigning, setIsSigning] = useState(false);
   // Back from Add Line Item: show the new item.
   useRefreshOnReturn(refresh);
@@ -44,15 +53,40 @@ export function ChangeOrderDetailsScreen({ navigation, route }: Props): React.JS
       Alert.alert('Signature required', 'Please type your full name to sign this change order.');
       return;
     }
-    if (!accountId) {
+    if (!accountId || !company || !data) {
       Alert.alert('Unable to sign', 'Your account could not be found. Please log in again.');
       return;
     }
     setIsSigning(true);
     try {
-      const signed = await signChangeOrder(accountId, poId, summary, signatureName);
-      setData((current) => current && { ...current, changeOrder: signed });
-      Alert.alert('Change order signed', `${signed.name} has been signed.`);
+      const signer = { name: signatureName.trim().replace(/\s+/g, ' '), fontId: signatureFontId };
+      // The registration signature image while the name is the registered one; otherwise the name in its style.
+      const usesRegisteredImage = !!savedSignature && signer.name === savedSignature.name;
+      const pdfSignature: PurchaseOrderSignature = {
+        name: signer.name,
+        fontId: signer.fontId,
+        imageBase64: usesRegisteredImage ? savedSignature.imageBase64 : undefined,
+        date: todayDateString(),
+      };
+      // The API takes the signed change order itself: the change order with this signature and date on it.
+      const signedPdf = {
+        fileName: signedChangeOrderFileName(data.changeOrder.name, company.name),
+        base64: await buildChangeOrderPdfBase64(
+          data.changeOrder,
+          data.purchaseOrder,
+          { name: company.name, address: company.address },
+          pdfSignature,
+        ),
+      };
+      const result = await signChangeOrder(accountId, summary.id, signer, signedPdf);
+      setData(
+        (current) =>
+          current && {
+            ...current,
+            changeOrder: { ...current.changeOrder, status: result.status, signature: result.signature },
+          },
+      );
+      Alert.alert('Change order signed', result.message);
     } catch (error) {
       Alert.alert('Unable to sign', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -71,14 +105,23 @@ export function ChangeOrderDetailsScreen({ navigation, route }: Props): React.JS
               {signature ? `Signed on ${formatUsDate(signature.date)}` : `This change order is ${changeOrder.status}.`}
             </Text>
           </View>
-          {signature && <Text style={styles.signedName}>{signature.name}</Text>}
+          {signature && (
+            <Text style={[styles.signedName, { fontFamily: getSignatureFontFamily(signature.fontId) }]}>
+              {signature.name}
+            </Text>
+          )}
         </AuthCard>
       );
     }
     return (
       <>
         <Text style={styles.sectionLabel}>Your Signature</Text>
-        <SignatureInput value={signatureName} onChangeText={setSignatureName} editable={!isSigning} />
+        <SignatureInput
+          value={signatureName}
+          onChangeText={setSignatureName}
+          editable={!isSigning}
+          fontId={signatureFontId}
+        />
         <AuthPrimaryButton
           title={isSigning ? 'Signing…' : 'Sign'}
           onPress={handleSign}
@@ -202,7 +245,6 @@ const styles = StyleSheet.create({
     color: toneColors.success.foreground,
   },
   signedName: {
-    fontFamily: SIGNATURE_DISPLAY_FONT,
     fontSize: 30,
     color: welcomeColors.textPrimary,
   },

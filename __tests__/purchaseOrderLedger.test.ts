@@ -14,6 +14,8 @@ const PO: PurchaseOrderDetail = {
   poDate: null,
   signedDate: '2026-08-24',
   vendorSignature: null,
+  signatureOnFile: null,
+  opportunityId: null,
   changeOrders: [
     { id: 'co1', name: 'CO-1001', status: 'Signed', amount: 2500 },
     { id: 'co2', name: 'CO-1002', status: 'Ready for Signature', amount: 500 },

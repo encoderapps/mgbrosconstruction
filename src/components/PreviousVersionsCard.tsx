@@ -39,7 +39,7 @@ export function PreviousVersionsCard({ versions, ...handlers }: PreviousVersions
         accessibilityState={{ expanded: isExpanded }}
       >
         <Text style={styles.title}>Previous Versions ({versions.length})</Text>
-        <View style={isExpanded && styles.chevronExpanded}>
+        <View style={isExpanded ? styles.chevronExpanded : styles.chevronCollapsed}>
           <ChevronRightIcon size={16} color={welcomeColors.accent} />
         </View>
       </Pressable>
@@ -132,6 +132,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     color: welcomeColors.textPrimary,
+  },
+  // Always rotated (0° or 90°), so the View is never flattened away on Android: switching
+  // between flattened and not re-parents its child and can crash ("child already has a parent").
+  chevronCollapsed: {
+    transform: [{ rotate: '0deg' }],
   },
   chevronExpanded: {
     transform: [{ rotate: '90deg' }],

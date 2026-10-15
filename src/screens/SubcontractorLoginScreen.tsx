@@ -13,6 +13,8 @@ import { EyeIcon, LockIcon, LoginIcon, MailIcon, UserIcon } from '../assets/icon
 import { fontFamily, radius, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { loginSubcontractor } from '../services/subcontractorLoginService';
+import { getRegistrationSignature } from '../services/registrationSignatureStore';
+import { userSignatureFromLogin } from '../utils/signature';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'SubcontractorLogin'>;
@@ -29,7 +31,7 @@ export function SubcontractorLoginScreen({ navigation }: Props): React.JSX.Eleme
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const { setCompany } = useSubcontractorSession();
+  const { setCompany, setSignature } = useSubcontractorSession();
 
   const handleLogin = async (): Promise<void> => {
     if (!email.trim()) {
@@ -55,6 +57,9 @@ export function SubcontractorLoginScreen({ navigation }: Props): React.JSX.Eleme
         Alert.alert('Unable to log in', result.message || 'Please check your credentials and try again.');
         return;
       }
+      // The signature made when registering, to sign with: from the login API when it returns
+      // one, else the copy kept when registering with this email on this device.
+      setSignature(userSignatureFromLogin(result) ?? (await getRegistrationSignature(email)));
       setCompany({
         accountId: result.accountId ?? '',
         name: result.companyName ?? '',

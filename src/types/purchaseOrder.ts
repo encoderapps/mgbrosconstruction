@@ -38,11 +38,25 @@ export interface PaymentTermUpdate {
 
 /** The vendor's signature on a signed PO, drawn on the PDF's "Vendor:" line. */
 export interface PurchaseOrderSignature {
-  /** The signer's full name, written in the chosen signature font. */
+  /** The signer's full name. */
   name: string;
-  fontId: SignatureFontId;
+  /** The style the name is written in, when there's no image. */
+  fontId: SignatureFontId | null;
+  /** The registration signature as a base64 PNG; drawn instead of the name in `fontId` when present. */
+  imageBase64?: string;
   /** Signing date as YYYY-MM-DD. */
   date: string;
+}
+
+/** The signature the API has on file for the subcontractor (the one sent at registration). */
+export interface SignatureOnFile {
+  name: string;
+  /** base64 PNG. */
+  imageBase64: string;
+  /** base64 PNG; empty when the API sends none. */
+  initialsImageBase64: string;
+  /** YYYY-MM-DD to show with it; null when the API sends none. */
+  date: string | null;
 }
 
 /** A change order or invoice listed on a signed purchase order. */
@@ -54,6 +68,8 @@ export interface PurchaseOrderLedgerEntry {
   amount: number;
   /** Change orders only, e.g. "Labor and Material are included". */
   description?: string;
+  /** Invoices only: the subcontractor's own invoice number; empty when there's none. */
+  vendorInvoiceNumber?: string;
 }
 
 export interface PurchaseOrderDetail {
@@ -70,12 +86,16 @@ export interface PurchaseOrderDetail {
   poDate: string | null;
   /** When the vendor signed, as YYYY-MM-DD; null when unknown or not signed. */
   signedDate: string | null;
-  /** The signature made in this app on this device, if any (the API doesn't store it). */
+  /** The vendor's signature on the PO: from the API when it has one, else the one made on this device. */
   vendorSignature: PurchaseOrderSignature | null;
+  /** The signature to sign this PO with, from the API; null when it sends none. */
+  signatureOnFile: SignatureOnFile | null;
   /** null when they couldn't be loaded (the screen offers a retry). */
   changeOrders: PurchaseOrderLedgerEntry[] | null;
   /** null when they couldn't be loaded (the screen offers a retry). */
   invoices: PurchaseOrderLedgerEntry[] | null;
+  /** The job (Salesforce Opportunity) the PO belongs to; null when the API doesn't send it. */
+  opportunityId: string | null;
 }
 
 /** Line items grouped by category, in the order the categories first appear. */

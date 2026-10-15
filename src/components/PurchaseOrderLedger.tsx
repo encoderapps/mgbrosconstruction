@@ -51,6 +51,28 @@ function ledgerColumns(nameLabel: string, onOpen: (entry: PurchaseOrderLedgerEnt
   ];
 }
 
+/** The invoice table: invoice number (opens it), vendor invoice number, amount and status. */
+function invoiceColumns(onOpen: (invoice: PurchaseOrderLedgerEntry) => void): DataTableColumn<LedgerRow>[] {
+  return [
+    { key: 'name', label: 'Invoice Number', width: 104, isLink: true, getValue: (invoice) => invoice.name, onPress: onOpen },
+    {
+      key: 'vendorInvoiceNumber',
+      label: 'Vendor Invoice Number',
+      width: 124,
+      grow: true,
+      getValue: (invoice) => invoice.vendorInvoiceNumber ?? '',
+    },
+    {
+      key: 'amount',
+      label: 'Amount',
+      width: 84,
+      align: 'right',
+      getValue: (invoice) => formatCurrency(invoice.amount, true),
+    },
+    { key: 'status', label: 'Status', width: 80, getValue: (invoice) => invoice.status, getColor: statusColor },
+  ];
+}
+
 const withIndex = (entries: PurchaseOrderLedgerEntry[]): LedgerRow[] =>
   entries.map((entry, index) => ({ ...entry, index: index + 1 }));
 
@@ -87,7 +109,7 @@ export function PurchaseOrderLedger({
 
       <AmountRow label="Total Amount" amount={totals.totalAmount} actionLabel="Add Invoice" onAction={onAddInvoice} />
       <DataTable
-        columns={ledgerColumns('Invoice', onOpenInvoice)}
+        columns={invoiceColumns(onOpenInvoice)}
         rows={withIndex(purchaseOrder.invoices ?? [])}
         getRowKey={(entry) => entry.id}
         emptyText="No invoices for this purchase order."
