@@ -149,7 +149,7 @@ export interface PurchaseOrderApiRecord {
 export interface PurchaseOrdersApiResponse {
   success: boolean;
   message?: string;
-  /** Number of purchase orders returned (5 at most for view=home). */
+  /** Number of purchase orders returned (5 at most for view=home, so not the total). */
   count: number;
   purchaseOrders: PurchaseOrderApiRecord[];
 }

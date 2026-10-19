@@ -139,7 +139,7 @@ export function RegisterScreen({ navigation }: Props): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1 },
   container: { flexGrow: 1, padding: spacing.lg, justifyContent: 'center' },
   title: { ...typography.h2, color: colors.textPrimary, marginBottom: spacing.xs },
   subtitle: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.lg },

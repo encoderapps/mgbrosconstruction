@@ -249,6 +249,7 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
                 rows={paymentTerms}
                 getRowKey={(term) => term.id}
                 emptyText="No payment terms for this purchase order."
+                fitWidth
               />
             </>
           )}

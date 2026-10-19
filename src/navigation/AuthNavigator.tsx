@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthStackParamList } from './types';
+import { ScreenBackground } from '../components/ScreenBackground';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { SubcontractorLoginScreen } from '../screens/SubcontractorLoginScreen';
 import { RegisterSubcontractorScreen } from '../screens/RegisterSubcontractorScreen';
@@ -50,7 +51,11 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 export function AuthNavigator(): React.JSX.Element {
   return (
-    <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      initialRouteName="Welcome"
+      screenOptions={{ headerShown: false }}
+      screenLayout={ScreenBackground}
+    >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="SubcontractorLogin" component={SubcontractorLoginScreen} />
       <Stack.Screen name="RegisterSubcontractor" component={RegisterSubcontractorScreen} />
