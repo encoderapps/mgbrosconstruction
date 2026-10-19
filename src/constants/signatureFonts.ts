@@ -20,3 +20,8 @@ export const SIGNATURE_FONTS: SignatureFont[] = [
 export function getSignatureFont(id: SignatureFontId): SignatureFont {
   return SIGNATURE_FONTS.find((font) => font.id === id) ?? SIGNATURE_FONTS[0];
 }
+
+/** The font family for a signature style; the first style when none is given. */
+export function getSignatureFontFamily(fontId?: SignatureFontId): string {
+  return fontId ? getSignatureFont(fontId).fontFamily : SIGNATURE_FONTS[0].fontFamily;
+}

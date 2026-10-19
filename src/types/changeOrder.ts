@@ -24,6 +24,16 @@ export interface ChangeOrderItem {
   amount: number;
 }
 
+/** What the Add Change Order form sends: a new change order on a purchase order, always a Draft. */
+export interface NewChangeOrder {
+  poId: string;
+  /** Always the Draft status: a change order starts as a Draft and only the backend moves it on. */
+  status: string;
+  /** The change order's amount, in dollars (> 0). */
+  amount: number;
+  description: string;
+}
+
 /** What the Add Line Item form sends. */
 export type NewChangeOrderItem = Pick<ChangeOrderItem, 'description' | 'quantity' | 'unitPrice'>;
 

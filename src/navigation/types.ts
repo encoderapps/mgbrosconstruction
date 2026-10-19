@@ -148,8 +148,14 @@ export type AuthStackParamList = {
   PurchaseOrderSigning: { poId: string; poDate?: string };
   /** poName is only for the screen's subtitle; opportunityId is the PO's job (null when unknown). */
   AddPurchaseOrderInvoice: { poId: string; poName: string; opportunityId: string | null };
+  /** poName is only for the screen's subtitle. */
+  AddChangeOrder: { poId: string; poName: string };
   /** The change order as listed on its PO, so the screen can show it without fetching the PO's change orders again. */
   ChangeOrderDetails: { poId: string; changeOrder: ChangeOrderSummary };
+  /** A change order's approval status, while it waits for (or after) MG Bros' decision. */
+  ChangeOrderApproval: { poId: string; changeOrder: ChangeOrderSummary };
+  /** Signing a change order that's Ready For Signature. */
+  ChangeOrderSigning: { poId: string; changeOrder: ChangeOrderSummary };
   AddChangeOrderItem: { poId: string; changeOrder: ChangeOrderSummary };
   /** The PO's current terms and total, so the screen can edit them without fetching the PO again. */
   ModifyPaymentTerms: { poId: string; totalAmount: number; paymentTerms: PurchaseOrderPaymentTerm[] };

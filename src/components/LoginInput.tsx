@@ -26,6 +26,8 @@ type LoginInputProps = {
   required?: boolean;
   /** Off while the form is saving. */
   editable?: boolean;
+  /** A taller, wrapping text area (e.g. a description) instead of a single line. */
+  multiline?: boolean;
 };
 
 export function LoginInput({
@@ -42,6 +44,7 @@ export function LoginInput({
   maxLength,
   required,
   editable = true,
+  multiline = false,
 }: LoginInputProps): React.JSX.Element {
   const scrollFocusedInputIntoView = useScrollFocusedInputIntoView();
 
@@ -53,10 +56,12 @@ export function LoginInput({
         {label}
         {required && <Text style={styles.required}> *</Text>}
       </Text>
-      <View style={[styles.inputWrapper, !editable && styles.inputDisabled]}>
+      <View style={[styles.inputWrapper, multiline && styles.inputWrapperMultiline, !editable && styles.inputDisabled]}>
         {!!leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
         <TextInput
-          style={styles.input}
+          style={[styles.input, multiline && styles.inputMultiline]}
+          multiline={multiline}
+          textAlignVertical={multiline ? 'top' : 'center'}
           placeholder={placeholder}
           placeholderTextColor={welcomeColors.inputPlaceholder}
           value={value}
@@ -104,6 +109,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 44,
   },
+  inputWrapperMultiline: {
+    alignItems: 'flex-start',
+    height: undefined,
+    minHeight: 88,
+    paddingVertical: 10,
+  },
   inputDisabled: {
     opacity: 0.6,
   },
@@ -120,5 +131,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: welcomeColors.textPrimary,
     padding: 0,
+  },
+  inputMultiline: {
+    alignSelf: 'stretch',
+    lineHeight: 18,
   },
 });

@@ -14,6 +14,7 @@ import {
   ChangeOrderItem,
   ChangeOrderSignature,
   ChangeOrderSummary,
+  NewChangeOrder,
   NewChangeOrderItem,
 } from '../types/changeOrder';
 import { isChangeOrderSigned, lineItemAmount } from '../utils/changeOrder';
@@ -148,6 +149,67 @@ export async function addChangeOrderItem(
     amount: lineItemAmount(item.quantity, item.unitPrice),
   });
   return fetchChangeOrderDetail(accountId, poId, summary);
+}
+
+/** The status every new change order starts in. */
+export const NEW_CHANGE_ORDER_STATUS = 'Draft';
+
+export interface CreateChangeOrderResult {
+  changeOrderId: string;
+  /** The number the backend assigns, e.g. "CO#02". */
+  changeOrderNumber: string;
+  /** As the API reports it (Draft for a new change order). */
+  status: string;
+}
+
+export const CREATE_CHANGE_ORDER_UNAVAILABLE_MESSAGE =
+  'Adding a change order isn’t available in the app yet. Please contact MG Bros to add this change order.';
+
+/**
+ * Creates a Draft change order on a purchase order; the backend assigns its
+ * number (e.g. "CO#02") and links the PO's job, vendor and general contractor.
+ *
+ * TODO(api): there's no create-change-order endpoint yet, so this always
+ * throws and nothing is sent or kept: no change order is ever faked.
+ * Integrating it needs the endpoint's URL and method, its request body (field
+ * names for the PO, status, amount and description, and any others it
+ * requires, such as the date of issue) and its response (success, message,
+ * the new change order's id, number and status). The Add Change Order screen
+ * already handles a successful result.
+ */
+export async function createChangeOrder(
+  _accountId: string,
+  _changeOrder: NewChangeOrder,
+): Promise<CreateChangeOrderResult> {
+  throw new Error(CREATE_CHANGE_ORDER_UNAVAILABLE_MESSAGE);
+}
+
+export interface RequestChangeOrderApprovalResult {
+  /** The change order's status after the request, as the API reports it (e.g. a pending-approval value). */
+  status: string;
+  /** The API's message, fit to show the user. */
+  message: string;
+}
+
+export const CHANGE_ORDER_APPROVAL_UNAVAILABLE_MESSAGE =
+  'Requesting approval isn’t available in the app yet. Please contact MG Bros to submit this change order for approval.';
+
+/**
+ * Submits a Draft change order for MG Bros' approval; once approved, the
+ * backend moves it to Ready For Signature.
+ *
+ * TODO(api): there's no approval-request endpoint yet, so this always throws
+ * and nothing is sent: the change order stays a Draft, and no approval is ever
+ * simulated. Integrating it needs the endpoint's URL and method, its request
+ * body (e.g. accountId / changeOrderId field names) and its response (success,
+ * message, and the resulting status value). The screens already handle a
+ * successful result by showing the waiting-for-approval screen.
+ */
+export async function requestChangeOrderApproval(
+  _accountId: string,
+  _changeOrderId: string,
+): Promise<RequestChangeOrderApprovalResult> {
+  throw new Error(CHANGE_ORDER_APPROVAL_UNAVAILABLE_MESSAGE);
 }
 
 export interface SignChangeOrderResult {
