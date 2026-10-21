@@ -3,6 +3,7 @@ import { Alert, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
+import { DateInput } from '../components/DateInput';
 import { HomeHeader } from '../components/HomeHeader';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 import { LoginInput } from '../components/LoginInput';
@@ -13,28 +14,37 @@ import { useSubcontractorSession } from '../context/SubcontractorSessionContext'
 import { useBlockBackWhile } from '../hooks/useBlockBackWhile';
 import { NEW_CHANGE_ORDER_STATUS, createChangeOrder } from '../services/changeOrderService';
 import { MAX_CURRENCY_AMOUNT, parseCurrencyInput, sanitizeCurrencyInput } from '../utils/currencyInput';
+import { todayDateString } from '../utils/dateValidation';
 import { formatCurrency } from '../utils/formatCurrency';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'AddChangeOrder'>;
 
 const DESCRIPTION_MAX_LENGTH = 1000;
+const SPECIAL_INSTRUCTIONS_MAX_LENGTH = 1000;
 
 /**
- * "Add Change Order" on a signed purchase order: its amount and description.
- * A new change order is always a Draft; the backend assigns its number and
- * takes the job, vendor and general contractor from the purchase order.
+ * "Add Change Order" on a signed purchase order: its date of issue, amount,
+ * description and any special instructions. A new change order is always a
+ * Draft; the backend assigns its number, takes the general contractor from
+ * the purchase order and submits it for approval.
  */
 export function AddChangeOrderScreen({ navigation, route }: Props): React.JSX.Element {
-  const { poId, poName } = route.params;
+  const { poId, poName, opportunityId } = route.params;
   const company = useSubcontractorSession().company;
+  const [dateOfIssue, setDateOfIssue] = useState(todayDateString);
   const [amountText, setAmountText] = useState('');
   const [description, setDescription] = useState('');
+  const [specialInstructions, setSpecialInstructions] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   // Leaving mid-save would lose the result.
   useBlockBackWhile(isSaving);
 
   const handleSave = async (): Promise<void> => {
     if (isSaving) {
+      return;
+    }
+    if (!dateOfIssue) {
+      Alert.alert('Missing date of issue', 'Please select the date of issue.');
       return;
     }
     if (!amountText.trim()) {
@@ -61,19 +71,19 @@ export function AddChangeOrderScreen({ navigation, route }: Props): React.JSX.El
     Keyboard.dismiss();
     setIsSaving(true);
     try {
-      const result = await createChangeOrder(company.accountId, {
+      const created = await createChangeOrder(company.accountId, {
         poId,
-        status: NEW_CHANGE_ORDER_STATUS,
+        opportunityId,
         amount,
-        description: description.trim(),
+        description,
+        dateOfIssue,
+        specialInstructions,
       });
       // The purchase order reloads when it's shown again, so the change order appears in its table.
       navigation.goBack();
       Alert.alert(
-        'Change order created',
-        result.changeOrderNumber
-          ? `Change order ${result.changeOrderNumber} has been added to ${poName} as a Draft.`
-          : `The change order has been added to ${poName} as a Draft.`,
+        created.changeOrderNumber ? `Change order ${created.changeOrderNumber} created` : 'Change order created',
+        created.message,
       );
     } catch (error) {
       setIsSaving(false);
@@ -115,6 +125,14 @@ export function AddChangeOrderScreen({ navigation, route }: Props): React.JSX.El
             onChangeText={() => undefined}
             editable={false}
           />
+          <DateInput
+            label="Date of Issue"
+            required
+            placeholder="Select date of issue"
+            value={dateOfIssue}
+            onChange={setDateOfIssue}
+            disabled={isSaving}
+          />
           <LoginInput
             label="Change Order Amount"
             required
@@ -132,6 +150,16 @@ export function AddChangeOrderScreen({ navigation, route }: Props): React.JSX.El
             onChangeText={setDescription}
             autoCapitalize="sentences"
             maxLength={DESCRIPTION_MAX_LENGTH}
+            multiline
+            editable={!isSaving}
+          />
+          <LoginInput
+            label="Special Instructions"
+            placeholder="Add any special instructions (optional)"
+            value={specialInstructions}
+            onChangeText={setSpecialInstructions}
+            autoCapitalize="sentences"
+            maxLength={SPECIAL_INSTRUCTIONS_MAX_LENGTH}
             multiline
             editable={!isSaving}
           />

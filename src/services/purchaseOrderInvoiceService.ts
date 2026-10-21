@@ -1,11 +1,10 @@
 import { SALESFORCE_CREATE_INVOICE_URL, SALESFORCE_QUERY_URL } from '../constants/config';
 import { CreateInvoiceApiPayload, CreateInvoiceApiResponse, SoqlQueryResponse } from '../types';
 import { CreatedPurchaseOrderInvoice, NewPurchaseOrderInvoice } from '../types/purchaseOrderInvoice';
-import { todayDateString } from '../utils/dateValidation';
+import { isDateOnlyString, todayDateString } from '../utils/dateValidation';
 import { salesforceGet, salesforceSend } from './salesforceClient';
 
 const DEFAULT_ERROR_MESSAGE = 'Unable to create the invoice. Please try again.';
-const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const JOB_NOT_FOUND_MESSAGE = 'This purchase order is not linked to a job, so an invoice cannot be added to it.';
 /** A Salesforce record Id: 15 or 18 letters and digits (checked before it goes into a query). */
@@ -14,11 +13,12 @@ const SALESFORCE_ID_PATTERN = /^[A-Za-z0-9]{15}(?:[A-Za-z0-9]{3})?$/;
 /**
  * The job (Opportunity) a purchase order belongs to: its Job__c, read with a
  * SOQL query limited to the subcontractor's own POs. null when it has none.
+ * Used when creating invoices and change orders on a PO.
  *
  * TODO: the PO detail API doesn't return the job yet. Once it returns
  * opportunityId (Job__c), this lookup is no longer called and can be removed.
  */
-async function fetchPurchaseOrderJobId(accountId: string, poId: string): Promise<string | null> {
+export async function fetchPurchaseOrderJobId(accountId: string, poId: string): Promise<string | null> {
   if (!SALESFORCE_ID_PATTERN.test(accountId) || !SALESFORCE_ID_PATTERN.test(poId)) {
     return null;
   }
@@ -47,7 +47,7 @@ export async function createPurchaseOrderInvoice(
   if (!status) {
     throw new Error('Please select a status.');
   }
-  if (!DATE_ONLY_PATTERN.test(input.dueDate)) {
+  if (!isDateOnlyString(input.dueDate)) {
     throw new Error('Please select a due date.');
   }
   // YYYY-MM-DD strings compare in date order.

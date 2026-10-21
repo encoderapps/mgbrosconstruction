@@ -35,6 +35,15 @@ export function toChangeOrderSummary({ id, name, status, amount, description }: 
 export type ChangeOrderStage = 'draft' | 'pendingApproval' | 'rejected' | 'readyForSignature' | 'signed' | 'unknown';
 
 /**
+ * Waiting on MG Bros' approval. Creating a change order submits it for
+ * approval straight away (the create API answers "Approval is pending"), so a
+ * Draft is waiting too.
+ */
+export function isAwaitingApproval(stage: ChangeOrderStage): boolean {
+  return stage === 'draft' || stage === 'pendingApproval';
+}
+
+/**
  * The workflow stage for a change order's status, as the backend reports it
  * (the backend is the source of truth; a signature is only known once the
  * signing API has confirmed it).

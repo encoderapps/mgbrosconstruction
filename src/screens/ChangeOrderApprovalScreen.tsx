@@ -15,19 +15,25 @@ import { AuthStackParamList } from '../navigation/types';
 import { useChangeOrderDetail } from '../hooks/useChangeOrderDetail';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { ChangeOrderDetail } from '../types/changeOrder';
-import { ChangeOrderStage, changeOrderStage, toChangeOrderSummary } from '../utils/changeOrder';
+import { ChangeOrderStage, changeOrderStage, isAwaitingApproval, toChangeOrderSummary } from '../utils/changeOrder';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ChangeOrderApproval'>;
 
 type PanelTone = 'success' | 'warning' | 'danger' | null;
 
-const PANELS: Record<ChangeOrderStage, { tone: PanelTone; title: string; message: string }> = {
-  pendingApproval: {
-    tone: 'warning',
-    title: 'Waiting for Approval',
-    message:
-      'Your change order has been submitted and is awaiting approval from MG Bros. You can sign it once it’s approved.',
-  },
+type Panel = { tone: PanelTone; title: string; message: string };
+
+const WAITING_PANEL: Panel = {
+  tone: 'warning',
+  title: 'Waiting for Approval',
+  message:
+    'Your change order has been submitted and is awaiting approval from MG Bros. You can sign it once it’s approved.',
+};
+
+const PANELS: Record<ChangeOrderStage, Panel> = {
+  // A new change order is submitted for approval as it's created, so a Draft is waiting too.
+  draft: WAITING_PANEL,
+  pendingApproval: WAITING_PANEL,
   readyForSignature: {
     tone: 'success',
     title: 'Approved – Ready for Signature',
@@ -37,11 +43,6 @@ const PANELS: Record<ChangeOrderStage, { tone: PanelTone; title: string; message
     tone: 'danger',
     title: 'Approval Request Rejected',
     message: 'MG Bros didn’t approve this change order. Please contact MG Bros for details.',
-  },
-  draft: {
-    tone: null,
-    title: 'Not Submitted',
-    message: 'This change order hasn’t been submitted for approval yet.',
   },
   signed: {
     tone: 'success',
@@ -56,7 +57,8 @@ const PANELS: Record<ChangeOrderStage, { tone: PanelTone; title: string; message
 };
 
 /**
- * A change order's approval status, read from the backend (the change-order
+ * A change order's approval status, opened for one that's waiting on approval
+ * (a Draft or Pending Approval). Read from the backend (the change-order
  * detail API) when the screen opens, when the user comes back to it, and on
  * Refresh Status. Nothing here changes the status: it only shows what the
  * backend reports, and offers signing once that's Ready For Signature.
@@ -80,7 +82,7 @@ export function ChangeOrderApprovalScreen({ navigation, route }: Props): React.J
     return (
       <>
         <AuthCard style={[styles.panel, toneStyle]}>
-          {stage === 'pendingApproval' ? (
+          {isAwaitingApproval(stage) ? (
             <ActivityIndicator color={titleColor} accessibilityLabel="Waiting for approval" />
           ) : (
             panel.tone === 'success' && <CheckCircleIcon size={22} color={titleColor} />
@@ -111,6 +113,13 @@ export function ChangeOrderApprovalScreen({ navigation, route }: Props): React.J
           />
         )}
         {canRefresh && <OutlineButton title="Refresh Status" onPress={reload} isBusy={isChecking} />}
+        <OutlineButton
+          title="View Change Order Details"
+          // Swaps screens (rather than stacking them) when moving between approval and details.
+          onPress={() =>
+            navigation.replace('ChangeOrderDetails', { poId, changeOrder: toChangeOrderSummary(changeOrder) })
+          }
+        />
       </>
     );
   };

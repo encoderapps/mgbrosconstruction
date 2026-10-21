@@ -28,6 +28,11 @@ export function parseDateOnlyString(value: string): Date {
   return new Date(year, month - 1, day);
 }
 
+/** Whether `value` has the "YYYY-MM-DD" shape the backend expects. */
+export function isDateOnlyString(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 /** Today's local calendar date as "YYYY-MM-DD", read from the device at call time. */
 export function todayDateString(): string {
   return toDateOnlyString(new Date());

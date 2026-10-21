@@ -10,10 +10,8 @@ import { ChangeOrderSummaryCard } from '../components/ChangeOrderSummaryCard';
 import { HomeHeader } from '../components/HomeHeader';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 import { LoadStateMessage } from '../components/LoadStateMessage';
-import { LoginInput } from '../components/LoginInput';
-import { SignatureStylePicker } from '../components/SignatureStylePicker';
+import { SignatureOnFileCard } from '../components/SignatureOnFileCard';
 import { CheckCircleIcon } from '../assets/icons';
-import { SignatureFontId, getSignatureFontFamily } from '../constants/signatureFonts';
 import { fontFamily, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
@@ -22,49 +20,35 @@ import { ChangeOrderScreenData, useChangeOrderDetail } from '../hooks/useChangeO
 import { signChangeOrder } from '../services/changeOrderService';
 import { buildChangeOrderPdfBase64 } from '../services/purchaseOrderPdfService';
 import { ChangeOrderSignature } from '../types/changeOrder';
+import { SignatureOnFile } from '../types/purchaseOrder';
 import { changeOrderStage } from '../utils/changeOrder';
 import { todayDateString } from '../utils/dateValidation';
-import { formatLongDate } from '../utils/formatDate';
 import { signedChangeOrderFileName } from '../utils/signedDocument';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ChangeOrderSigning'>;
 
-/** "  Jane   Doe " → "Jane Doe". */
-function normaliseName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ');
-}
-
 /**
  * Signing a change order that's Ready For Signature: the change order, then
- * the signer's name, today's date and one of three signature styles. Sign
- * sends the signed change order to the signChangeOrder API; only once that
- * succeeds is it shown as signed, with the backend's signing date.
+ * the subcontractor's signature as the API has it on file, with their full
+ * name and today's date. There's nothing to fill in: Sign sends the signed
+ * change order to the signChangeOrder API, and only once that succeeds is it
+ * shown as signed, with the backend's signing date.
  */
 export function ChangeOrderSigningScreen({ navigation, route }: Props): React.JSX.Element {
   const { poId, changeOrder: summary } = route.params;
-  const { company, signature: savedSignature } = useSubcontractorSession();
+  const company = useSubcontractorSession().company;
   const { data, status, reload, refresh, setData } = useChangeOrderDetail(poId, summary);
-  // Starts from the signature made when registering, so signing is one tap; both can still be changed.
-  const [fullName, setFullName] = useState(savedSignature?.name ?? '');
-  const [fontId, setFontId] = useState<SignatureFontId | null>(savedSignature?.fontId ?? null);
   const [isSigning, setIsSigning] = useState(false);
   // Set only after the API confirms the signing.
   const [signedSignature, setSignedSignature] = useState<ChangeOrderSignature | null>(null);
   // Leaving mid-request would lose the result.
   useBlockBackWhile(isSigning);
 
-  const signatureName = normaliseName(fullName);
-
-  const handleSign = async ({ changeOrder, purchaseOrder }: ChangeOrderScreenData): Promise<void> => {
+  const handleSign = async (
+    { changeOrder, purchaseOrder }: ChangeOrderScreenData,
+    signatureOnFile: SignatureOnFile,
+  ): Promise<void> => {
     if (isSigning) {
-      return;
-    }
-    if (!signatureName) {
-      Alert.alert('Full name required', 'Please enter your full name.');
-      return;
-    }
-    if (!fontId) {
-      Alert.alert('Signature required', 'Please select a signature style.');
       return;
     }
     const accountId = company?.accountId;
@@ -75,7 +59,7 @@ export function ChangeOrderSigningScreen({ navigation, route }: Props): React.JS
 
     setIsSigning(true);
     try {
-      const signer = { name: signatureName, fontId };
+      const signer = { name: signatureOnFile.name, imageBase64: signatureOnFile.imageBase64 };
       // The API takes the signed change order itself: the change order with this signature and date on it.
       const signedPdf = {
         fileName: signedChangeOrderFileName(changeOrder.name, company.name),
@@ -83,7 +67,7 @@ export function ChangeOrderSigningScreen({ navigation, route }: Props): React.JS
           changeOrder,
           purchaseOrder,
           { name: company.name, address: company.address },
-          { ...signer, date: todayDateString() },
+          { ...signer, fontId: null, date: todayDateString() },
         ),
       };
       const result = await signChangeOrder(accountId, changeOrder.id, signer, signedPdf);
@@ -105,63 +89,63 @@ export function ChangeOrderSigningScreen({ navigation, route }: Props): React.JS
     }
   };
 
-  const renderSigned = (signature: ChangeOrderSignature): React.JSX.Element => (
+  const renderSigned = (
+    { changeOrder, purchaseOrder }: ChangeOrderScreenData,
+    signature: ChangeOrderSignature,
+  ): React.JSX.Element => (
     <>
       <AuthCard style={styles.successCard}>
         <CheckCircleIcon size={24} color={toneColors.success.foreground} />
         <Text style={styles.successTitle} accessibilityRole="header" accessibilityLiveRegion="polite">
           Change Order Signed Successfully
         </Text>
-        <Text style={[styles.signedName, { fontFamily: getSignatureFontFamily(signature.fontId) }]}>
-          {signature.name}
-        </Text>
-        <Text style={styles.signedMeta}>
-          {signature.name} · Signed on {formatLongDate(signature.date)}
-        </Text>
       </AuthCard>
+      {/* Its status as the sign API reported it, e.g. "Signed". */}
+      <ChangeOrderSummaryCard
+        changeOrderName={changeOrder.name}
+        purchaseOrderName={purchaseOrder.purchaseOrderName}
+        status={changeOrder.status}
+        amount={changeOrder.amount}
+      />
+      <SignatureOnFileCard name={signature.name} imageBase64={signature.imageBase64} date={signature.date} />
       <AuthPrimaryButton title="Back to Change Order" onPress={() => navigation.goBack()} />
     </>
   );
 
-  const renderSignatureForm = (screenData: ChangeOrderScreenData): React.JSX.Element => (
-    <>
-      <View style={styles.signatureSection}>
-        <Text style={styles.sectionTitle}>Your Signature</Text>
-        <LoginInput
-          label="Signer Name"
-          placeholder="Enter full name"
-          value={fullName}
-          onChangeText={setFullName}
-          autoCapitalize="words"
-          editable={!isSigning}
-        />
-        <View style={styles.dateRow}>
-          <Text style={styles.sectionLabel}>Date</Text>
-          <Text style={styles.dateValue}>{formatLongDate(todayDateString())}</Text>
+  const renderSignatureSection = (screenData: ChangeOrderScreenData): React.JSX.Element => {
+    const { signatureOnFile } = screenData;
+    if (!signatureOnFile) {
+      return (
+        <Text style={styles.hintText}>
+          Your signature is not on file, so this change order can’t be signed in the app yet. Please contact MG Bros.
+        </Text>
+      );
+    }
+    return (
+      <>
+        <View style={styles.signatureSection}>
+          <Text style={styles.sectionTitle}>Your Signature</Text>
+          <SignatureOnFileCard
+            name={signatureOnFile.name}
+            imageBase64={signatureOnFile.imageBase64}
+            date={todayDateString()}
+          />
+          <Text style={styles.hintText}>This is the signature you created when you registered.</Text>
         </View>
-        <Text style={styles.sectionLabel}>Select Signature</Text>
-        {!signatureName && <Text style={styles.hintText}>Enter your full name to create your signature.</Text>}
-        <SignatureStylePicker
-          signatureName={signatureName}
-          selectedFontId={fontId}
-          onSelect={setFontId}
-          disabled={!signatureName || isSigning}
+        <AuthPrimaryButton
+          title={isSigning ? 'Signing...' : 'Sign'}
+          onPress={() => handleSign(screenData, signatureOnFile)}
+          disabled={isSigning}
         />
-      </View>
-      <AuthPrimaryButton
-        title={isSigning ? 'Signing...' : 'Sign'}
-        onPress={() => handleSign(screenData)}
-        disabled={isSigning || !signatureName || !fontId}
-      />
-    </>
-  );
+      </>
+    );
+  };
 
   const renderBody = (screenData: ChangeOrderScreenData): React.JSX.Element => {
     const { changeOrder, purchaseOrder } = screenData;
     if (signedSignature) {
-      return renderSigned(signedSignature);
+      return renderSigned(screenData, signedSignature);
     }
-    const stage = changeOrderStage(changeOrder);
     return (
       <>
         <ChangeOrderSummaryCard
@@ -172,8 +156,8 @@ export function ChangeOrderSigningScreen({ navigation, route }: Props): React.JS
           description={changeOrder.description}
         />
         <ChangeOrderItemsCard items={changeOrder.items} />
-        {stage === 'readyForSignature' ? (
-          renderSignatureForm(screenData)
+        {changeOrderStage(changeOrder) === 'readyForSignature' ? (
+          renderSignatureSection(screenData)
         ) : (
           // e.g. signed elsewhere, or its approval was withdrawn, since the previous screen loaded.
           <Text style={styles.hintText}>
@@ -227,23 +211,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: welcomeColors.textPrimary,
   },
-  sectionLabel: {
-    fontFamily: fontFamily.semiBold,
-    fontWeight: '600',
-    fontSize: 12,
-    color: welcomeColors.textPrimary,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dateValue: {
-    fontFamily: fontFamily.regular,
-    fontWeight: '400',
-    fontSize: 13,
-    color: welcomeColors.textSecondary,
-  },
   hintText: {
     fontFamily: fontFamily.regular,
     fontWeight: '400',
@@ -264,15 +231,5 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: toneColors.success.foreground,
     textAlign: 'center',
-  },
-  signedName: {
-    fontSize: 32,
-    color: welcomeColors.textPrimary,
-  },
-  signedMeta: {
-    fontFamily: fontFamily.regular,
-    fontWeight: '400',
-    fontSize: 13,
-    color: welcomeColors.textSecondary,
   },
 });

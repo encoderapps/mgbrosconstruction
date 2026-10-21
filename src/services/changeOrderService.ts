@@ -1,9 +1,14 @@
-import { SALESFORCE_PURCHASE_ORDER_CHANGE_ORDERS_URL, SALESFORCE_SIGN_CHANGE_ORDER_URL } from '../constants/config';
-import type { SignatureFontId } from '../constants/signatureFonts';
+import {
+  SALESFORCE_CREATE_CHANGE_ORDER_URL,
+  SALESFORCE_PURCHASE_ORDER_CHANGE_ORDERS_URL,
+  SALESFORCE_SIGN_CHANGE_ORDER_URL,
+} from '../constants/config';
 import { EMPTY_VALUE } from '../constants/display';
 import {
   ChangeOrderDetailApiRecord,
   ChangeOrderDetailItemApiRecord,
+  CreateChangeOrderApiPayload,
+  CreateChangeOrderApiResponse,
   PurchaseOrderChangeOrdersApiPayload,
   PurchaseOrderChangeOrdersApiResponse,
   SignChangeOrderApiPayload,
@@ -14,14 +19,16 @@ import {
   ChangeOrderItem,
   ChangeOrderSignature,
   ChangeOrderSummary,
+  CreatedChangeOrder,
   NewChangeOrder,
   NewChangeOrderItem,
 } from '../types/changeOrder';
 import { isChangeOrderSigned, lineItemAmount } from '../utils/changeOrder';
-import { todayDateString } from '../utils/dateValidation';
+import { isDateOnlyString, todayDateString } from '../utils/dateValidation';
 import { htmlToPlainText } from '../utils/html';
 import { toNumber } from '../utils/toNumber';
 import { SignedPdf } from '../types/signedDocument';
+import { fetchPurchaseOrderJobId } from './purchaseOrderInvoiceService';
 import { salesforceSend } from './salesforceClient';
 
 const LOAD_ERROR_MESSAGE = 'Unable to load this change order.';
@@ -154,68 +161,78 @@ export async function addChangeOrderItem(
 /** The status every new change order starts in. */
 export const NEW_CHANGE_ORDER_STATUS = 'Draft';
 
-export interface CreateChangeOrderResult {
-  changeOrderId: string;
-  /** The number the backend assigns, e.g. "CO#02". */
-  changeOrderNumber: string;
-  /** As the API reports it (Draft for a new change order). */
-  status: string;
-}
+const CREATE_ERROR_MESSAGE = 'Unable to create the change order. Please try again.';
+const CHANGE_ORDER_JOB_NOT_FOUND_MESSAGE =
+  'This purchase order is not linked to a job, so a change order cannot be added to it.';
 
-export const CREATE_CHANGE_ORDER_UNAVAILABLE_MESSAGE =
-  'Adding a change order isn’t available in the app yet. Please contact MG Bros to add this change order.';
+/** The PO's job: the one the PO detail sent, else looked up. Throws a message fit to show when there's none. */
+async function resolvePurchaseOrderJobId(accountId: string, input: NewChangeOrder): Promise<string> {
+  if (input.opportunityId) {
+    return input.opportunityId;
+  }
+  let jobId: string | null;
+  try {
+    jobId = await fetchPurchaseOrderJobId(accountId, input.poId);
+  } catch (error) {
+    console.error('Failed to look up the purchase order job:', error);
+    throw new Error(CREATE_ERROR_MESSAGE);
+  }
+  if (!jobId) {
+    throw new Error(CHANGE_ORDER_JOB_NOT_FOUND_MESSAGE);
+  }
+  return jobId;
+}
 
 /**
- * Creates a Draft change order on a purchase order; the backend assigns its
- * number (e.g. "CO#02") and links the PO's job, vendor and general contractor.
- *
- * TODO(api): there's no create-change-order endpoint yet, so this always
- * throws and nothing is sent or kept: no change order is ever faked.
- * Integrating it needs the endpoint's URL and method, its request body (field
- * names for the PO, status, amount and description, and any others it
- * requires, such as the date of issue) and its response (success, message,
- * the new change order's id, number and status). The Add Change Order screen
- * already handles a successful result.
+ * Creates a Draft change order on one of the account's signed purchase orders
+ * (POST /createjobchangeorder). The backend assigns its number (e.g. "CO#08"),
+ * links the PO's general contractor and submits it for approval. Throws an
+ * Error with a message fit to show the user if the input isn't valid or the
+ * API doesn't create it.
  */
-export async function createChangeOrder(
-  _accountId: string,
-  _changeOrder: NewChangeOrder,
-): Promise<CreateChangeOrderResult> {
-  throw new Error(CREATE_CHANGE_ORDER_UNAVAILABLE_MESSAGE);
-}
+export async function createChangeOrder(accountId: string, input: NewChangeOrder): Promise<CreatedChangeOrder> {
+  const description = input.description.trim();
+  const specialInstructions = input.specialInstructions.trim();
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    throw new Error('Please enter an amount greater than $0.');
+  }
+  if (!description) {
+    throw new Error('Please describe the change order.');
+  }
+  if (!isDateOnlyString(input.dateOfIssue)) {
+    throw new Error('Please select the date of issue.');
+  }
 
-export interface RequestChangeOrderApprovalResult {
-  /** The change order's status after the request, as the API reports it (e.g. a pending-approval value). */
-  status: string;
-  /** The API's message, fit to show the user. */
-  message: string;
-}
-
-export const CHANGE_ORDER_APPROVAL_UNAVAILABLE_MESSAGE =
-  'Requesting approval isn’t available in the app yet. Please contact MG Bros to submit this change order for approval.';
-
-/**
- * Submits a Draft change order for MG Bros' approval; once approved, the
- * backend moves it to Ready For Signature.
- *
- * TODO(api): there's no approval-request endpoint yet, so this always throws
- * and nothing is sent: the change order stays a Draft, and no approval is ever
- * simulated. Integrating it needs the endpoint's URL and method, its request
- * body (e.g. accountId / changeOrderId field names) and its response (success,
- * message, and the resulting status value). The screens already handle a
- * successful result by showing the waiting-for-approval screen.
- */
-export async function requestChangeOrderApproval(
-  _accountId: string,
-  _changeOrderId: string,
-): Promise<RequestChangeOrderApprovalResult> {
-  throw new Error(CHANGE_ORDER_APPROVAL_UNAVAILABLE_MESSAGE);
+  const payload: CreateChangeOrderApiPayload = {
+    poId: input.poId,
+    accountId,
+    jobId: await resolvePurchaseOrderJobId(accountId, input),
+    status: NEW_CHANGE_ORDER_STATUS,
+    changeOrderAmount: input.amount,
+    description,
+    dateOfIssue: input.dateOfIssue,
+    ...(specialInstructions && { specialInstructions }),
+  };
+  const data = await salesforceSend<CreateChangeOrderApiResponse>(
+    { method: 'post', url: SALESFORCE_CREATE_CHANGE_ORDER_URL, data: payload },
+    CREATE_ERROR_MESSAGE,
+  );
+  if (!data.success) {
+    throw new Error(data.message || CREATE_ERROR_MESSAGE);
+  }
+  return {
+    id: data.changeOrderId?.trim() ?? '',
+    changeOrderNumber: data.changeOrderNo?.trim() || data.changeOrderNumber?.trim() || '',
+    status: data.status?.trim() || NEW_CHANGE_ORDER_STATUS,
+    approvalStatus: data.approvalStatus?.trim() ?? '',
+    message: data.message?.trim() || 'Change order created successfully.',
+  };
 }
 
 export interface SignChangeOrderResult {
   /** The change order's status after signing, as the API reports it, e.g. "Signed". */
   status: string;
-  /** Who signed, in what style, and the signing date (the API's). */
+  /** Who signed, with the signature on file, and the signing date (the API's). */
   signature: ChangeOrderSignature;
   /** The API's message, e.g. "Change Order is already signed." */
   message: string;
@@ -224,19 +241,19 @@ export interface SignChangeOrderResult {
 /**
  * Signs a change order (POST /subcontractor/signchangeorder), uploading the
  * signed change order, and returns its new status and signing date. `signer`
- * is the name and style shown as the signature. A change order that's already
- * signed comes back as signed too. Throws an Error with a message fit to show
- * the user.
+ * is the signature the API has on file: the full name and its image. A change
+ * order that's already signed comes back as signed too. Throws an Error with a
+ * message fit to show the user.
  */
 export async function signChangeOrder(
   accountId: string,
   changeOrderId: string,
-  signer: { name: string; fontId: SignatureFontId },
+  signer: { name: string; imageBase64: string },
   signedPdf: SignedPdf,
 ): Promise<SignChangeOrderResult> {
   const name = signer.name.trim().replace(/\s+/g, ' ');
-  if (!name) {
-    throw new Error('Please sign with your full name.');
+  if (!name || !signer.imageBase64) {
+    throw new Error('Your signature is not on file. Please contact MG Bros.');
   }
   const payload: SignChangeOrderApiPayload = {
     accountId,
@@ -254,7 +271,7 @@ export async function signChangeOrder(
   }
   const signature: ChangeOrderSignature = {
     name,
-    fontId: signer.fontId,
+    imageBase64: signer.imageBase64,
     date: data.vendorSignedDate || data.signedDate || todayDateString(),
   };
   getLocalChanges(changeOrderId).signature = signature;
