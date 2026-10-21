@@ -18,9 +18,9 @@ import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { HomeHeader } from '../components/HomeHeader';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 import { LoginInput } from '../components/LoginInput';
-import { SignatureStyleOption } from '../components/SignatureStyleOption';
+import { SignatureStylePicker } from '../components/SignatureStylePicker';
 import { BagIcon, CheckCircleIcon, ChevronRightIcon } from '../assets/icons';
-import { SIGNATURE_FONTS, SignatureFontId } from '../constants/signatureFonts';
+import { SignatureFontId } from '../constants/signatureFonts';
 import { fontFamily, radius, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
@@ -36,7 +36,6 @@ import { signPurchaseOrder } from '../services/signPurchaseOrderService';
 import { todayDateString } from '../utils/dateValidation';
 import { formatLongDate } from '../utils/formatDate';
 import { isAwaitingSignature, isSigned } from '../utils/purchaseOrderStatus';
-import { getInitials } from '../utils/signature';
 import { signedPurchaseOrderFileName } from '../utils/signedDocument';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'PurchaseOrderSigning'>;
@@ -338,19 +337,12 @@ export function PurchaseOrderSigningScreen({ navigation, route }: Props): React.
           />
           <Text style={styles.sectionLabel}>Select Signature</Text>
           {!hasName && <Text style={styles.hintText}>Enter your full name to create your signature.</Text>}
-          <View accessibilityRole="radiogroup">
-            {SIGNATURE_FONTS.map((font) => (
-              <SignatureStyleOption
-                key={font.id}
-                font={font}
-                signatureName={signatureName}
-                initials={getInitials(signatureName)}
-                isSelected={signatureFont === font.id}
-                disabled={!hasName || isSigning}
-                onSelect={() => setSignatureFont(font.id)}
-              />
-            ))}
-          </View>
+          <SignatureStylePicker
+            signatureName={signatureName}
+            selectedFontId={signatureFont}
+            onSelect={setSignatureFont}
+            disabled={!hasName || isSigning}
+          />
         </View>
         <AuthPrimaryButton
           title={isSigning ? 'Signing...' : 'Sign'}

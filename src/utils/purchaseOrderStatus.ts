@@ -8,12 +8,29 @@ export function isPaid(status: string): boolean {
   return /^\s*paid\s*$/i.test(status);
 }
 
-/** The colour family for a PO, change order or invoice status: done, waiting, or neither. */
-export function statusTone(status: string): 'success' | 'warning' | null {
+/**
+ * A change order submitted for approval and not yet decided, e.g. "Pending
+ * Approval", "Awaiting Approval" or "Submitted". The exact value is the
+ * backend's; this only recognises it.
+ */
+export function isPendingApproval(status: string): boolean {
+  return /\bpending\b|\bawaiting\s+approval\b|\bsubmitted\b/i.test(status);
+}
+
+/** "Rejected" / "Approval Rejected". */
+export function isRejected(status: string): boolean {
+  return /\brejected\b/i.test(status);
+}
+
+/** The colour family for a PO, change order or invoice status: done, waiting, refused, or neither. */
+export function statusTone(status: string): 'success' | 'warning' | 'danger' | null {
   if (isSigned(status) || isPaid(status)) {
     return 'success';
   }
-  return isAwaitingSignature(status) ? 'warning' : null;
+  if (isRejected(status)) {
+    return 'danger';
+  }
+  return isAwaitingSignature(status) || isPendingApproval(status) ? 'warning' : null;
 }
 
 /** "Signed" / "Signed by both sides", but not "Unsigned" or "Not Signed". */

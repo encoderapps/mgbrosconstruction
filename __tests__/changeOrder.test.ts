@@ -18,6 +18,9 @@ const mockedSend = salesforceSend as jest.MockedFunction<typeof salesforceSend>;
 const ACCOUNT_ID = '001QL00002WQD8ZYAX';
 const PO_ID = 'a1wQL000008jUa1YAE';
 const SIGNED_PDF = { fileName: 'Signed_Test.pdf', base64: 'JVBERi0xLjQK' };
+/** The signature on file (a PNG, base64). */
+const SIGNATURE_IMAGE = 'iVBORw0KGgo=';
+const SIGNER = { name: 'Deepak Rathore', imageBase64: SIGNATURE_IMAGE };
 
 function summary(id: string, overrides: Partial<ChangeOrderSummary> = {}): ChangeOrderSummary {
   return { id, name: 'CO#01', status: 'Draft', amount: 200, description: '', ...overrides };
@@ -203,10 +206,12 @@ describe('signChangeOrder', () => {
     };
     mockedSend.mockResolvedValue(response);
 
-    const result = await signChangeOrder(ACCOUNT_ID, 'a1uQL00000JeVN7YAN', {
-      name: '  Deepak   Rathore ',
-      fontId: 'SignatureFont2',
-    }, SIGNED_PDF);
+    const result = await signChangeOrder(
+      ACCOUNT_ID,
+      'a1uQL00000JeVN7YAN',
+      { name: '  Deepak   Rathore ', imageBase64: SIGNATURE_IMAGE },
+      SIGNED_PDF,
+    );
 
     expect(mockedSend).toHaveBeenCalledWith(
       {
@@ -224,7 +229,7 @@ describe('signChangeOrder', () => {
     );
     expect(result).toEqual({
       status: 'Signed',
-      signature: { name: 'Deepak Rathore', fontId: 'SignatureFont2', date: '2026-10-13' },
+      signature: { name: 'Deepak Rathore', imageBase64: SIGNATURE_IMAGE, date: '2026-10-13' },
       message: 'Change Order signed successfully.',
     });
   });
@@ -239,7 +244,7 @@ describe('signChangeOrder', () => {
       }),
     );
 
-    const result = await signChangeOrder(ACCOUNT_ID, 'co-signed', { name: 'Deepak Rathore', fontId: 'SignatureFont1' }, SIGNED_PDF);
+    const result = await signChangeOrder(ACCOUNT_ID, 'co-signed', SIGNER, SIGNED_PDF);
 
     expect(result).toMatchObject({ status: 'Signed', message: 'Change Order is already signed.' });
     expect(result.signature.date).toBe('2026-10-10');
@@ -247,13 +252,13 @@ describe('signChangeOrder', () => {
 
   it('shows the signature afterwards with the API status, which the change order keeps on reload', async () => {
     mockedSend.mockResolvedValueOnce(signResponse({ success: true, status: 'Signed', vendorSignedDate: '2026-10-13' }));
-    await signChangeOrder(ACCOUNT_ID, 'co-6', { name: 'Deepak Rathore', fontId: 'SignatureFont2' }, SIGNED_PDF);
+    await signChangeOrder(ACCOUNT_ID, 'co-6', SIGNER, SIGNED_PDF);
 
     respondWith(detail('co-6', { status: 'Signed' }));
     const reloaded = await fetchChangeOrderDetail(ACCOUNT_ID, PO_ID, summary('co-6'));
 
     expect(reloaded.status).toBe('Signed');
-    expect(reloaded.signature).toEqual({ name: 'Deepak Rathore', fontId: 'SignatureFont2', date: '2026-10-13' });
+    expect(reloaded.signature).toEqual({ name: 'Deepak Rathore', imageBase64: SIGNATURE_IMAGE, date: '2026-10-13' });
     await expect(
       addChangeOrderItem(ACCOUNT_ID, PO_ID, summary('co-6'), { description: 'X', quantity: 1, unitPrice: 1 }),
     ).rejects.toThrow('can no longer be changed');
@@ -261,18 +266,19 @@ describe('signChangeOrder', () => {
 
   it('throws the API message when signing fails, falling back to today only for a missing date', async () => {
     mockedSend.mockResolvedValueOnce(signResponse({ success: false, message: 'Change Order not found.' }));
-    await expect(
-      signChangeOrder(ACCOUNT_ID, 'missing', { name: 'Deepak Rathore', fontId: 'SignatureFont1' }, SIGNED_PDF),
-    ).rejects.toThrow('Change Order not found.');
+    await expect(signChangeOrder(ACCOUNT_ID, 'missing', SIGNER, SIGNED_PDF)).rejects.toThrow('Change Order not found.');
 
     mockedSend.mockResolvedValueOnce({ success: true });
-    const result = await signChangeOrder(ACCOUNT_ID, 'no-date', { name: 'Deepak Rathore', fontId: 'SignatureFont1' }, SIGNED_PDF);
+    const result = await signChangeOrder(ACCOUNT_ID, 'no-date', SIGNER, SIGNED_PDF);
     expect(result).toMatchObject({ status: 'Signed', signature: { date: todayDateString() } });
   });
 
-  it('needs a name, without calling the API', async () => {
-    await expect(signChangeOrder(ACCOUNT_ID, 'co-7', { name: '   ', fontId: 'SignatureFont1' }, SIGNED_PDF)).rejects.toThrow(
-      'Please sign with your full name.',
+  it.each([
+    ['no name', { name: '   ', imageBase64: SIGNATURE_IMAGE }],
+    ['no signature image', { name: 'Deepak Rathore', imageBase64: '' }],
+  ])('needs the signature on file (%s), without calling the API', async (_case, signer) => {
+    await expect(signChangeOrder(ACCOUNT_ID, 'co-7', signer, SIGNED_PDF)).rejects.toThrow(
+      'Your signature is not on file. Please contact MG Bros.',
     );
     expect(mockedSend).not.toHaveBeenCalled();
   });
@@ -292,7 +298,7 @@ describe('isChangeOrderSigned', () => {
     expect(isChangeOrderSigned({ status: 'Draft', signature: null })).toBe(false);
     expect(isChangeOrderSigned({ status: 'Signed by Both Parties', signature: null })).toBe(true);
     expect(
-      isChangeOrderSigned({ status: 'Draft', signature: { name: 'A', fontId: 'SignatureFont1', date: '2026-10-09' } }),
+      isChangeOrderSigned({ status: 'Draft', signature: { name: 'A', imageBase64: SIGNATURE_IMAGE, date: '2026-10-09' } }),
     ).toBe(true);
   });
 });

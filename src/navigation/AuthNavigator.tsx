@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthStackParamList } from './types';
+import { ScreenBackground } from '../components/ScreenBackground';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { SubcontractorLoginScreen } from '../screens/SubcontractorLoginScreen';
 import { RegisterSubcontractorScreen } from '../screens/RegisterSubcontractorScreen';
@@ -31,7 +32,10 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { PurchaseOrderDetailsScreen } from '../screens/PurchaseOrderDetailsScreen';
 import { PurchaseOrderSigningScreen } from '../screens/PurchaseOrderSigningScreen';
 import { AddPurchaseOrderInvoiceScreen } from '../screens/AddPurchaseOrderInvoiceScreen';
+import { AddChangeOrderScreen } from '../screens/AddChangeOrderScreen';
 import { ChangeOrderDetailsScreen } from '../screens/ChangeOrderDetailsScreen';
+import { ChangeOrderApprovalScreen } from '../screens/ChangeOrderApprovalScreen';
+import { ChangeOrderSigningScreen } from '../screens/ChangeOrderSigningScreen';
 import { AddChangeOrderItemScreen } from '../screens/AddChangeOrderItemScreen';
 import { ModifyPaymentTermsScreen } from '../screens/ModifyPaymentTermsScreen';
 import { InvoicesScreen } from '../screens/InvoicesScreen';
@@ -50,7 +54,11 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 export function AuthNavigator(): React.JSX.Element {
   return (
-    <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      initialRouteName="Welcome"
+      screenOptions={{ headerShown: false }}
+      screenLayout={ScreenBackground}
+    >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="SubcontractorLogin" component={SubcontractorLoginScreen} />
       <Stack.Screen name="RegisterSubcontractor" component={RegisterSubcontractorScreen} />
@@ -82,7 +90,10 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="PurchaseOrderDetails" component={PurchaseOrderDetailsScreen} />
       <Stack.Screen name="PurchaseOrderSigning" component={PurchaseOrderSigningScreen} />
       <Stack.Screen name="AddPurchaseOrderInvoice" component={AddPurchaseOrderInvoiceScreen} />
+      <Stack.Screen name="AddChangeOrder" component={AddChangeOrderScreen} />
       <Stack.Screen name="ChangeOrderDetails" component={ChangeOrderDetailsScreen} />
+      <Stack.Screen name="ChangeOrderApproval" component={ChangeOrderApprovalScreen} />
+      <Stack.Screen name="ChangeOrderSigning" component={ChangeOrderSigningScreen} />
       <Stack.Screen name="AddChangeOrderItem" component={AddChangeOrderItemScreen} />
       <Stack.Screen name="ModifyPaymentTerms" component={ModifyPaymentTermsScreen} />
       <Stack.Screen name="Invoices" component={InvoicesScreen} />

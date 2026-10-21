@@ -8,20 +8,19 @@ import { AuthCard } from './AuthCard';
 
 type ChangeOrderItemsCardProps = {
   items: ChangeOrderItem[];
-  /** False once the change order is signed: no adding. */
-  editable: boolean;
-  onAddPress: () => void;
+  /** Shows the Add button; leave out when items can't be added (e.g. it's no longer a Draft). */
+  onAddPress?: () => void;
 };
 
 /** A change order's items: # · description (with its category) · qty · unit price · amount. */
-export function ChangeOrderItemsCard({ items, editable, onAddPress }: ChangeOrderItemsCardProps): React.JSX.Element {
+export function ChangeOrderItemsCard({ items, onAddPress }: ChangeOrderItemsCardProps): React.JSX.Element {
   return (
     <AuthCard style={styles.card}>
       <View style={styles.titleRow}>
         <Text style={styles.title} accessibilityRole="header">
           CO Items
         </Text>
-        {editable && (
+        {onAddPress && (
           <Pressable
             onPress={onAddPress}
             hitSlop={8}

@@ -30,6 +30,7 @@ import { useSubcontractorSession } from '../context/SubcontractorSessionContext'
 import { usePurchaseOrderDetail } from '../hooks/usePurchaseOrderDetail';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
+import { changeOrderStage, isAwaitingApproval } from '../utils/changeOrder';
 import { showComingSoon } from '../utils/comingSoon';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatUsDate } from '../utils/formatDate';
@@ -158,7 +159,13 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
             <PurchaseOrderLedger
               purchaseOrder={detail}
               vendorName={vendorName}
-              onAddChangeOrder={() => showComingSoon('Add Change Order')}
+              onAddChangeOrder={() =>
+                navigation.navigate('AddChangeOrder', {
+                  poId,
+                  poName: detail.name,
+                  opportunityId: detail.opportunityId,
+                })
+              }
               onAddInvoice={() =>
                 navigation.navigate('AddPurchaseOrderInvoice', {
                   poId,
@@ -166,12 +173,15 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
                   opportunityId: detail.opportunityId,
                 })
               }
-              onOpenChangeOrder={({ id, name, status: changeOrderStatus, amount, description }) =>
-                navigation.navigate('ChangeOrderDetails', {
-                  poId,
-                  changeOrder: { id, name, status: changeOrderStatus, amount, description: description ?? '' },
-                })
-              }
+              onOpenChangeOrder={({ id, name, status: changeOrderStatus, amount, description }) => {
+                const changeOrder = { id, name, status: changeOrderStatus, amount, description: description ?? '' };
+                // One waiting on approval (a Draft included) opens its approval status; any other its details.
+                if (isAwaitingApproval(changeOrderStage(changeOrder))) {
+                  navigation.navigate('ChangeOrderApproval', { poId, changeOrder });
+                } else {
+                  navigation.navigate('ChangeOrderDetails', { poId, changeOrder });
+                }
+              }}
               onOpenInvoice={(invoice) => showComingSoon(invoice.name || 'Invoice')}
               onOpenDocument={() => navigation.navigate('PurchaseOrderSigning', { poId, poDate })}
               onRetry={reload}
@@ -249,6 +259,7 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
                 rows={paymentTerms}
                 getRowKey={(term) => term.id}
                 emptyText="No payment terms for this purchase order."
+                fitWidth
               />
             </>
           )}

@@ -149,7 +149,7 @@ export interface PurchaseOrderApiRecord {
 export interface PurchaseOrdersApiResponse {
   success: boolean;
   message?: string;
-  /** Number of purchase orders returned (5 at most for view=home). */
+  /** Number of purchase orders returned (5 at most for view=home, so not the total). */
   count: number;
   purchaseOrders: PurchaseOrderApiRecord[];
 }
@@ -284,6 +284,51 @@ export interface SignChangeOrderApiResponse {
   vendorSignedDate?: string | null;
   /** YYYY-MM-DD. */
   signedDate?: string | null;
+}
+
+/**
+ * POST /createjobchangeorder request body. Dates are YYYY-MM-DD.
+ * poId and accountId are required by the API ("poId and accountId are
+ * required."); the other field names follow its response.
+ */
+export interface CreateChangeOrderApiPayload {
+  poId: string;
+  /** The subcontractor's account (the change order's vendor). */
+  accountId: string;
+  /** The PO's job (Job__c). */
+  jobId: string;
+  /** Always "Draft" for a new change order. */
+  status: string;
+  changeOrderAmount: number;
+  description: string;
+  dateOfIssue: string;
+  /** Optional: left out when empty. */
+  specialInstructions?: string;
+}
+
+export interface CreateChangeOrderApiResponse {
+  success: boolean;
+  /** e.g. "Draft Change Order created successfully. Approval is pending." */
+  message?: string | null;
+  changeOrderId?: string | null;
+  /** The number shown in the PO's change-order table, e.g. "CO#08". */
+  changeOrderNo?: string | null;
+  /** The record name, e.g. "Job-CO#0000568". */
+  changeOrderNumber?: string | null;
+  /** e.g. "Draft". */
+  status?: string | null;
+  /** e.g. "Pending": creating a change order submits it for approval. */
+  approvalStatus?: string | null;
+  changeOrderAmount?: number | null;
+  description?: string | null;
+  specialInstructions?: string | null;
+  /** YYYY-MM-DD. */
+  dateOfIssue?: string | null;
+  purchaseOrderId?: string | null;
+  vendorId?: string | null;
+  jobId?: string | null;
+  generalContractorId?: string | null;
+  recordTypeId?: string | null;
 }
 
 /** POST /purchaseorderchangeorder request body. */

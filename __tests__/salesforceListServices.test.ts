@@ -31,11 +31,12 @@ describe('fetchPurchaseOrders', () => {
       ],
     });
 
-    const result = await fetchPurchaseOrders('001ACCOUNT', 'home');
+    const result = await fetchPurchaseOrders('001ACCOUNT', 'all');
 
+    expect(mockedGet).toHaveBeenCalledTimes(1);
     expect(mockedGet).toHaveBeenCalledWith(expect.stringMatching(/\/purchaseorders$/), {
       accountId: '001ACCOUNT',
-      view: 'home',
+      view: 'all',
     });
     expect(result).toEqual({
       count: 1,
@@ -51,6 +52,34 @@ describe('fetchPurchaseOrders', () => {
         },
       ],
     });
+  });
+
+  it('returns the latest purchase orders for view=home with the total count from view=all', async () => {
+    const order = { id: 'a1w1', name: 'PO-1', status: 'Signed', paidAmount: 0, vendor: 'ABC', createdDate: null };
+    mockedGet.mockImplementation(async (_url, params) =>
+      params?.view === 'home'
+        ? { success: true, count: 1, purchaseOrders: [order] }
+        : { success: true, count: 12, purchaseOrders: [] },
+    );
+
+    const result = await fetchPurchaseOrders('001ACCOUNT', 'home');
+
+    expect(mockedGet).toHaveBeenCalledWith(expect.any(String), { accountId: '001ACCOUNT', view: 'home' });
+    expect(mockedGet).toHaveBeenCalledWith(expect.any(String), { accountId: '001ACCOUNT', view: 'all' });
+    expect(result.items.map((item) => item.id)).toEqual(['a1w1']);
+    expect(result.count).toBe(12);
+  });
+
+  it('falls back to the returned count when the total for view=home cannot be loaded', async () => {
+    const order = { id: 'a1w1', name: 'PO-1', status: 'Signed', paidAmount: 0, vendor: 'ABC', createdDate: null };
+    mockedGet.mockImplementation(async (_url, params) => {
+      if (params?.view === 'all') {
+        throw new Error('Network Error');
+      }
+      return { success: true, count: 1, purchaseOrders: [order] };
+    });
+
+    await expect(fetchPurchaseOrders('001ACCOUNT', 'home')).resolves.toMatchObject({ count: 1 });
   });
 
   it('fills in missing fields', async () => {
