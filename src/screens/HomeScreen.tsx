@@ -41,7 +41,7 @@ type MenuItem = {
   label: string;
   icon: React.ReactNode;
   /** The screen the row opens; rows without one aren't built yet. */
-  screen?: 'Documents';
+  screen?: 'Documents' | 'PaymentSettings';
 };
 
 // Contacts, Purchase Orders, Bids, Projects and Invoices are rendered
@@ -53,13 +53,18 @@ const MENU_ITEMS_AFTER_INVOICES: MenuItem[] = [
     icon: <FolderIcon size={18} color={welcomeColors.accent} />,
     screen: 'Documents',
   },
-  { key: 'paymentSettings', label: 'Payment Settings', icon: <CardIcon size={18} color={welcomeColors.accent} /> },
+  {
+    key: 'paymentSettings',
+    label: 'Payment Settings',
+    icon: <CardIcon size={18} color={welcomeColors.accent} />,
+    screen: 'PaymentSettings',
+  },
 ];
 
 type ExpandableSection = 'contacts' | 'purchaseOrders' | 'bids' | 'projects' | 'invoices';
 
 export function HomeScreen({ navigation }: Props): React.JSX.Element {
-  const { contacts } = useContacts();
+  const contactList = useContacts();
   // Each section expands independently, so several can be open at once.
   const [expandedSections, setExpandedSections] = useState<ReadonlySet<ExpandableSection>>(new Set());
 
@@ -119,9 +124,17 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
         <CompanyCard />
 
         <ContactsSection
-          contacts={contacts}
+          contacts={contactList.contacts}
+          status={contactList.status}
+          onRetry={contactList.reload}
           isExpanded={expandedSections.has('contacts')}
-          onToggle={() => toggleSection('contacts')}
+          onToggle={() => {
+            // Opening the card picks up contacts added or changed elsewhere since they were loaded.
+            if (!expandedSections.has('contacts')) {
+              contactList.refresh();
+            }
+            toggleSection('contacts');
+          }}
           onAddPress={() => navigation.navigate('AddContact')}
           onContactPress={(contact) => navigation.navigate('ContactDetails', { contactId: contact.id })}
         />

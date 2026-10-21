@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import Pdf from 'react-native-pdf';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
 import { AuthHeader } from '../components/AuthHeader';
 import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { RegistrationProgress } from '../components/RegistrationProgress';
+import { ZoomablePdf } from '../components/ZoomablePdf';
 import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { getCertificateTemplatePath } from '../services/certificateTemplateService';
@@ -14,16 +14,11 @@ import { getCertificateTemplatePath } from '../services/certificateTemplateServi
 type Props = NativeStackScreenProps<AuthStackParamList, 'TemplatePreview'>;
 
 const TOTAL_STEPS = 6;
-const MIN_SCALE = 1;
-const MAX_SCALE = 4;
-// Tapping the PDF toggles between fit-to-width and this zoom level.
-const TAP_ZOOM_SCALE = 2.5;
 
 export function TemplatePreviewScreen({ navigation, route }: Props): React.JSX.Element {
   const { title, template, currentStep } = route.params;
   const [pdfPath, setPdfPath] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
-  const [scale, setScale] = useState(MIN_SCALE);
 
   useEffect(() => {
     let isMounted = true;
@@ -44,9 +39,13 @@ export function TemplatePreviewScreen({ navigation, route }: Props): React.JSX.E
     };
   }, [template, title]);
 
-  const handlePdfTap = (): void => {
-    setScale((current) => (current > MIN_SCALE ? MIN_SCALE : TAP_ZOOM_SCALE));
-  };
+  const handlePdfError = useCallback(
+    (error: object) => {
+      console.error(`Failed to render ${title} PDF:`, error);
+      setHasError(true);
+    },
+    [title],
+  );
 
   // A fixed (non-scrolling) layout, so the PDF viewer owns every scroll,
   // pinch and pan gesture instead of competing with a parent ScrollView.
@@ -64,22 +63,7 @@ export function TemplatePreviewScreen({ navigation, route }: Props): React.JSX.E
             {hasError ? (
               <Text style={styles.errorText}>Unable to display the template. Please try again.</Text>
             ) : pdfPath ? (
-              <Pdf
-                source={{ uri: `file://${pdfPath}` }}
-                style={styles.pdf}
-                fitPolicy={0}
-                scale={scale}
-                minScale={MIN_SCALE}
-                maxScale={MAX_SCALE}
-                trustAllCerts={false}
-                onPageSingleTap={handlePdfTap}
-                onScaleChanged={(newScale) => setScale(newScale)}
-                renderActivityIndicator={() => <ActivityIndicator color={welcomeColors.accent} />}
-                onError={(error) => {
-                  console.error(`Failed to render ${title} PDF:`, error);
-                  setHasError(true);
-                }}
-              />
+              <ZoomablePdf path={pdfPath} style={styles.pdf} onError={handlePdfError} />
             ) : (
               <ActivityIndicator color={welcomeColors.accent} />
             )}

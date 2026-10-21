@@ -6,10 +6,14 @@ import { Contact } from '../types/contact';
 import { EMPTY_VALUE } from '../constants/display';
 import { formatPhoneNumber } from '../utils/formatPhoneNumber';
 import { getInitials } from '../utils/signature';
+import { LoadStatus } from '../hooks/useAsyncResource';
 import { AuthCard } from './AuthCard';
+import { TableStatusMessage } from './TableStatusMessage';
 
 type ContactsSectionProps = {
   contacts: Contact[];
+  status: LoadStatus;
+  onRetry: () => void;
   isExpanded: boolean;
   onToggle: () => void;
   onAddPress: () => void;
@@ -23,6 +27,8 @@ export function getContactDisplayName(contact: Contact): string {
 /** Home screen Contacts card: collapsed it's a menu row; expanded it shows the contacts table. */
 export function ContactsSection({
   contacts,
+  status,
+  onRetry,
   isExpanded,
   onToggle,
   onAddPress,
@@ -53,12 +59,20 @@ export function ContactsSection({
             <PlusIcon size={14} color={welcomeColors.cardBackground} />
           </Pressable>
         )}
-        <View style={isExpanded ? styles.chevronExpanded : undefined}>
+        <View style={isExpanded ? styles.chevronExpanded : styles.chevronCollapsed}>
           <ChevronRightIcon size={16} color={welcomeColors.chevron} />
         </View>
       </Pressable>
 
-      {isExpanded && <ContactList contacts={contacts} onContactPress={onContactPress} />}
+      {isExpanded &&
+        // A list already on screen stays while it refreshes or if a refresh fails.
+        (contacts.length === 0 && status !== 'success' ? (
+          <View style={styles.table}>
+            <TableStatusMessage status={status} errorText="Unable to load contacts." onRetry={onRetry} />
+          </View>
+        ) : (
+          <ContactList contacts={contacts} onContactPress={onContactPress} />
+        ))}
     </AuthCard>
   );
 }
@@ -155,6 +169,11 @@ const styles = StyleSheet.create({
     backgroundColor: welcomeColors.chevron,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Always rotated (0° or 90°), so the View is never flattened away on Android: switching
+  // between flattened and not re-parents its child and can crash ("child already has a parent").
+  chevronCollapsed: {
+    transform: [{ rotate: '0deg' }],
   },
   chevronExpanded: {
     transform: [{ rotate: '90deg' }],

@@ -2,6 +2,8 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 import type { CertificateTemplate } from '../services/certificateTemplateService';
 import type { SignatureFontId } from '../constants/signatureFonts';
 import type { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
+import type { ChangeOrderSummary } from '../types/changeOrder';
+import type { AchInfo } from '../types/paymentSettings';
 import type { ComplianceDocumentType } from '../types/document';
 
 export interface SubcontractorIdentityData {
@@ -63,6 +65,10 @@ export interface SubcontractorSignatureData {
   signatureInitials: string;
   /** Date the agreement was signed, as YYYY-MM-DD (the device's local date). */
   signatureDate: string;
+  /** The name drawn in the chosen style, as a base64 PNG (sent to the registration API). */
+  signatureImageBase64: string;
+  /** The initials drawn in the chosen style, as a base64 PNG (sent to the registration API). */
+  initialsImageBase64: string;
 }
 
 export type SubcontractorRegistrationParams = {
@@ -74,8 +80,19 @@ export type SubcontractorRegistrationParams = {
 };
 
 /** Registration params once the Master Subcontractor Agreement has been signed (Step 6 onward). */
+/** The Master Subcontract Agreement as signed on the agreement step, sent with the registration. */
+export interface SubcontractorAgreementData {
+  /** e.g. "MSA_Mitchell_Air_Systems.pdf". */
+  fileName: string;
+  /** The signed agreement PDF, base64. */
+  base64: string;
+  /** YYYY-MM-DD. */
+  signedDate: string;
+}
+
 export type SignedSubcontractorRegistrationParams = SubcontractorRegistrationParams & {
   signature: SubcontractorSignatureData;
+  agreement: SubcontractorAgreementData;
 };
 
 export type AuthStackParamList = {
@@ -129,6 +146,17 @@ export type AuthStackParamList = {
     signedDate?: string;
   };
   PurchaseOrderSigning: { poId: string; poDate?: string };
+  /** poName is only for the screen's subtitle; opportunityId is the PO's job (null when unknown). */
+  AddPurchaseOrderInvoice: { poId: string; poName: string; opportunityId: string | null };
+  /** poName is only for the screen's subtitle; opportunityId is the PO's job (null when unknown). */
+  AddChangeOrder: { poId: string; poName: string; opportunityId: string | null };
+  /** The change order as listed on its PO, so the screen can show it without fetching the PO's change orders again. */
+  ChangeOrderDetails: { poId: string; changeOrder: ChangeOrderSummary };
+  /** A change order's approval status, while it waits for (or after) MG Bros' decision. */
+  ChangeOrderApproval: { poId: string; changeOrder: ChangeOrderSummary };
+  /** Signing a change order that's Ready For Signature. */
+  ChangeOrderSigning: { poId: string; changeOrder: ChangeOrderSummary };
+  AddChangeOrderItem: { poId: string; changeOrder: ChangeOrderSummary };
   /** The PO's current terms and total, so the screen can edit them without fetching the PO again. */
   ModifyPaymentTerms: { poId: string; totalAmount: number; paymentTerms: PurchaseOrderPaymentTerm[] };
   Invoices: undefined;
@@ -140,6 +168,14 @@ export type AuthStackParamList = {
   Projects: undefined;
   Documents: undefined;
   DocumentDetails: { documentType: ComplianceDocumentType };
+  /** A document already written to the cache (path), so the viewer never handles the base64 itself. */
+  DocumentViewer: { fileName: string; path: string };
+  PaymentSettings: undefined;
+  /** existing: the bank details on file, to start from when replacing them. */
+  AchInformation: { existing?: AchInfo } | undefined;
+  /** The details just saved, so these screens needn't load them again. */
+  AchFormGenerated: { ach: AchInfo };
+  AchFormPreview: { ach: AchInfo };
   ApprovalNeeded: undefined;
 };
 

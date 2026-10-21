@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LoadStatus } from '../hooks/useAsyncResource';
+import { EMPTY_VALUE } from '../constants/display';
 import { fontFamily, welcomeColors } from '../theme';
 import { TableStatusMessage } from './TableStatusMessage';
 
@@ -17,6 +18,7 @@ export interface DataTableColumn<Row> {
   align?: 'left' | 'right';
   /** Shown in the link style (blue, medium weight), like a record name. */
   isLink?: boolean;
+  /** The cell's text; an empty or blank value shows as a dash. */
   getValue: (row: Row) => string;
   /** Text colour for this column's cell in `row` (e.g. green for "Signed"); the default when undefined. */
   getColor?: (row: Row) => string | undefined;
@@ -35,6 +37,12 @@ type DataTableProps<Row> = {
   status?: LoadStatus;
   errorText?: string;
   onRetry?: () => void;
+  /**
+   * Fits the table to its container instead of scrolling sideways: `grow`
+   * columns share the room left by the fixed ones and long text wraps onto
+   * more lines.
+   */
+  fitWidth?: boolean;
 };
 
 /** The Home screen's list tables (Purchase Orders, Invoices), with a brown header row. */
@@ -46,9 +54,73 @@ export function DataTable<Row>({
   status = 'success',
   errorText = 'Unable to load this list.',
   onRetry,
+  fitWidth = false,
 }: DataTableProps<Row>): React.JSX.Element {
   if (status !== 'success') {
     return <TableStatusMessage status={status} errorText={errorText} onRetry={onRetry} />;
+  }
+  const widthOf = (column: DataTableColumn<Row>) => (fitWidth ? fittedColumnWidth(column) : columnWidth(column));
+  // Wrapping only when the table can't scroll to show the rest.
+  const cellLines = fitWidth ? undefined : 1;
+
+  const table = (
+    // collapsable={false} here and on each row: see LoginInput (rows are added as data arrives).
+    <View style={styles.table} collapsable={false}>
+      <View style={[styles.row, styles.headerRow]}>
+        {columns.map((column) => (
+          <Text
+            key={column.key}
+            style={[styles.headerCell, widthOf(column), column.align === 'right' && styles.alignRight]}
+            numberOfLines={cellLines}
+          >
+            {column.label}
+          </Text>
+        ))}
+      </View>
+
+      {rows.length === 0 ? (
+        <Text style={styles.emptyText}>{emptyText}</Text>
+      ) : (
+        rows.map((row, index) => (
+          <View
+            key={getRowKey(row)}
+            style={[styles.row, fitWidth && styles.wrappingRow, index > 0 && styles.rowDivider]}
+            collapsable={false}
+          >
+            {columns.map((column) => {
+              const { onPress } = column;
+              // Only override when a colour is given: `color: undefined` would wipe the cell's own colour.
+              const color = column.getColor?.(row);
+              const cell = (
+                <Text
+                  style={[
+                    styles.cellText,
+                    widthOf(column),
+                    column.isLink && styles.linkText,
+                    column.align === 'right' && styles.alignRight,
+                    color !== undefined && { color },
+                  ]}
+                  numberOfLines={cellLines}
+                >
+                  {column.getValue(row).trim() || EMPTY_VALUE}
+                </Text>
+              );
+              return onPress ? (
+                <Pressable key={column.key} onPress={() => onPress(row)} hitSlop={6} accessibilityRole="link">
+                  {cell}
+                </Pressable>
+              ) : (
+                <React.Fragment key={column.key}>{cell}</React.Fragment>
+              );
+            })}
+          </View>
+        ))
+      )}
+    </View>
+  );
+
+  if (fitWidth) {
+    return table;
   }
   return (
     <ScrollView
@@ -58,68 +130,18 @@ export function DataTable<Row>({
       nestedScrollEnabled
       contentContainerStyle={styles.scrollContent}
     >
-      <View style={styles.table}>
-        <View style={[styles.row, styles.headerRow]}>
-          {columns.map((column) => (
-            <Text
-              key={column.key}
-              style={[styles.headerCell, columnWidth(column), column.align === 'right' && styles.alignRight]}
-              numberOfLines={1}
-            >
-              {column.label}
-            </Text>
-          ))}
-        </View>
-
-        {rows.length === 0 ? (
-          <Text style={styles.emptyText}>{emptyText}</Text>
-        ) : (
-          rows.map((row, index) => (
-            <View key={getRowKey(row)} style={[styles.row, index > 0 && styles.rowDivider]}>
-              {columns.map((column) => {
-                const { onPress } = column;
-                // Only override when a colour is given: `color: undefined` would wipe the cell's own colour.
-                const color = column.getColor?.(row);
-                const cell = column.renderCell ? (
-                  <View
-                    style={[styles.customCell, columnWidth(column), column.align === 'right' && styles.alignEnd]}
-                    accessible
-                    accessibilityLabel={column.getValue(row)}
-                  >
-                    {column.renderCell(row)}
-                  </View>
-                ) : (
-                  <Text
-                    style={[
-                      styles.cellText,
-                      columnWidth(column),
-                      column.isLink && styles.linkText,
-                      column.align === 'right' && styles.alignRight,
-                      color !== undefined && { color },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {column.getValue(row)}
-                  </Text>
-                );
-                return onPress ? (
-                  <Pressable key={column.key} onPress={() => onPress(row)} hitSlop={6} accessibilityRole="link">
-                    {cell}
-                  </Pressable>
-                ) : (
-                  <React.Fragment key={column.key}>{cell}</React.Fragment>
-                );
-              })}
-            </View>
-          ))
-        )}
-      </View>
+      {table}
     </ScrollView>
   );
 }
 
 function columnWidth<Row>(column: DataTableColumn<Row>) {
   return column.grow ? { minWidth: column.width, flexGrow: 1, flexBasis: column.width } : { width: column.width };
+}
+
+/** For `fitWidth`: grow columns split the leftover room (and may get narrower than `width`). */
+function fittedColumnWidth<Row>(column: DataTableColumn<Row>) {
+  return column.grow ? { flex: 1, minWidth: 0 } : { width: column.width };
 }
 
 const styles = StyleSheet.create({
@@ -136,6 +158,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 11,
     gap: 8,
+  },
+  // Multi-line cells start at the top so a row's texts line up.
+  wrappingRow: {
+    alignItems: 'flex-start',
   },
   headerRow: {
     backgroundColor: welcomeColors.loginButton,

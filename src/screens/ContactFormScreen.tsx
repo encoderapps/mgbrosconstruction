@@ -12,10 +12,12 @@ import { ChevronRightIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { SALUTATION_OPTIONS } from '../constants/salutationOptions';
+import { US_STATE_CODES, formatUsStateOption } from '../constants/usStates';
 import { useContacts } from '../context/ContactsContext';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { createContact, updateContact as updateContactInSalesforce } from '../services/contactService';
+import { isValidZipCode, joinAddressParts, splitAddress } from '../utils/address';
 import { findMissingRequiredField, isValidEmail } from '../utils/formValidation';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'AddContact' | 'EditContact'>;
@@ -36,7 +38,12 @@ export function ContactFormScreen({ navigation, route }: Props): React.JSX.Eleme
   const [lastName, setLastName] = useState(existing?.lastName ?? '');
   const [suffix, setSuffix] = useState(existing?.suffix ?? '');
   const [contactOwner, setContactOwner] = useState(existing?.contactOwner ?? '');
-  const [address, setAddress] = useState(existing?.address ?? '');
+  // Contacts store one address line; edit it as separate parts and join them back on save.
+  const [initialAddress] = useState(() => splitAddress(existing?.address));
+  const [street, setStreet] = useState(initialAddress.street);
+  const [city, setCity] = useState(initialAddress.city);
+  const [addressState, setAddressState] = useState(initialAddress.state);
+  const [zipCode, setZipCode] = useState(initialAddress.zipCode);
   const [phone, setPhone] = useState(existing?.phone ?? '');
   const [email, setEmail] = useState(existing?.email ?? '');
   const [isSaving, setIsSaving] = useState(false);
@@ -54,6 +61,10 @@ export function ContactFormScreen({ navigation, route }: Props): React.JSX.Eleme
       Alert.alert('Invalid email', 'Please enter a valid email address.');
       return;
     }
+    if (zipCode.trim() && !isValidZipCode(zipCode)) {
+      Alert.alert('Invalid zip code', 'Please enter a valid 5-digit zip code.');
+      return;
+    }
 
     const accountId = company?.accountId;
     if (!accountId) {
@@ -68,7 +79,7 @@ export function ContactFormScreen({ navigation, route }: Props): React.JSX.Eleme
       lastName: lastName.trim(),
       suffix: suffix.trim(),
       contactOwner: contactOwner.trim(),
-      address: address.trim(),
+      address: joinAddressParts([street, city, addressState, zipCode]),
       phone: phone.trim(),
       email: email.trim(),
     };
@@ -184,11 +195,34 @@ export function ContactFormScreen({ navigation, route }: Props): React.JSX.Eleme
               autoCapitalize="words"
             />
             <LoginInput
-              label="Address"
-              placeholder="Enter address"
-              value={address}
-              onChangeText={setAddress}
+              label="Street Address"
+              placeholder="Enter street address"
+              value={street}
+              onChangeText={setStreet}
               autoCapitalize="words"
+            />
+            <LoginInput
+              label="City"
+              placeholder="Enter city"
+              value={city}
+              onChangeText={setCity}
+              autoCapitalize="words"
+            />
+            <SelectInput
+              label="State"
+              placeholder="Select state"
+              value={addressState}
+              options={US_STATE_CODES}
+              formatOption={formatUsStateOption}
+              onSelect={setAddressState}
+            />
+            <LoginInput
+              label="Zip Code"
+              placeholder="Enter zip code"
+              value={zipCode}
+              onChangeText={(text) => setZipCode(text.replace(/\D/g, ''))}
+              keyboardType="number-pad"
+              maxLength={5}
             />
             <LoginInput
               label="Phone"

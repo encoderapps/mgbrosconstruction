@@ -30,6 +30,7 @@ import { useSubcontractorSession } from '../context/SubcontractorSessionContext'
 import { usePurchaseOrderDetail } from '../hooks/usePurchaseOrderDetail';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
+import { changeOrderStage, isAwaitingApproval } from '../utils/changeOrder';
 import { showComingSoon } from '../utils/comingSoon';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatUsDate } from '../utils/formatDate';
@@ -59,10 +60,12 @@ const PAYMENT_TERM_COLUMNS: DataTableColumn<PurchaseOrderPaymentTerm & { index: 
 export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.JSX.Element {
   const { poId, poDate, updatedPaymentTerms, updatedStatus, signedDate } = route.params;
   const { data: detail, status, reload, refresh, setData } = usePurchaseOrderDetail(poId, poDate);
-  // Back from signing (or another screen above): pick up the PO's new status from the API.
+  // Back from signing, adding an invoice etc.: pick up the PO's new status and invoices from the API.
   useRefreshOnReturn(refresh);
   const vendorName = useSubcontractorSession().company?.name ?? '';
   const signed = detail ? isSigned(detail.status) : false;
+  // Payment terms can only change before the PO is signed, while it waits for the subcontractor's signature.
+  const canModifyPaymentTerms = detail ? isAwaitingSignature(detail.status) : false;
   // Open by default while the PO is being reviewed; a signed PO leads with its
   // change orders and invoices, so its details start collapsed.
   const [detailsExpandedChoice, setDetailsExpandedChoice] = useState<boolean | null>(null);
@@ -156,9 +159,29 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
             <PurchaseOrderLedger
               purchaseOrder={detail}
               vendorName={vendorName}
-              onAddChangeOrder={() => showComingSoon('Add Change Order')}
-              onAddInvoice={() => showComingSoon('Add Invoice')}
-              onOpenChangeOrder={(changeOrder) => showComingSoon(changeOrder.name || 'Change order')}
+              onAddChangeOrder={() =>
+                navigation.navigate('AddChangeOrder', {
+                  poId,
+                  poName: detail.name,
+                  opportunityId: detail.opportunityId,
+                })
+              }
+              onAddInvoice={() =>
+                navigation.navigate('AddPurchaseOrderInvoice', {
+                  poId,
+                  poName: detail.name,
+                  opportunityId: detail.opportunityId,
+                })
+              }
+              onOpenChangeOrder={({ id, name, status: changeOrderStatus, amount, description }) => {
+                const changeOrder = { id, name, status: changeOrderStatus, amount, description: description ?? '' };
+                // One waiting on approval (a Draft included) opens its approval status; any other its details.
+                if (isAwaitingApproval(changeOrderStage(changeOrder))) {
+                  navigation.navigate('ChangeOrderApproval', { poId, changeOrder });
+                } else {
+                  navigation.navigate('ChangeOrderDetails', { poId, changeOrder });
+                }
+              }}
               onOpenInvoice={(invoice) => showComingSoon(invoice.name || 'Invoice')}
               onOpenDocument={() => navigation.navigate('PurchaseOrderSigning', { poId, poDate })}
               onRetry={reload}
@@ -194,7 +217,7 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
               <DocumentIcon size={16} color={welcomeColors.accent} />
             </View>
             <Text style={styles.sectionTitle}>PO Details</Text>
-            <View style={isDetailsExpanded ? styles.chevronExpanded : undefined}>
+            <View style={isDetailsExpanded ? styles.chevronExpanded : styles.chevronCollapsed}>
               <ChevronRightIcon size={16} color={welcomeColors.chevron} />
             </View>
           </Pressable>
@@ -216,8 +239,17 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
                       paymentTerms: detail.paymentTerms,
                     })
                   }
-                  style={({ pressed }) => [styles.modifyButton, pressed && styles.pressed]}
+                  disabled={!canModifyPaymentTerms}
+                  style={({ pressed }) => [
+                    styles.modifyButton,
+                    !canModifyPaymentTerms && styles.modifyButtonDisabled,
+                    pressed && styles.pressed,
+                  ]}
                   accessibilityRole="button"
+                  accessibilityState={{ disabled: !canModifyPaymentTerms }}
+                  accessibilityHint={
+                    canModifyPaymentTerms ? undefined : 'Payment terms can only be changed before the purchase order is signed.'
+                  }
                 >
                   <Text style={styles.modifyButtonText}>Modify</Text>
                 </Pressable>
@@ -227,6 +259,7 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
                 rows={paymentTerms}
                 getRowKey={(term) => term.id}
                 emptyText="No payment terms for this purchase order."
+                fitWidth
               />
             </>
           )}
@@ -476,6 +509,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: welcomeColors.textPrimary,
   },
+  // Always rotated (0° or 90°), so the View is never flattened away on Android: switching
+  // between flattened and not re-parents its child and can crash ("child already has a parent").
+  chevronCollapsed: {
+    transform: [{ rotate: '0deg' }],
+  },
   chevronExpanded: {
     transform: [{ rotate: '90deg' }],
   },
@@ -484,6 +522,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: radius.sm,
     backgroundColor: welcomeColors.chevron,
+  },
+  modifyButtonDisabled: {
+    opacity: 0.45,
   },
   modifyButtonText: {
     fontFamily: fontFamily.semiBold,

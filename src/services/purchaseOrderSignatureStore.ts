@@ -16,11 +16,13 @@ const storageKey = (poId: string): string => `${STORAGE_KEYS.PURCHASE_ORDER_SIGN
 
 function isSignature(value: unknown): value is PurchaseOrderSignature {
   const signature = value as Partial<PurchaseOrderSignature> | null;
+  const hasImage = typeof signature?.imageBase64 === 'string' && signature.imageBase64 !== '';
   return (
     typeof signature?.name === 'string' &&
     typeof signature.date === 'string' &&
     /^\d{4}-\d{2}-\d{2}$/.test(signature.date) &&
-    SIGNATURE_FONTS.some((font) => font.id === signature.fontId)
+    // Drawn from its image, or written in a known style.
+    (hasImage || SIGNATURE_FONTS.some((font) => font.id === signature.fontId))
   );
 }
 
@@ -53,8 +55,8 @@ export function withStoredSignature(
   }
   return {
     ...purchaseOrder,
-    // A signing date from the API, once it sends one, wins.
+    // The API's signing date and signature, when it sends them, win over the copy kept here.
     signedDate: purchaseOrder.signedDate ?? signature.date,
-    vendorSignature: signature,
+    vendorSignature: purchaseOrder.vendorSignature ?? signature,
   };
 }

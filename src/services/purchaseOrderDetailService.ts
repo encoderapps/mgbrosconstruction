@@ -4,7 +4,12 @@ import {
   PurchaseOrderLineItemApiRecord,
   PurchaseOrderPaymentTermApiRecord,
 } from '../types';
-import { PurchaseOrderDetail, PurchaseOrderLineItem, PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
+import {
+  PurchaseOrderDetail,
+  PurchaseOrderLineItem,
+  PurchaseOrderPaymentTerm,
+  SignatureOnFile,
+} from '../types/purchaseOrder';
 import { decodeHtmlEntities, htmlToPlainText } from '../utils/html';
 import { withCalculatedAmounts } from '../utils/paymentTerms';
 import { toNumber } from '../utils/toNumber';
@@ -53,6 +58,23 @@ function toLineItem(record: PurchaseOrderLineItemApiRecord, index: number): Purc
   };
 }
 
+type PurchaseOrderApiRecord = NonNullable<PurchaseOrderDetailApiResponse['purchaseOrder']>;
+
+/** The registration signature the API returns with the PO, or null when it doesn't return a complete one. */
+function toSignatureOnFile(po: PurchaseOrderApiRecord): SignatureOnFile | null {
+  const name = po.subcontractorFullName?.trim();
+  const imageBase64 = po.signatureBase64Data?.replace(/\s/g, '');
+  if (!name || !imageBase64) {
+    return null;
+  }
+  return {
+    name,
+    imageBase64,
+    initialsImageBase64: po.signatureInitialsBase64Data?.replace(/\s/g, '') ?? '',
+    date: po.signedDate || null,
+  };
+}
+
 /** Fetches one purchase order's details (GET /purchaseorderdetail?poId=…&accountId=…). */
 export async function fetchPurchaseOrderDetail(accountId: string, poId: string): Promise<PurchaseOrderDetail> {
   const data = await salesforceGet<PurchaseOrderDetailApiResponse>(SALESFORCE_PURCHASE_ORDER_DETAIL_URL, {
@@ -69,6 +91,9 @@ export async function fetchPurchaseOrderDetail(accountId: string, poId: string):
     .filter(Boolean)
     .join(', ');
   const lineItems = (po.poDetails ?? []).map(toLineItem);
+  const signatureOnFile = toSignatureOnFile(po);
+  // When the vendor has signed, the API's date of signing and its signature on file are the PO's signature.
+  const vendorSignedDate = po.vendorSigned ? po.vendorSignedDate || null : null;
   const lineItemsTotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
   // Some POs report a total of 0 despite having priced line items; fall back to their sum.
   const totalAmount = po.totalAmount || lineItemsTotal;
@@ -82,12 +107,17 @@ export async function fetchPurchaseOrderDetail(accountId: string, poId: string):
     totalAmount,
     lineItems,
     paymentTerms: withCalculatedAmounts(parsePaymentTerms(po.paymentTerms), totalAmount),
+    signedDate: vendorSignedDate,
+    vendorSignature:
+      vendorSignedDate && signatureOnFile
+        ? { name: signatureOnFile.name, fontId: null, imageBase64: signatureOnFile.imageBase64, date: vendorSignedDate }
+        : null,
+    signatureOnFile,
+    opportunityId: po.opportunityId?.trim() || null,
     // NOTE: the detail API doesn't return these. usePurchaseOrderDetail adds the PO
-    // date (from the Purchase Orders list), the signing (from this device) and the
-    // change orders and invoices (from the change order API).
+    // date (from the Purchase Orders list), a signature made on this device (for POs
+    // the API has no signature for) and the change orders and invoices.
     poDate: null,
-    signedDate: null,
-    vendorSignature: null,
     changeOrders: null,
     invoices: null,
   };

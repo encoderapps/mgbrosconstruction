@@ -1,4 +1,4 @@
-import { PDFDocument, PDFFont, PDFPage, RGB, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PDFFont, PDFImage, PDFPage, RGB, StandardFonts, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import RNFS from 'react-native-fs';
 import { MG_BROS_LOGO_PNG_BASE64 } from '../assets/pdf/mgBrosLogoPng';
@@ -9,6 +9,7 @@ import {
   PO_SPECIAL_INSTRUCTIONS,
   PO_STANDARD_TERMS,
 } from '../constants/purchaseOrderDocument';
+import { ChangeOrderDetail } from '../types/changeOrder';
 import { PurchaseOrderDetail, PurchaseOrderSignature } from '../types/purchaseOrder';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatUsDate } from '../utils/formatDate';
@@ -217,7 +218,13 @@ class PageWriter {
   }
 }
 
-async function drawHeader(writer: PageWriter, doc: PDFDocument, purchaseOrder: PurchaseOrderDetail): Promise<void> {
+/** The logo, the document's title and its "Label : [value]" boxes (e.g. date and PO number). */
+async function drawHeader(
+  writer: PageWriter,
+  doc: PDFDocument,
+  title: string,
+  boxes: readonly (readonly [label: string, value: string])[],
+): Promise<void> {
   const logo = await doc.embedPng(MG_BROS_LOGO_PNG_BASE64);
   const logoHeight = (logo.height / logo.width) * LOGO_WIDTH;
   writer.currentPage.drawImage(logo, {
@@ -227,7 +234,7 @@ async function drawHeader(writer: PageWriter, doc: PDFDocument, purchaseOrder: P
     height: logoHeight,
   });
   writer.top += logoHeight + 4;
-  writer.text('PURCHASE ORDER', MARGIN, writer.top, {
+  writer.text(title, MARGIN, writer.top, {
     size: 16,
     color: COLORS.brand,
     align: 'center',
@@ -235,11 +242,13 @@ async function drawHeader(writer: PageWriter, doc: PDFDocument, purchaseOrder: P
   });
   writer.top += 24;
 
-  // "Date : [08/21/2026]" over "Job-PO # : [Job-PO#0001115]", right-aligned. An unknown date
-  // leaves its box empty, like an unfilled form.
-  drawLabelledBox(writer, 'Date :', purchaseOrder.poDate ? formatUsDate(purchaseOrder.poDate) : '');
-  writer.top += 16;
-  drawLabelledBox(writer, 'Job-PO # :', purchaseOrder.name || EMPTY_VALUE);
+  // e.g. "Date : [08/21/2026]" over "Job-PO # : [Job-PO#0001115]", right-aligned.
+  boxes.forEach(([label, value], index) => {
+    if (index > 0) {
+      writer.top += 16;
+    }
+    drawLabelledBox(writer, label, value);
+  });
   writer.top += 26;
 }
 
@@ -256,14 +265,14 @@ function drawLabelledBox(writer: PageWriter, label: string, value: string): void
   writer.text(value, boxLeft, writer.top + 2, { align: 'center', width: boxWidth });
 }
 
-function drawParties(writer: PageWriter, purchaseOrder: PurchaseOrderDetail, vendor: PurchaseOrderVendor): void {
+function drawParties(writer: PageWriter, jobAddress: string, vendor: PurchaseOrderVendor): void {
   const columnWidth = (CONTENT_WIDTH - COLUMN_GAP * 2) / 3;
   const { regular, bold } = writer.fonts;
   const wrap = (lines: string[]): string[] =>
     lines.flatMap((line) => wrapText(regular, line, FONT_SIZE, columnWidth));
 
   const columns: { title: string; lines: string[]; link?: string }[] = [
-    { title: 'Job Address:', lines: wrap([purchaseOrder.projectAddress || EMPTY_VALUE]) },
+    { title: 'Job Address:', lines: wrap([jobAddress || EMPTY_VALUE]) },
     { title: 'Vendor:', lines: wrap([vendor.name || EMPTY_VALUE, vendor.address].filter(Boolean)) },
     {
       title: 'General Contractor:',
@@ -442,18 +451,35 @@ function drawStandardTerms(writer: PageWriter): void {
   writer.top += 14;
 }
 
+/** A vendor signature to draw: the registration signature image, or the name written in a signature font. */
+type DrawnSignature =
+  | { kind: 'image'; image: PDFImage; date: string }
+  | { kind: 'text'; text: string; font: PDFFont; date: string };
+
+/** Room above the signature line for the handwritten signature. */
+const SIGNATURE_AREA_HEIGHT = 34;
+
 function drawSignatureBlock(
   writer: PageWriter,
   label: string,
   signerName?: string,
-  signature?: { text: string; font: PDFFont; date: string },
+  signature?: DrawnSignature,
 ): void {
   const lineX = MARGIN + 12;
   const dateLabelX = lineX + SIGNATURE_LINE_WIDTH + 30;
   const dateLineX = dateLabelX + 28;
 
-  writer.top += 34; // room for the handwritten signature above the line
-  if (signature) {
+  writer.top += SIGNATURE_AREA_HEIGHT; // room for the handwritten signature above the line
+  if (signature?.kind === 'image') {
+    // Scaled to sit in the signature area without overflowing the line.
+    const { width, height } = signature.image.scaleToFit(SIGNATURE_LINE_WIDTH - 16, SIGNATURE_AREA_HEIGHT + 6);
+    writer.currentPage.drawImage(signature.image, {
+      x: lineX + 8,
+      y: PAGE_HEIGHT - writer.top + 2,
+      width,
+      height,
+    });
+  } else if (signature) {
     const size = fitFontSize(signature.font, signature.text, SIGNATURE_MAX_FONT_SIZE, SIGNATURE_LINE_WIDTH - 16);
     writer.currentPage.drawText(signature.text, {
       x: lineX + 8,
@@ -462,6 +488,8 @@ function drawSignatureBlock(
       font: signature.font,
       color: COLORS.signatureInk,
     });
+  }
+  if (signature) {
     writer.text(signature.date, dateLineX, writer.top - 13, { align: 'center', width: DATE_LINE_WIDTH });
   }
   writer.rule(lineX, SIGNATURE_LINE_WIDTH, writer.top, COLORS.ink);
@@ -491,6 +519,202 @@ function drawPageNumbers(doc: PDFDocument, font: PDFFont): void {
   });
 }
 
+/** Embeds the vendor's signature: its registration image, or its name in the signature font. */
+async function embedSignature(doc: PDFDocument, signature?: PurchaseOrderSignature): Promise<DrawnSignature | undefined> {
+  if (signature?.imageBase64) {
+    const image = await doc.embedPng(signature.imageBase64);
+    return { kind: 'image', image, date: formatUsDate(signature.date) };
+  }
+  if (signature?.name && signature.fontId) {
+    doc.registerFontkit(fontkit);
+    const font = await doc.embedFont(await readSignatureFontBase64(signature.fontId), { subset: true });
+    return { kind: 'text', text: toEncodable(font, signature.name), font, date: formatUsDate(signature.date) };
+  }
+  return undefined;
+}
+
+async function embedFonts(doc: PDFDocument): Promise<PurchaseOrderFonts> {
+  return {
+    regular: await doc.embedFont(StandardFonts.Helvetica),
+    bold: await doc.embedFont(StandardFonts.HelveticaBold),
+    boldItalic: await doc.embedFont(StandardFonts.HelveticaBoldOblique),
+  };
+}
+
+/** "This … is accepted by:", the vendor's and MG Bros' signature lines, and the closing thanks. */
+function drawAcceptance(writer: PageWriter, documentName: string, vendorSignature?: DrawnSignature): void {
+  writer.ensureSpace(ACCEPTANCE_HEIGHT);
+  writer.text(`This ${documentName} is accepted by:`, MARGIN, writer.top);
+  writer.top += lineHeight(FONT_SIZE);
+  drawSignatureBlock(writer, 'Vendor:', undefined, vendorSignature);
+  drawSignatureBlock(writer, 'General Contractor:', GENERAL_CONTRACTOR.name);
+  writer.top += 18;
+  writer.text('Thank You For Your Business!', MARGIN, writer.top, {
+    font: writer.fonts.boldItalic,
+    align: 'center',
+    width: CONTENT_WIDTH,
+  });
+}
+
+/**
+ * The purchase order as a base64 PDF, laid out like MG Bros' printed PO.
+ * With `signature`, the vendor's signature and signing date are filled in
+ * (the signed copy the sign API takes).
+ */
+export async function buildPurchaseOrderPdfBase64(
+  purchaseOrder: PurchaseOrderDetail,
+  vendor: PurchaseOrderVendor,
+  signature?: PurchaseOrderSignature,
+): Promise<string> {
+  const doc = await PDFDocument.create();
+  doc.setTitle(`Purchase Order ${purchaseOrder.name}`);
+  doc.setAuthor(GENERAL_CONTRACTOR.name);
+  const fonts = await embedFonts(doc);
+  const vendorSignature = await embedSignature(doc, signature);
+
+  const writer = new PageWriter(doc, fonts);
+  // An unknown date leaves its box empty, like an unfilled form.
+  await drawHeader(writer, doc, 'PURCHASE ORDER', [
+    ['Date :', purchaseOrder.poDate ? formatUsDate(purchaseOrder.poDate) : ''],
+    ['Job-PO # :', purchaseOrder.name || EMPTY_VALUE],
+  ]);
+  drawParties(writer, purchaseOrder.projectAddress, vendor);
+  drawLineItems(writer, purchaseOrder);
+  drawPaymentTerms(writer, purchaseOrder);
+  drawSpecialInstructions(writer, purchaseOrder);
+  drawStandardTerms(writer);
+  drawAcceptance(writer, 'Purchase Order', vendorSignature);
+  drawPageNumbers(doc, fonts.regular);
+  return doc.saveAsBase64();
+}
+
+/** The purchase order a change order belongs to, as its PDF shows it. */
+export interface ChangeOrderPdfContext {
+  /** e.g. "Job-PO#0001115". */
+  purchaseOrderName: string;
+  projectAddress: string;
+}
+
+// Change order item columns: # · description · qty · unit price · amount.
+const CO_INDEX_WIDTH = 24;
+const CO_QUANTITY_WIDTH = 50;
+const CO_PRICE_WIDTH = 86;
+const CO_DESCRIPTION_WIDTH = CONTENT_WIDTH - CO_INDEX_WIDTH - CO_QUANTITY_WIDTH - CO_PRICE_WIDTH * 2;
+
+function drawChangeOrderItemsHeader(writer: PageWriter): void {
+  const height = 15;
+  writer.rect(MARGIN, writer.top, CONTENT_WIDTH, height, COLORS.tableHeader);
+  const header = { font: writer.fonts.bold, size: SMALL_FONT_SIZE, color: COLORS.white, align: 'center' as const };
+  let x = MARGIN;
+  (
+    [
+      ['#', CO_INDEX_WIDTH],
+      ['DESCRIPTION', CO_DESCRIPTION_WIDTH],
+      ['QTY', CO_QUANTITY_WIDTH],
+      ['UNIT PRICE', CO_PRICE_WIDTH],
+      ['AMOUNT', CO_PRICE_WIDTH],
+    ] as const
+  ).forEach(([label, width]) => {
+    writer.text(label, x, writer.top + 4, { ...header, width });
+    x += width;
+  });
+  writer.top += height;
+}
+
+function drawChangeOrderItems(writer: PageWriter, changeOrder: ChangeOrderDetail): void {
+  const { regular, bold } = writer.fonts;
+  const descriptionX = MARGIN + CO_INDEX_WIDTH;
+  const quantityX = descriptionX + CO_DESCRIPTION_WIDTH;
+  const unitPriceX = quantityX + CO_QUANTITY_WIDTH;
+  const amountX = unitPriceX + CO_PRICE_WIDTH;
+  const right = (width: number) => ({ align: 'right' as const, width: width - CELL_PADDING });
+
+  writer.ensureSpace(60);
+  drawChangeOrderItemsHeader(writer);
+  if (changeOrder.items.length === 0) {
+    writer.text('No items listed', descriptionX + CELL_PADDING, writer.top + CELL_PADDING / 2, { color: COLORS.muted });
+    writer.top += lineHeight(FONT_SIZE) + CELL_PADDING;
+    writer.rule(MARGIN, CONTENT_WIDTH, writer.top);
+  }
+  changeOrder.items.forEach((item, index) => {
+    const description = wrapText(
+      regular,
+      [item.description, item.category].filter(Boolean).join(' · ') || EMPTY_VALUE,
+      FONT_SIZE,
+      CO_DESCRIPTION_WIDTH - CELL_PADDING * 2,
+    );
+    const height = description.length * lineHeight(FONT_SIZE) + CELL_PADDING;
+    if (writer.ensureSpace(height)) {
+      // Repeat the column headings at the top of a new page.
+      drawChangeOrderItemsHeader(writer);
+    }
+    const top = writer.top + CELL_PADDING / 2;
+    writer.text(String(index + 1), MARGIN, top, { align: 'center', width: CO_INDEX_WIDTH });
+    writer.lines(description, descriptionX + CELL_PADDING, top);
+    writer.text(item.quantity.toFixed(2), quantityX, top, right(CO_QUANTITY_WIDTH));
+    writer.text(formatCurrency(item.unitPrice, true), unitPriceX, top, right(CO_PRICE_WIDTH));
+    writer.text(formatCurrency(item.amount, true), amountX, top, right(CO_PRICE_WIDTH));
+    writer.top += height;
+    writer.rule(MARGIN, CONTENT_WIDTH, writer.top);
+  });
+
+  writer.ensureSpace(36);
+  const itemsTotal = changeOrder.items.reduce((sum, item) => sum + Math.round(item.amount * 100), 0) / 100;
+  const totals: [string, number][] = [
+    ['ITEMS TOTAL', itemsTotal],
+    ['CHANGE ORDER AMOUNT', changeOrder.amount],
+  ];
+  totals.forEach(([label, amount]) => {
+    writer.text(label, MARGIN, writer.top + 4, { font: bold, align: 'right', width: amountX - MARGIN - CELL_PADDING });
+    writer.text(formatCurrency(amount, true), amountX, writer.top + 4, { font: bold, ...right(CO_PRICE_WIDTH) });
+    writer.top += 16;
+  });
+  writer.top += 10;
+}
+
+function drawChangeOrderNotes(writer: PageWriter, notes: string): void {
+  if (!notes.trim()) {
+    return;
+  }
+  const lines = wrapText(writer.fonts.regular, notes, FONT_SIZE, CONTENT_WIDTH - CELL_PADDING * 2);
+  writer.ensureSpace(24 + lines.length * lineHeight(FONT_SIZE));
+  writer.rect(MARGIN, writer.top, CONTENT_WIDTH, 14, COLORS.sectionHeader);
+  writer.text('NOTES', MARGIN + CELL_PADDING, writer.top + 3, { font: writer.fonts.bold, size: SMALL_FONT_SIZE });
+  writer.top += 18;
+  writer.top += writer.lines(lines, MARGIN + CELL_PADDING, writer.top);
+  writer.top += 12;
+}
+
+/**
+ * A change order as a base64 PDF, in the same layout as the purchase order:
+ * its items, totals and notes, and the vendor's signature and signing date
+ * when `signature` is given (the signed copy the sign API takes).
+ */
+export async function buildChangeOrderPdfBase64(
+  changeOrder: ChangeOrderDetail,
+  context: ChangeOrderPdfContext,
+  vendor: PurchaseOrderVendor,
+  signature?: PurchaseOrderSignature,
+): Promise<string> {
+  const doc = await PDFDocument.create();
+  doc.setTitle(`Change Order ${changeOrder.name}`);
+  doc.setAuthor(GENERAL_CONTRACTOR.name);
+  const fonts = await embedFonts(doc);
+  const vendorSignature = await embedSignature(doc, signature);
+
+  const writer = new PageWriter(doc, fonts);
+  await drawHeader(writer, doc, 'CHANGE ORDER', [
+    ['Change Order # :', changeOrder.name || EMPTY_VALUE],
+    ['Job-PO # :', context.purchaseOrderName || EMPTY_VALUE],
+  ]);
+  drawParties(writer, context.projectAddress, vendor);
+  drawChangeOrderItems(writer, changeOrder);
+  drawChangeOrderNotes(writer, changeOrder.notes);
+  drawAcceptance(writer, 'Change Order', vendorSignature);
+  drawPageNumbers(doc, fonts.regular);
+  return doc.saveAsBase64();
+}
+
 /**
  * Writes the purchase order as a PDF in the cache directory and returns its
  * path. With `signature`, the vendor's signature and signing date are filled
@@ -502,46 +726,10 @@ export async function generatePurchaseOrderPdf(
   vendor: PurchaseOrderVendor,
   signature?: PurchaseOrderSignature,
 ): Promise<string> {
-  const doc = await PDFDocument.create();
-  doc.setTitle(`Purchase Order ${purchaseOrder.name}`);
-  doc.setAuthor(GENERAL_CONTRACTOR.name);
-  const fonts: PurchaseOrderFonts = {
-    regular: await doc.embedFont(StandardFonts.Helvetica),
-    bold: await doc.embedFont(StandardFonts.HelveticaBold),
-    boldItalic: await doc.embedFont(StandardFonts.HelveticaBoldOblique),
-  };
-  let vendorSignature: { text: string; font: PDFFont; date: string } | undefined;
-  if (signature?.name) {
-    doc.registerFontkit(fontkit);
-    const font = await doc.embedFont(await readSignatureFontBase64(signature.fontId), { subset: true });
-    vendorSignature = { text: toEncodable(font, signature.name), font, date: formatUsDate(signature.date) };
-  }
-
-  const writer = new PageWriter(doc, fonts);
-  await drawHeader(writer, doc, purchaseOrder);
-  drawParties(writer, purchaseOrder, vendor);
-  drawLineItems(writer, purchaseOrder);
-  drawPaymentTerms(writer, purchaseOrder);
-  drawSpecialInstructions(writer, purchaseOrder);
-  drawStandardTerms(writer);
-
-  writer.ensureSpace(ACCEPTANCE_HEIGHT);
-  writer.text('This Purchase Order is accepted by:', MARGIN, writer.top);
-  writer.top += lineHeight(FONT_SIZE);
-  drawSignatureBlock(writer, 'Vendor:', undefined, vendorSignature);
-  drawSignatureBlock(writer, 'General Contractor:', GENERAL_CONTRACTOR.name);
-  writer.top += 18;
-  writer.text('Thank You For Your Business!', MARGIN, writer.top, {
-    font: fonts.boldItalic,
-    align: 'center',
-    width: CONTENT_WIDTH,
-  });
-  drawPageNumbers(doc, fonts.regular);
-
   // The PO name can contain "#", which would end a file:// URI, so keep the file name to safe characters.
   const safeName = purchaseOrder.name.replace(/[^A-Za-z0-9-]+/g, '-') || 'PO';
   const outputPath = `${RNFS.CachesDirectoryPath}/${OUTPUT_FILE_PREFIX}-${safeName}-${Date.now()}.pdf`;
-  await RNFS.writeFile(outputPath, await doc.saveAsBase64(), 'base64');
+  await RNFS.writeFile(outputPath, await buildPurchaseOrderPdfBase64(purchaseOrder, vendor, signature), 'base64');
   return outputPath;
 }
 

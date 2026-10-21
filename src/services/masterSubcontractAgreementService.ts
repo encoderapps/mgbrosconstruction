@@ -217,6 +217,20 @@ export async function generateMasterSubcontractAgreement(
   companyName: string,
   signature?: AgreementSignature,
 ): Promise<string> {
+  const outputPath = `${RNFS.CachesDirectoryPath}/${OUTPUT_FILE_PREFIX}-${Date.now()}.pdf`;
+  await RNFS.writeFile(outputPath, await buildMasterSubcontractAgreementBase64(companyName, signature), 'base64');
+  return outputPath;
+}
+
+/**
+ * The Master Subcontract Agreement as a base64 PDF, filled in as
+ * generateMasterSubcontractAgreement describes (the signed copy the
+ * registration API takes, with `signature`).
+ */
+export async function buildMasterSubcontractAgreementBase64(
+  companyName: string,
+  signature?: AgreementSignature,
+): Promise<string> {
   const pdfDoc = await PDFDocument.load(MASTER_SUBCONTRACT_AGREEMENT_PDF_BASE64);
   pdfDoc.registerFontkit(fontkit);
   const pages = pdfDoc.getPages();
@@ -233,9 +247,7 @@ export async function generateMasterSubcontractAgreement(
     drawSignatureBlock(pages[PAGE_10_SIGNATURE_LINES.pageIndex], regularFont, signatureFont, signature);
   }
 
-  const outputPath = `${RNFS.CachesDirectoryPath}/${OUTPUT_FILE_PREFIX}-${Date.now()}.pdf`;
-  await RNFS.writeFile(outputPath, await pdfDoc.saveAsBase64(), 'base64');
-  return outputPath;
+  return pdfDoc.saveAsBase64();
 }
 
 /** Deletes a generated agreement file that's no longer shown; failures are ignored (it's only cache). */

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FlatList, Keyboard, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronRightIcon } from '../assets/icons';
-import { fontFamily, radius, welcomeColors } from '../theme';
+import { fontFamily, portalColors, radius, welcomeColors } from '../theme';
 
 type SelectInputProps = {
   label: string;
@@ -17,6 +17,10 @@ type SelectInputProps = {
    * sheet's title and the accessibility label), for use inside table rows.
    */
   compact?: boolean;
+  /** Adds a red asterisk after the label, like LoginInput's. */
+  required?: boolean;
+  /** Can't be opened (e.g. while the form is saving); shown dimmed. */
+  disabled?: boolean;
 };
 
 export function SelectInput({
@@ -27,18 +31,28 @@ export function SelectInput({
   onSelect,
   formatOption = (option) => option,
   compact = false,
+  required = false,
+  disabled = false,
 }: SelectInputProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   // Edge-to-edge draws the modal under the system nav bar, so lift the sheet above it.
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={compact ? styles.compactContainer : styles.container}>
-      {!compact && <Text style={styles.label}>{label}</Text>}
+    // collapsable={false}: see LoginInput.
+    <View style={compact ? styles.compactContainer : styles.container} collapsable={false}>
+      {!compact && (
+        <Text style={styles.label}>
+          {label}
+          {required && <Text style={styles.required}> *</Text>}
+        </Text>
+      )}
       <Pressable
-        style={[styles.inputWrapper, compact && styles.compactInputWrapper]}
+        style={[styles.inputWrapper, compact && styles.compactInputWrapper, disabled && styles.disabled]}
+        disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={label}
+        accessibilityState={{ disabled }}
         accessibilityValue={value ? { text: formatOption(value) } : undefined}
         onPress={() => {
           // Close the keyboard so it doesn't cover the options sheet.
@@ -97,6 +111,12 @@ const styles = StyleSheet.create({
     lineHeight: 16.5,
     color: welcomeColors.textPrimary,
     marginBottom: 6,
+  },
+  required: {
+    color: portalColors.danger,
+  },
+  disabled: {
+    opacity: 0.6,
   },
   inputWrapper: {
     flexDirection: 'row',

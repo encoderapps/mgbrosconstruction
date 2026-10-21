@@ -24,12 +24,20 @@ export const SALESFORCE_CHECK_EXISTING_EMAIL_URL = `${SALESFORCE_INSTANCE_URL}/s
 export const SALESFORCE_SUBCONTRACTOR_LOGIN_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorlogin`;
 export const SALESFORCE_FORGOT_PASSWORD_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorforgotpassword`;
 export const SALESFORCE_CONTACT_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/contact`;
+// The trailing "*" is part of the Apex REST URL mapping (/getcontact/*).
+export const SALESFORCE_GET_CONTACTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/getcontact/*`;
 export const SALESFORCE_INVOICES_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/invoices/fetch`;
+// The trailing "*" is part of the Apex REST URL mapping (/invoices/create/*).
+export const SALESFORCE_CREATE_INVOICE_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/invoices/create/*`;
+// Salesforce REST API SOQL query endpoint (not Apex REST).
+export const SALESFORCE_QUERY_URL = `${SALESFORCE_INSTANCE_URL}/services/data/v60.0/query`;
 export const SALESFORCE_PURCHASE_ORDERS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/purchaseorders`;
 export const SALESFORCE_PURCHASE_ORDER_DETAIL_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/purchaseorderdetail`;
 export const SALESFORCE_MODIFY_PAYMENT_TERMS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/modifyPaymentTerms`;
 export const SALESFORCE_SIGN_PURCHASE_ORDER_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/signPurchaseOrder`;
+export const SALESFORCE_SIGN_CHANGE_ORDER_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractor/signchangeorder`;
 export const SALESFORCE_PURCHASE_ORDER_CHANGE_ORDERS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/purchaseorderchangeorder`;
+export const SALESFORCE_CREATE_CHANGE_ORDER_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/createjobchangeorder/`;
 export const SALESFORCE_SUBCONTRACTOR_DOCUMENTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractordocuments`;
 // The trailing "*" is part of the Apex REST URL mapping (/projects/fetch/*).
 export const SALESFORCE_PROJECTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/projects/fetch/*`;

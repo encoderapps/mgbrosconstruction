@@ -40,7 +40,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 44,
-    marginBottom: 12,
   },
   // Pinned left so the title stays centred on the bar.
   backButton: {

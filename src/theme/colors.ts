@@ -40,7 +40,10 @@ export type ColorKey = keyof typeof colors;
 // Palette for the role-selection Welcome screen, sampled from the MG Bros
 // Construction logo (warm taupe/brown) rather than the app's primary blue theme.
 export const welcomeColors = {
-  background: '#F6F1E6',
+  // Screens are transparent so the app's background image (ScreenBackground) shows through.
+  background: 'transparent',
+  /** The background image's own cream: shown behind it, e.g. for the moment before it loads. */
+  backgroundFallback: '#FEF9EF',
   cardBackground: '#FFFFFF',
   cardBorder: '#EDE6DA',
   iconWrapperBackground: '#F0E8DF',

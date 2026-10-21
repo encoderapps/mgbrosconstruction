@@ -1,15 +1,16 @@
 import axios from 'axios';
 import { SALESFORCE_SUBCONTRACTOR_REGISTRATION_URL } from '../constants/config';
-import { SubcontractorRegistrationParams } from '../navigation/types';
+import { SignedSubcontractorRegistrationParams } from '../navigation/types';
 import { SubcontractorRegistrationApiPayload } from '../types';
 import { formatCompanyAddress } from '../utils/address';
 import { fetchSalesforceAccessToken, getStoredSalesforceAccessToken } from './salesforceAuthService';
 
 // File type Salesforce expects for every uploaded registration document.
 const UPLOADED_FILE_TYPE = 'Internal';
+const MSA_DESCRIPTION = 'Signed Master Subcontract Agreement';
 
 function buildApiPayload(
-  params: SubcontractorRegistrationParams,
+  params: SignedSubcontractorRegistrationParams,
   password: string,
   confirmPassword: string,
 ): SubcontractorRegistrationApiPayload {
@@ -53,11 +54,21 @@ function buildApiPayload(
     wcFileName: params.workersComp.coiFile.name,
     wcFileType: UPLOADED_FILE_TYPE,
     wcBase64Data: params.workersComp.coiFile.base64,
+
+    subcontractorFullName: params.signature.signatureName,
+    signatureBase64Data: params.signature.signatureImageBase64,
+    signatureInitialsBase64Data: params.signature.initialsImageBase64,
+
+    msaFileName: params.agreement.fileName,
+    msaSignedDate: params.agreement.signedDate,
+    msaFileType: UPLOADED_FILE_TYPE,
+    msaDescription: MSA_DESCRIPTION,
+    msaBase64Data: params.agreement.base64,
   };
 }
 
 export async function submitSubcontractorRegistration(
-  params: SubcontractorRegistrationParams,
+  params: SignedSubcontractorRegistrationParams,
   password: string,
   confirmPassword: string,
 ): Promise<void> {

@@ -26,6 +26,7 @@ function axiosError(code: string, status?: number, data?: unknown): AxiosError {
 
 const ACCOUNT_ID = '001QL00002WQD8ZYAX';
 const PO_ID = 'a1wQL000008jUa1YAE';
+const SIGNED_PDF = { fileName: 'Signed_Test.pdf', base64: 'JVBERi0xLjQK' };
 
 beforeAll(() => {
   jest.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -36,7 +37,7 @@ afterEach(() => {
 });
 
 describe('signPurchaseOrder', () => {
-  it('PATCHes { accountId, poId } and returns the new status', async () => {
+  it('PATCHes the account, PO and signed PDF, and returns the new status', async () => {
     respondWith({
       success: true,
       status: 'Signed',
@@ -44,7 +45,7 @@ describe('signPurchaseOrder', () => {
       message: 'Purchase Order signed successfully.',
     });
 
-    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID)).resolves.toEqual({
+    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID, SIGNED_PDF)).resolves.toEqual({
       status: 'Signed',
       message: 'Purchase Order signed successfully.',
     });
@@ -52,7 +53,7 @@ describe('signPurchaseOrder', () => {
       expect.objectContaining({
         method: 'patch',
         url: expect.stringMatching(/\/services\/apexrest\/signPurchaseOrder$/),
-        data: { accountId: ACCOUNT_ID, poId: PO_ID },
+        data: { accountId: ACCOUNT_ID, poId: PO_ID, pdfFileName: 'Signed_Test.pdf', pdfBase64Data: 'JVBERi0xLjQK' },
         headers: expect.objectContaining({ Authorization: 'Bearer token' }),
       }),
     );
@@ -60,40 +61,40 @@ describe('signPurchaseOrder', () => {
 
   it('defaults the status to Signed when a successful response leaves it out', async () => {
     respondWith({ success: true });
-    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID)).resolves.toMatchObject({ status: 'Signed' });
+    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID, SIGNED_PDF)).resolves.toMatchObject({ status: 'Signed' });
   });
 
   it('throws the API message on success: false, even with HTTP 200', async () => {
     respondWith({ success: false, message: 'This purchase order is already signed.' });
-    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID)).rejects.toThrow('This purchase order is already signed.');
+    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID, SIGNED_PDF)).rejects.toThrow('This purchase order is already signed.');
   });
 
   it('recovers the message from a non-2xx { success, message } body', async () => {
     mockedAxiosRequest.mockRejectedValue(
       axiosError('ERR_BAD_REQUEST', 400, { success: false, message: 'poId is required.' }),
     );
-    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID)).rejects.toThrow('poId is required.');
+    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID, SIGNED_PDF)).rejects.toThrow('poId is required.');
   });
 
   it('throws a generic message on a server error or an invalid response', async () => {
     mockedAxiosRequest.mockRejectedValue(axiosError('ERR_BAD_RESPONSE', 500, '<html>Error</html>'));
-    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID)).rejects.toThrow(/Unable to sign the purchase order/);
+    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID, SIGNED_PDF)).rejects.toThrow(/Unable to sign the purchase order/);
 
     respondWith('<html>Maintenance</html>');
-    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID)).rejects.toThrow(/Unable to sign the purchase order/);
+    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID, SIGNED_PDF)).rejects.toThrow(/Unable to sign the purchase order/);
   });
 
   it('throws a connection message on a network failure and a timeout message on a timeout', async () => {
     mockedAxiosRequest.mockRejectedValue(axiosError('ERR_NETWORK'));
-    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID)).rejects.toThrow(/Check your connection/);
+    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID, SIGNED_PDF)).rejects.toThrow(/Check your connection/);
 
     mockedAxiosRequest.mockRejectedValue(axiosError('ECONNABORTED'));
-    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID)).rejects.toThrow(/took too long/);
+    await expect(signPurchaseOrder(ACCOUNT_ID, PO_ID, SIGNED_PDF)).rejects.toThrow(/took too long/);
   });
 
   it('sends the request with a timeout', async () => {
     respondWith({ success: true, status: 'Signed' });
-    await signPurchaseOrder(ACCOUNT_ID, PO_ID);
+    await signPurchaseOrder(ACCOUNT_ID, PO_ID, SIGNED_PDF);
     expect(mockedAxiosRequest).toHaveBeenCalledWith(expect.objectContaining({ timeout: expect.any(Number) }));
   });
 });

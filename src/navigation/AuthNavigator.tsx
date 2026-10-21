@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthStackParamList } from './types';
+import { ScreenBackground } from '../components/ScreenBackground';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { SubcontractorLoginScreen } from '../screens/SubcontractorLoginScreen';
 import { RegisterSubcontractorScreen } from '../screens/RegisterSubcontractorScreen';
@@ -30,6 +31,12 @@ import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { PurchaseOrderDetailsScreen } from '../screens/PurchaseOrderDetailsScreen';
 import { PurchaseOrderSigningScreen } from '../screens/PurchaseOrderSigningScreen';
+import { AddPurchaseOrderInvoiceScreen } from '../screens/AddPurchaseOrderInvoiceScreen';
+import { AddChangeOrderScreen } from '../screens/AddChangeOrderScreen';
+import { ChangeOrderDetailsScreen } from '../screens/ChangeOrderDetailsScreen';
+import { ChangeOrderApprovalScreen } from '../screens/ChangeOrderApprovalScreen';
+import { ChangeOrderSigningScreen } from '../screens/ChangeOrderSigningScreen';
+import { AddChangeOrderItemScreen } from '../screens/AddChangeOrderItemScreen';
 import { ModifyPaymentTermsScreen } from '../screens/ModifyPaymentTermsScreen';
 import { InvoicesScreen } from '../screens/InvoicesScreen';
 import { BidsScreen } from '../screens/BidsScreen';
@@ -39,6 +46,11 @@ import { CompleteBidScreen } from '../screens/CompleteBidScreen';
 import { ProjectsScreen } from '../screens/ProjectsScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { DocumentDetailsScreen } from '../screens/DocumentDetailsScreen';
+import { DocumentViewerScreen } from '../screens/DocumentViewerScreen';
+import { PaymentSettingsScreen } from '../screens/PaymentSettingsScreen';
+import { AchInformationScreen } from '../screens/AchInformationScreen';
+import { AchFormGeneratedScreen } from '../screens/AchFormGeneratedScreen';
+import { AchFormPreviewScreen } from '../screens/AchFormPreviewScreen';
 import { ApprovalNeededScreen } from '../screens/ApprovalNeededScreen';
 import { TemplatePreviewScreen } from '../screens/TemplatePreviewScreen';
 
@@ -46,7 +58,11 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 export function AuthNavigator(): React.JSX.Element {
   return (
-    <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      initialRouteName="Welcome"
+      screenOptions={{ headerShown: false }}
+      screenLayout={ScreenBackground}
+    >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="SubcontractorLogin" component={SubcontractorLoginScreen} />
       <Stack.Screen name="RegisterSubcontractor" component={RegisterSubcontractorScreen} />
@@ -77,6 +93,12 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="PurchaseOrderDetails" component={PurchaseOrderDetailsScreen} />
       <Stack.Screen name="PurchaseOrderSigning" component={PurchaseOrderSigningScreen} />
+      <Stack.Screen name="AddPurchaseOrderInvoice" component={AddPurchaseOrderInvoiceScreen} />
+      <Stack.Screen name="AddChangeOrder" component={AddChangeOrderScreen} />
+      <Stack.Screen name="ChangeOrderDetails" component={ChangeOrderDetailsScreen} />
+      <Stack.Screen name="ChangeOrderApproval" component={ChangeOrderApprovalScreen} />
+      <Stack.Screen name="ChangeOrderSigning" component={ChangeOrderSigningScreen} />
+      <Stack.Screen name="AddChangeOrderItem" component={AddChangeOrderItemScreen} />
       <Stack.Screen name="ModifyPaymentTerms" component={ModifyPaymentTermsScreen} />
       <Stack.Screen name="Invoices" component={InvoicesScreen} />
       <Stack.Screen name="Bids" component={BidsScreen} />
@@ -86,6 +108,11 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="Projects" component={ProjectsScreen} />
       <Stack.Screen name="Documents" component={DocumentsScreen} />
       <Stack.Screen name="DocumentDetails" component={DocumentDetailsScreen} />
+      <Stack.Screen name="DocumentViewer" component={DocumentViewerScreen} />
+      <Stack.Screen name="PaymentSettings" component={PaymentSettingsScreen} />
+      <Stack.Screen name="AchInformation" component={AchInformationScreen} />
+      <Stack.Screen name="AchFormGenerated" component={AchFormGeneratedScreen} />
+      <Stack.Screen name="AchFormPreview" component={AchFormPreviewScreen} />
       <Stack.Screen name="ApprovalNeeded" component={ApprovalNeededScreen} />
       <Stack.Screen name="TemplatePreview" component={TemplatePreviewScreen} />
     </Stack.Navigator>

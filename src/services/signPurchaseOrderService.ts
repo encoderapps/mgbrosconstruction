@@ -1,5 +1,6 @@
 import { SALESFORCE_SIGN_PURCHASE_ORDER_URL } from '../constants/config';
 import { SignPurchaseOrderApiPayload, SignPurchaseOrderApiResponse } from '../types';
+import { SignedPdf } from '../types/signedDocument';
 import { salesforceSend } from './salesforceClient';
 
 const DEFAULT_ERROR_MESSAGE = 'Unable to sign the purchase order. Please try again.';
@@ -13,12 +14,21 @@ export interface SignPurchaseOrderResult {
 }
 
 /**
- * Signs a purchase order for the subcontractor's account (PATCH /signPurchaseOrder).
- * Only a response with `success: true` counts as signed; anything else throws
- * an Error with a message fit to show the user.
+ * Signs a purchase order for the subcontractor's account (PATCH /signPurchaseOrder),
+ * uploading the signed PO. Only a response with `success: true` counts as
+ * signed; anything else throws an Error with a message fit to show the user.
  */
-export async function signPurchaseOrder(accountId: string, poId: string): Promise<SignPurchaseOrderResult> {
-  const payload: SignPurchaseOrderApiPayload = { accountId, poId };
+export async function signPurchaseOrder(
+  accountId: string,
+  poId: string,
+  signedPdf: SignedPdf,
+): Promise<SignPurchaseOrderResult> {
+  const payload: SignPurchaseOrderApiPayload = {
+    accountId,
+    poId,
+    pdfFileName: signedPdf.fileName,
+    pdfBase64Data: signedPdf.base64,
+  };
   const data = await salesforceSend<SignPurchaseOrderApiResponse>(
     { method: 'patch', url: SALESFORCE_SIGN_PURCHASE_ORDER_URL, data: payload },
     DEFAULT_ERROR_MESSAGE,
