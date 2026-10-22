@@ -14,31 +14,55 @@ const COMPLETED_STATUS = 'Completed';
 
 const LOAD_ERROR_MESSAGE = 'Unable to load bids.';
 
+/** The bids as fetchBids last loaded them from Salesforce, by Id, for Bid Details. */
+const loadedBidsById = new Map<string, BidDetail>();
+
 /*
- * The bids fetchBids loaded from Salesforce, by Id, for Bid Details.
- *
- * TODO: there's no API yet for a bid's details or line items, or for adding,
- * deleting or completing them, so those change this in-memory copy (until the
- * app restarts). Replace each body with its Salesforce call once the endpoints
- * ship. The signatures and errors are already what the screens expect.
+ * TODO: there's no API yet for a bid's line items or for completing it, so
+ * those are kept here, in memory (until the app restarts), and laid over the
+ * loaded bid. Replace them with the Salesforce calls once the endpoints ship;
+ * the function signatures and errors are already what the screens expect.
  */
-const bidsById = new Map<string, BidDetail>();
+interface LocalChanges {
+  lineItems: BidLineItem[];
+  completed: boolean;
+}
+const localChangesById = new Map<string, LocalChanges>();
 let nextLineItemNumber = 1;
 
-function copyBid(bid: BidDetail): BidDetail {
+function getLocalChanges(bidId: string): LocalChanges {
+  let changes = localChangesById.get(bidId);
+  if (!changes) {
+    changes = { lineItems: [], completed: false };
+    localChangesById.set(bidId, changes);
+  }
+  return changes;
+}
+
+/**
+ * A copy of the loaded bid with the in-app line items and completion laid
+ * over it. The status is Salesforce's unless the bid was completed here. The
+ * total is that of the line items added here, or null (the API sends none).
+ */
+function withLocalChanges(bid: BidDetail): BidDetail {
+  const changes = localChangesById.get(bid.id);
+  const lineItems = changes?.lineItems ?? bid.lineItems;
   return {
     ...bid,
     projectAddress: bid.projectAddress && { ...bid.projectAddress },
-    lineItems: bid.lineItems.map((item) => ({ ...item })),
+    lineItems: lineItems.map((item) => ({ ...item })),
+    total: lineItems.length > 0 ? sumBidLineItems(lineItems) : bid.total,
+    status: changes?.completed ? COMPLETED_STATUS : bid.status,
   };
 }
 
+/** The bid as Bid Details shows it. Only bids loaded by fetchBids are known (there's no single-bid API). */
 function findBid(bidId: string): BidDetail {
-  const bid = bidsById.get(bidId);
+  const bid = loadedBidsById.get(bidId);
   if (!bid) {
     throw new Error('This bid could not be found.');
   }
-  return bid;
+  return withLocalChanges(bid);
 }
 
 function findEditableBid(bidId: string): BidDetail {
@@ -47,13 +71,6 @@ function findEditableBid(bidId: string): BidDetail {
     throw new Error(`This bid is ${bid.status.toLowerCase()} and can no longer be changed.`);
   }
   return bid;
-}
-
-/** Stores a changed bid with its total recalculated, and returns a copy for the caller. */
-function saveBid(bid: BidDetail): BidDetail {
-  const saved = { ...bid, total: sumBidLineItems(bid.lineItems) };
-  bidsById.set(saved.id, saved);
-  return copyBid(saved);
 }
 
 function toBid({ id, bidNumber, projectName, total, status }: BidDetail): Bid {
@@ -69,6 +86,7 @@ function toBidDetail(record: BidApiRecord): BidDetail {
     total: null,
     status: record.status?.trim() ?? '',
     bidDate: timestampToLocalDate(record.createdDate),
+    // Not in the API: Bid Details shows the project name and no address.
     projectNumber: '',
     projectAddress: null,
     description: record.notes?.trim() ?? '',
@@ -83,16 +101,6 @@ async function fetchProjectBids(projectId: string): Promise<BidApiRecord[]> {
     throw new Error(data.message || LOAD_ERROR_MESSAGE);
   }
   return data.bids ?? [];
-}
-
-/** Keeps a loaded bid for Bid Details, along with any line items or status already changed in the app. */
-function storeBid(loaded: BidDetail): BidDetail {
-  const known = bidsById.get(loaded.id);
-  const bid = known
-    ? { ...loaded, lineItems: known.lineItems, total: known.total, status: known.status }
-    : loaded;
-  bidsById.set(bid.id, bid);
-  return bid;
 }
 
 /**
@@ -117,33 +125,39 @@ export async function fetchBids(accountId: string, view: BidsView): Promise<Acco
   // Newest first; ISO timestamps compare in date order.
   records.sort((a, b) => (b.createdDate ?? '').localeCompare(a.createdDate ?? ''));
 
-  const bids = records.map((record) => toBid(storeBid(toBidDetail(record))));
+  const bids = records.map((record) => {
+    const bid = toBidDetail(record);
+    loadedBidsById.set(bid.id, bid);
+    return toBid(withLocalChanges(bid));
+  });
   return { items: view === 'home' ? bids.slice(0, HOME_BIDS_LIMIT) : bids, count: bids.length };
 }
 
 /** Fetches one bid with its project, description and line items. */
 export async function fetchBidDetail(_accountId: string, bidId: string): Promise<BidDetail> {
-  return copyBid(findBid(bidId));
+  return findBid(bidId);
 }
 
 /** Adds a line item to an open bid; returns the updated bid (with its new total). */
 export async function addBidLineItem(_accountId: string, bidId: string, item: NewBidLineItem): Promise<BidDetail> {
-  const bid = findEditableBid(bidId);
-  const lineItem: BidLineItem = {
+  findEditableBid(bidId);
+  getLocalChanges(bidId).lineItems.push({
     id: `${bidId}-new-${nextLineItemNumber++}`,
     description: item.description.trim(),
     amount: item.amount,
-  };
-  return saveBid({ ...bid, lineItems: [...bid.lineItems, lineItem] });
+  });
+  return findBid(bidId);
 }
 
 /** Removes a line item from an open bid; returns the updated bid. */
 export async function deleteBidLineItem(_accountId: string, bidId: string, lineItemId: string): Promise<BidDetail> {
-  const bid = findEditableBid(bidId);
-  if (!bid.lineItems.some((item) => item.id === lineItemId)) {
+  findEditableBid(bidId);
+  const changes = getLocalChanges(bidId);
+  if (!changes.lineItems.some((item) => item.id === lineItemId)) {
     throw new Error('This line item could not be found.');
   }
-  return saveBid({ ...bid, lineItems: bid.lineItems.filter((item) => item.id !== lineItemId) });
+  changes.lineItems = changes.lineItems.filter((item) => item.id !== lineItemId);
+  return findBid(bidId);
 }
 
 /** Marks an open bid as complete, after which it can't be changed. A bid needs at least one line item. */
@@ -152,5 +166,6 @@ export async function completeBid(_accountId: string, bidId: string): Promise<Bi
   if (bid.lineItems.length === 0) {
     throw new Error('Add at least one line item before marking this bid as complete.');
   }
-  return saveBid({ ...bid, status: COMPLETED_STATUS });
+  getLocalChanges(bidId).completed = true;
+  return findBid(bidId);
 }

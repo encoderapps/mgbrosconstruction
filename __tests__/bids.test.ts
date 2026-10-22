@@ -121,6 +121,17 @@ describe('fetchBids', () => {
 });
 
 describe('fetchBidDetail', () => {
+  it('returns a copy, so changing it does not change the stored bid', async () => {
+    await fetchBids(ACCOUNT, 'all');
+    const detail = await fetchBidDetail(ACCOUNT, 'bid-b4');
+    detail.status = 'Lost';
+    detail.lineItems.push({ id: 'x', description: 'X', amount: 1 });
+
+    const again = await fetchBidDetail(ACCOUNT, 'bid-b4');
+    expect(again.status).toBe('New');
+    expect(again.lineItems).toEqual([]);
+  });
+
   it('returns a loaded bid with its date, project and notes, and no line items yet', async () => {
     await fetchBids(ACCOUNT, 'all');
 
@@ -154,7 +165,25 @@ describe('line items and completing (in the app until the API exists)', () => {
 
     const removed = await deleteBidLineItem(ACCOUNT, 'bid-b1', added.lineItems[0].id);
     expect(removed.lineItems).toEqual([]);
-    expect(removed.total).toBe(0);
+    // Back to no known amount, as the API sends none.
+    expect(removed.total).toBeNull();
+  });
+
+  it("shows Salesforce's latest status on reload, keeping the line items added in the app", async () => {
+    await fetchBids(ACCOUNT, 'all');
+    await addBidLineItem(ACCOUNT, 'bid-a2', { description: 'Labor', amount: 100 });
+
+    respondWith({
+      ...BIDS_BY_PROJECT,
+      [PROJECT_A]: BIDS_BY_PROJECT[PROJECT_A].map((record) =>
+        record.id === 'bid-a2' ? { ...record, status: 'Won' } : record,
+      ),
+    });
+    await fetchBids(ACCOUNT, 'all');
+
+    const detail = await fetchBidDetail(ACCOUNT, 'bid-a2');
+    expect(detail.status).toBe('Won');
+    expect(detail.lineItems).toEqual([expect.objectContaining({ description: 'Labor', amount: 100 })]);
   });
 
   it('rejects an unknown line item', async () => {
@@ -182,6 +211,9 @@ describe('line items and completing (in the app until the API exists)', () => {
     await expect(addBidLineItem(ACCOUNT, 'bid-b3', { description: 'Late item', amount: 5 })).rejects.toThrow(
       'can no longer be changed',
     );
+    // Stays completed when the bids reload.
+    const { items } = await fetchBids(ACCOUNT, 'all');
+    expect(items.find((row) => row.id === 'bid-b3')?.status).toBe('Completed');
   });
 });
 

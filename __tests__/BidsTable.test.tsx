@@ -61,6 +61,18 @@ describe('BidsTable', () => {
     expect(texts(renderer)).toEqual(expect.arrayContaining(['BID-00000001', '666 Post Street', '—', 'New']));
   });
 
+  it('wraps a long project name onto more lines, keeping other cells on one line', async () => {
+    const longName = '[TEST] 666 Post Street, San Francisco, CA, 94109';
+    const renderer = await render({
+      bids: [{ id: 'b3', bidNumber: 'BID-00000001', projectName: longName, total: null, status: 'New' }],
+    });
+
+    const cellWith = (text: string) =>
+      renderer.root.findAll((node) => node.type === Text && node.props.children === text)[0];
+    expect(cellWith(longName).props.numberOfLines).toBeUndefined();
+    expect(cellWith('BID-00000001').props.numberOfLines).toBe(1);
+  });
+
   it('opens a bid when its number is tapped', async () => {
     const onBidPress = jest.fn();
     const renderer = await render({ onBidPress });

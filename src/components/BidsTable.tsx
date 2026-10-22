@@ -14,13 +14,27 @@ function getColumns(variant: BidsTableVariant, onBidPress: (bid: Bid) => void): 
     {
       key: 'bidNumber',
       label: 'Bid #',
-      width: 72,
+      // Room for "BID-00000001".
+      width: 92,
       isLink: true,
       getValue: (bid) => bid.bidNumber,
       onPress: onBidPress,
     },
-    { key: 'projectName', label: 'Project', width: 100, grow: true, getValue: (bid) => bid.projectName },
-    { key: 'total', label: 'Total', width: 64, getValue: (bid) => (bid.total === null ? EMPTY_VALUE : formatCurrency(bid.total)) },
+    {
+      key: 'projectName',
+      label: 'Project',
+      width: 120,
+      grow: true,
+      // Long names (often a full address) wrap onto more lines.
+      wrap: true,
+      getValue: (bid) => bid.projectName,
+    },
+    {
+      key: 'total',
+      label: 'Total',
+      width: 64,
+      getValue: (bid) => (bid.total === null ? EMPTY_VALUE : formatCurrency(bid.total)),
+    },
     variant === 'full'
       ? {
           key: 'status',
