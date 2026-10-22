@@ -5,9 +5,12 @@ export interface Bid {
   bidNumber: string;
   /** The job or scope the bid is for, e.g. "HVAC Install". */
   projectName: string;
-  /** The bid's total amount in dollars: the sum of its line items. */
-  total: number;
-  /** e.g. "Submitted", "Won", "Pending", "Draft", "Lost" or "Completed". */
+  /**
+   * The bid's total amount in dollars: the sum of its line items. null when
+   * unknown (the bids API doesn't send an amount).
+   */
+  total: number | null;
+  /** e.g. "New", "Submitted", "Won", "Pending", "Draft", "Lost" or "Completed". */
   status: string;
 }
 
@@ -34,9 +37,9 @@ export interface BidProjectAddress {
 
 /** A bid with everything the Bid Details screen shows. */
 export interface BidDetail extends Bid {
-  /** YYYY-MM-DD. */
-  bidDate: string;
-  /** e.g. "PRJ-3001". */
+  /** YYYY-MM-DD; null when unknown. */
+  bidDate: string | null;
+  /** e.g. "PRJ-3001"; empty when unknown. */
   projectNumber: string;
   projectAddress: BidProjectAddress | null;
   description: string;

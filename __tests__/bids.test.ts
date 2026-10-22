@@ -1,4 +1,4 @@
-import { MOCK_BIDS } from '../src/constants/mockBids';
+import { SALESFORCE_BIDS_URL } from '../src/constants/config';
 import {
   addBidLineItem,
   completeBid,
@@ -7,69 +7,133 @@ import {
   fetchBids,
   HOME_BIDS_LIMIT,
 } from '../src/services/bidService';
+import { salesforceGet } from '../src/services/salesforceClient';
+import {
+  BidApiRecord,
+  BidsApiResponse,
+  SubcontractorProjectApiRecord,
+  SubcontractorProjectsApiResponse,
+} from '../src/types';
 import { bidStatusTone, isBidEditable, sumBidLineItems } from '../src/utils/bidStatus';
 import { parseCurrencyInput, sanitizeCurrencyInput } from '../src/utils/currencyInput';
 
-const ACCOUNT = '001ACCOUNT';
+jest.mock('../src/services/salesforceClient', () => ({
+  salesforceGet: jest.fn(),
+}));
 
-// The service keeps one in-memory store for this test file, so each test changes its own bid.
-const SUBMITTED_BID = 'bid-2001';
-const WON_BID = 'bid-2002';
-const PENDING_BID = 'bid-2003';
-const DRAFT_BID = 'bid-2004';
-const COMPLETABLE_BID = 'bid-2006';
-const EMPTIED_BID = 'bid-2010';
+const mockedGet = salesforceGet as jest.MockedFunction<typeof salesforceGet>;
 
-describe('mock bids', () => {
-  it('have unique ids and numbers, and line items that add up to each total', () => {
-    expect(new Set(MOCK_BIDS.map((bid) => bid.id)).size).toBe(MOCK_BIDS.length);
-    expect(new Set(MOCK_BIDS.map((bid) => bid.bidNumber)).size).toBe(MOCK_BIDS.length);
-    for (const bid of MOCK_BIDS) {
-      expect(sumBidLineItems(bid.lineItems)).toBe(bid.total);
+const ACCOUNT = '001QL00002caUn6YAE';
+const PROJECT_A = 'a6eQL000000LXH7YAO';
+const PROJECT_B = 'a6eQL000000LXH8YAO';
+
+// Shaped like the sandbox response.
+function bid(id: string, createdDate: string, overrides: Partial<BidApiRecord> = {}): BidApiRecord {
+  return {
+    id,
+    bidNumber: `BID-${id}`,
+    status: 'New',
+    projectId: PROJECT_A,
+    projectName: '[TEST] 666 Post Street, San Francisco, CA, 94109',
+    notes: null,
+    createdDate,
+    totalBidItems: 2,
+    approvedBidItems: 0,
+    approvalPercentage: 0,
+    signed: false,
+    ...overrides,
+  };
+}
+
+const BIDS_BY_PROJECT: Record<string, BidApiRecord[]> = {
+  [PROJECT_A]: [
+    bid('a6QQL000000njlZ2AQ', '2026-10-02T12:57:10.000Z', { bidNumber: 'BID-00000001', notes: ' Rough-in only ' }),
+    bid('bid-a2', '2026-10-05T09:00:00.000Z'),
+    bid('bid-won', '2026-09-01T09:00:00.000Z', { status: 'Won' }),
+  ],
+  [PROJECT_B]: [
+    bid('bid-b1', '2026-10-04T09:00:00.000Z', { projectId: PROJECT_B, projectName: 'Kitchen Remodel' }),
+    bid('bid-b2', '2026-10-03T09:00:00.000Z', { projectId: PROJECT_B }),
+    bid('bid-b3', '2026-10-01T09:00:00.000Z', { projectId: PROJECT_B }),
+    bid('bid-b4', '2026-09-30T09:00:00.000Z', { projectId: PROJECT_B }),
+  ],
+};
+
+function respondWith(bidsByProject: Record<string, BidApiRecord[]> = BIDS_BY_PROJECT, bidsResponse?: BidsApiResponse): void {
+  mockedGet.mockImplementation(async (url, params) => {
+    if (url === SALESFORCE_BIDS_URL) {
+      return bidsResponse ?? { success: true, bids: bidsByProject[params.projectId] ?? [] };
     }
+    const projects: SubcontractorProjectsApiResponse = {
+      success: true,
+      count: 2,
+      projects: Object.keys(bidsByProject).map((id) => ({ id, name: id, jobAddress: null }) as SubcontractorProjectApiRecord),
+    };
+    return projects;
   });
+}
+
+beforeEach(() => {
+  respondWith();
+});
+
+afterEach(() => {
+  mockedGet.mockReset();
 });
 
 describe('fetchBids', () => {
+  it("loads each of the account's projects' bids, newest first, as list rows without an amount", async () => {
+    const result = await fetchBids(ACCOUNT, 'all');
+
+    expect(mockedGet).toHaveBeenCalledWith(SALESFORCE_BIDS_URL, { projectId: PROJECT_A });
+    expect(mockedGet).toHaveBeenCalledWith(SALESFORCE_BIDS_URL, { projectId: PROJECT_B });
+    expect(result.count).toBe(7);
+    expect(result.items.map((row) => row.id)).toEqual([
+      'bid-a2',
+      'bid-b1',
+      'bid-b2',
+      'a6QQL000000njlZ2AQ',
+      'bid-b3',
+      'bid-b4',
+      'bid-won',
+    ]);
+    expect(result.items[3]).toEqual({
+      id: 'a6QQL000000njlZ2AQ',
+      bidNumber: 'BID-00000001',
+      projectName: '[TEST] 666 Post Street, San Francisco, CA, 94109',
+      total: null,
+      status: 'New',
+    });
+  });
+
   it('previews the latest bids on Home, with the account total as the count', async () => {
     const result = await fetchBids(ACCOUNT, 'home');
 
-    expect(result.items.map((bid) => bid.bidNumber)).toEqual(['BID-2001', 'BID-2002', 'BID-2003', 'BID-2004', 'BID-2005']);
     expect(result.items).toHaveLength(HOME_BIDS_LIMIT);
-    expect(result.count).toBe(MOCK_BIDS.length);
+    expect(result.count).toBe(7);
   });
 
-  it('returns every bid for View All, as list rows only', async () => {
-    const result = await fetchBids(ACCOUNT, 'all');
+  it('throws the API message when a project fails to load', async () => {
+    respondWith(BIDS_BY_PROJECT, { success: false, message: 'Invalid projectId.', bids: null });
 
-    expect(result.items).toHaveLength(25);
-    expect(result.items[0]).toEqual({
-      id: SUBMITTED_BID,
-      bidNumber: 'BID-2001',
-      projectName: 'HVAC Install',
-      total: 14200,
-      status: 'Submitted',
-    });
+    await expect(fetchBids(ACCOUNT, 'all')).rejects.toThrow('Invalid projectId.');
   });
 });
 
 describe('fetchBidDetail', () => {
-  it('returns the bid with its project and line items', async () => {
-    const bid = await fetchBidDetail(ACCOUNT, SUBMITTED_BID);
+  it('returns a loaded bid with its date, project and notes, and no line items yet', async () => {
+    await fetchBids(ACCOUNT, 'all');
 
-    expect(bid).toMatchObject({ bidNumber: 'BID-2001', projectNumber: 'PRJ-3001', status: 'Submitted' });
-    expect(bid.projectAddress).toEqual({ street: '123 Main St', city: 'Chicago', state: 'IL', postalCode: '60601' });
-    expect(bid.lineItems).toHaveLength(3);
-  });
+    const detail = await fetchBidDetail(ACCOUNT, 'a6QQL000000njlZ2AQ');
 
-  it('returns a copy, so changing it does not change the stored bid', async () => {
-    const bid = await fetchBidDetail(ACCOUNT, SUBMITTED_BID);
-    bid.lineItems.pop();
-    bid.status = 'Lost';
-
-    const again = await fetchBidDetail(ACCOUNT, SUBMITTED_BID);
-    expect(again.lineItems).toHaveLength(3);
-    expect(again.status).toBe('Submitted');
+    expect(detail).toMatchObject({
+      bidNumber: 'BID-00000001',
+      bidDate: '2026-10-02',
+      projectName: '[TEST] 666 Post Street, San Francisco, CA, 94109',
+      description: 'Rough-in only',
+      status: 'New',
+      lineItems: [],
+    });
   });
 
   it('rejects an unknown bid', async () => {
@@ -77,62 +141,47 @@ describe('fetchBidDetail', () => {
   });
 });
 
-describe('addBidLineItem', () => {
-  it('adds the trimmed item and updates the total in the detail and the list', async () => {
-    const before = await fetchBidDetail(ACCOUNT, PENDING_BID);
+describe('line items and completing (in the app until the API exists)', () => {
+  it('adds and removes items, updating the total, and keeps them when the bids reload', async () => {
+    await fetchBids(ACCOUNT, 'all');
 
-    const updated = await addBidLineItem(ACCOUNT, PENDING_BID, { description: '  Permit fees  ', amount: 450.25 });
+    const added = await addBidLineItem(ACCOUNT, 'bid-b1', { description: '  Permit fees  ', amount: 450.25 });
+    expect(added.lineItems).toEqual([expect.objectContaining({ description: 'Permit fees', amount: 450.25 })]);
+    expect(added.total).toBe(450.25);
 
-    expect(updated.lineItems).toHaveLength(before.lineItems.length + 1);
-    expect(updated.lineItems[updated.lineItems.length - 1]).toMatchObject({ description: 'Permit fees', amount: 450.25 });
-    expect(updated.total).toBe(before.total + 450.25);
     const { items } = await fetchBids(ACCOUNT, 'all');
-    expect(items.find((bid) => bid.id === PENDING_BID)?.total).toBe(before.total + 450.25);
-  });
+    expect(items.find((row) => row.id === 'bid-b1')?.total).toBe(450.25);
 
-  it('refuses to change a closed bid', async () => {
-    await expect(addBidLineItem(ACCOUNT, WON_BID, { description: 'Extra', amount: 10 })).rejects.toThrow(
-      'This bid is won and can no longer be changed.',
-    );
-  });
-});
-
-describe('deleteBidLineItem', () => {
-  it('removes the item and lowers the total', async () => {
-    const before = await fetchBidDetail(ACCOUNT, DRAFT_BID);
-    const [first] = before.lineItems;
-
-    const updated = await deleteBidLineItem(ACCOUNT, DRAFT_BID, first.id);
-
-    expect(updated.lineItems.map((item) => item.id)).not.toContain(first.id);
-    expect(updated.total).toBe(before.total - first.amount);
+    const removed = await deleteBidLineItem(ACCOUNT, 'bid-b1', added.lineItems[0].id);
+    expect(removed.lineItems).toEqual([]);
+    expect(removed.total).toBe(0);
   });
 
   it('rejects an unknown line item', async () => {
-    await expect(deleteBidLineItem(ACCOUNT, DRAFT_BID, 'missing')).rejects.toThrow(
-      'This line item could not be found.',
+    await fetchBids(ACCOUNT, 'all');
+
+    await expect(deleteBidLineItem(ACCOUNT, 'bid-b2', 'missing')).rejects.toThrow('This line item could not be found.');
+  });
+
+  it('refuses to change a closed bid', async () => {
+    await fetchBids(ACCOUNT, 'all');
+
+    await expect(addBidLineItem(ACCOUNT, 'bid-won', { description: 'Extra', amount: 10 })).rejects.toThrow(
+      'This bid is won and can no longer be changed.',
     );
   });
-});
 
-describe('completeBid', () => {
-  it('marks the bid completed, after which it can no longer be changed', async () => {
-    const completed = await completeBid(ACCOUNT, COMPLETABLE_BID);
+  it('completes a bid with line items, after which it can no longer be changed', async () => {
+    await fetchBids(ACCOUNT, 'all');
+    await expect(completeBid(ACCOUNT, 'bid-b3')).rejects.toThrow('Add at least one line item');
+
+    await addBidLineItem(ACCOUNT, 'bid-b3', { description: 'Labor', amount: 100 });
+    const completed = await completeBid(ACCOUNT, 'bid-b3');
 
     expect(completed.status).toBe('Completed');
-    await expect(addBidLineItem(ACCOUNT, COMPLETABLE_BID, { description: 'Late item', amount: 5 })).rejects.toThrow(
+    await expect(addBidLineItem(ACCOUNT, 'bid-b3', { description: 'Late item', amount: 5 })).rejects.toThrow(
       'can no longer be changed',
     );
-    await expect(completeBid(ACCOUNT, COMPLETABLE_BID)).rejects.toThrow('can no longer be changed');
-  });
-
-  it('needs at least one line item', async () => {
-    const bid = await fetchBidDetail(ACCOUNT, EMPTIED_BID);
-    for (const item of bid.lineItems) {
-      await deleteBidLineItem(ACCOUNT, EMPTIED_BID, item.id);
-    }
-
-    await expect(completeBid(ACCOUNT, EMPTIED_BID)).rejects.toThrow('Add at least one line item');
   });
 });
 

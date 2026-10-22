@@ -52,6 +52,15 @@ describe('BidsTable', () => {
     ]);
   });
 
+  it('shows a dash for a bid without an amount', async () => {
+    const renderer = await render({
+      variant: 'preview',
+      bids: [{ id: 'b3', bidNumber: 'BID-00000001', projectName: '666 Post Street', total: null, status: 'New' }],
+    });
+
+    expect(texts(renderer)).toEqual(expect.arrayContaining(['BID-00000001', '666 Post Street', '—', 'New']));
+  });
+
   it('opens a bid when its number is tapped', async () => {
     const onBidPress = jest.fn();
     const renderer = await render({ onBidPress });

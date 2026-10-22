@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { EMPTY_VALUE } from '../constants/display';
 import { fontFamily, welcomeColors } from '../theme';
 import { BidDetail } from '../types/bid';
 import { bidStatusTone } from '../utils/bidStatus';
@@ -31,14 +32,20 @@ export function BidOverviewCard({ bid }: { bid: BidDetail }): React.JSX.Element 
           <Text style={styles.primaryValue}>{bid.bidNumber}</Text>
         </Field>
         <Field label="Bid Date">
-          <Text style={styles.value}>{formatShortDate(bid.bidDate)}</Text>
+          <Text style={styles.value}>{bid.bidDate ? formatShortDate(bid.bidDate) : EMPTY_VALUE}</Text>
         </Field>
       </View>
 
       <View style={[styles.row, styles.divided]}>
         <Field label="Project">
-          <Text style={styles.primaryValue}>{bid.projectNumber}</Text>
-          <Text style={styles.secondaryValue}>{bid.projectName}</Text>
+          {bid.projectNumber ? (
+            <>
+              <Text style={styles.primaryValue}>{bid.projectNumber}</Text>
+              <Text style={styles.secondaryValue}>{bid.projectName}</Text>
+            </>
+          ) : (
+            <Text style={styles.primaryValue}>{bid.projectName || EMPTY_VALUE}</Text>
+          )}
         </Field>
         <Field label="Status">
           <View style={styles.pill}>

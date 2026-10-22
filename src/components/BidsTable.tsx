@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { EMPTY_VALUE } from '../constants/display';
 import { LoadStatus } from '../hooks/useAsyncResource';
 import { Bid } from '../types/bid';
 import { bidStatusTone } from '../utils/bidStatus';
@@ -19,7 +20,7 @@ function getColumns(variant: BidsTableVariant, onBidPress: (bid: Bid) => void): 
       onPress: onBidPress,
     },
     { key: 'projectName', label: 'Project', width: 100, grow: true, getValue: (bid) => bid.projectName },
-    { key: 'total', label: 'Total', width: 64, getValue: (bid) => formatCurrency(bid.total) },
+    { key: 'total', label: 'Total', width: 64, getValue: (bid) => (bid.total === null ? EMPTY_VALUE : formatCurrency(bid.total)) },
     variant === 'full'
       ? {
           key: 'status',

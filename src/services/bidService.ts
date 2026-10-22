@@ -1,21 +1,28 @@
-import { MOCK_BIDS } from '../constants/mockBids';
+import { SALESFORCE_BIDS_URL } from '../constants/config';
+import { BidApiRecord, BidsApiResponse } from '../types';
 import { Bid, BidDetail, BidLineItem, BidsView, NewBidLineItem } from '../types/bid';
 import { AccountListResult } from '../types/list';
 import { isBidEditable, sumBidLineItems } from '../utils/bidStatus';
+import { timestampToLocalDate } from '../utils/dateValidation';
+import { salesforceGet } from './salesforceClient';
+import { fetchSubcontractorProjects } from './subcontractorProjectService';
 
 /** How many bids the Home screen's card previews. */
 export const HOME_BIDS_LIMIT = 5;
 
 const COMPLETED_STATUS = 'Completed';
 
+const LOAD_ERROR_MESSAGE = 'Unable to load bids.';
+
 /*
- * TODO: there's no bids API yet, so these functions read and change an
- * in-memory copy of MOCK_BIDS that lasts until the app restarts. Replace each
- * body with its Salesforce call (salesforceGet / salesforceSend, as in
- * purchaseOrderService and paymentTermsService) once the endpoints ship. The
- * signatures and errors are already what the screens expect.
+ * The bids fetchBids loaded from Salesforce, by Id, for Bid Details.
+ *
+ * TODO: there's no API yet for a bid's details or line items, or for adding,
+ * deleting or completing them, so those change this in-memory copy (until the
+ * app restarts). Replace each body with its Salesforce call once the endpoints
+ * ship. The signatures and errors are already what the screens expect.
  */
-const bidsById = new Map<string, BidDetail>(MOCK_BIDS.map((bid) => [bid.id, copyBid(bid)]));
+const bidsById = new Map<string, BidDetail>();
 let nextLineItemNumber = 1;
 
 function copyBid(bid: BidDetail): BidDetail {
@@ -53,12 +60,64 @@ function toBid({ id, bidNumber, projectName, total, status }: BidDetail): Bid {
   return { id, bidNumber, projectName, total, status };
 }
 
+function toBidDetail(record: BidApiRecord): BidDetail {
+  return {
+    id: record.id,
+    bidNumber: record.bidNumber?.trim() ?? '',
+    projectName: record.projectName?.trim() ?? '',
+    // The API doesn't send an amount.
+    total: null,
+    status: record.status?.trim() ?? '',
+    bidDate: timestampToLocalDate(record.createdDate),
+    projectNumber: '',
+    projectAddress: null,
+    description: record.notes?.trim() ?? '',
+    lineItems: [],
+  };
+}
+
+/** One project's bids (GET /bids?projectId=…). */
+async function fetchProjectBids(projectId: string): Promise<BidApiRecord[]> {
+  const data = await salesforceGet<BidsApiResponse>(SALESFORCE_BIDS_URL, { projectId });
+  if (!data.success) {
+    throw new Error(data.message || LOAD_ERROR_MESSAGE);
+  }
+  return data.bids ?? [];
+}
+
+/** Keeps a loaded bid for Bid Details, along with any line items or status already changed in the app. */
+function storeBid(loaded: BidDetail): BidDetail {
+  const known = bidsById.get(loaded.id);
+  const bid = known
+    ? { ...loaded, lineItems: known.lineItems, total: known.total, status: known.status }
+    : loaded;
+  bidsById.set(bid.id, bid);
+  return bid;
+}
+
 /**
  * Fetches the account's bids, newest first: view=home returns the latest 5,
  * view=all returns every one. `count` is the account's total either way.
+ *
+ * The bids API is per project, so this loads the account's projects and then
+ * each project's bids.
  */
-export async function fetchBids(_accountId: string, view: BidsView): Promise<AccountListResult<Bid>> {
-  const bids = [...bidsById.values()].map(toBid);
+export async function fetchBids(accountId: string, view: BidsView): Promise<AccountListResult<Bid>> {
+  const { items: projects } = await fetchSubcontractorProjects(accountId, 'all');
+  const perProject = await Promise.all(projects.map((project) => fetchProjectBids(project.id)));
+
+  const seen = new Set<string>();
+  const records = perProject.flat().filter((record) => {
+    if (!record.id || seen.has(record.id)) {
+      return false;
+    }
+    seen.add(record.id);
+    return true;
+  });
+  // Newest first; ISO timestamps compare in date order.
+  records.sort((a, b) => (b.createdDate ?? '').localeCompare(a.createdDate ?? ''));
+
+  const bids = records.map((record) => toBid(storeBid(toBidDetail(record))));
   return { items: view === 'home' ? bids.slice(0, HOME_BIDS_LIMIT) : bids, count: bids.length };
 }
 

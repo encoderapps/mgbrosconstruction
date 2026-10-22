@@ -39,6 +39,7 @@ export const SALESFORCE_SIGN_CHANGE_ORDER_URL = `${SALESFORCE_INSTANCE_URL}/serv
 export const SALESFORCE_PURCHASE_ORDER_CHANGE_ORDERS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/purchaseorderchangeorder`;
 export const SALESFORCE_CREATE_CHANGE_ORDER_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/createjobchangeorder/`;
 export const SALESFORCE_SUBCONTRACTOR_DOCUMENTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractordocuments`;
+export const SALESFORCE_BIDS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/bids`;
 // The trailing "*" is part of the Apex REST URL mapping (/projects/fetch/*).
 export const SALESFORCE_PROJECTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/projects/fetch/*`;
 export const SALESFORCE_CLIENT_ID =

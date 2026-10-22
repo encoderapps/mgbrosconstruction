@@ -97,7 +97,8 @@ export function BidDetailsScreen({ navigation, route }: Props): React.JSX.Elemen
 
         <BidLineItemsCard
           lineItems={detail.lineItems}
-          total={detail.total}
+          // No amount from the API yet: the total is that of the line items added here.
+          total={detail.total ?? 0}
           editable={editable}
           deletingId={deletingId}
           onAddPress={() => navigation.navigate('AddBidLineItem', { bidId, bidNumber: detail.bidNumber })}
