@@ -87,7 +87,12 @@ export function ChangeOrderDetailsScreen({ navigation, route }: Props): React.JS
         // Items can only be added while it's a Draft: approval and signing are for what's on it then.
         onAddPress={
           changeOrderStage(changeOrder) === 'draft'
-            ? () => navigation.navigate('AddChangeOrderItem', { poId, changeOrder: summary })
+            ? () =>
+                navigation.navigate('AddChangeOrderItem', {
+                  poId,
+                  // The detail's source, when the PO's list didn't send one.
+                  changeOrder: { ...summary, ...(changeOrder.source && { source: changeOrder.source }) },
+                })
             : undefined
         }
       />

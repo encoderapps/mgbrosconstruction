@@ -68,6 +68,8 @@ export interface PurchaseOrderLedgerEntry {
   amount: number;
   /** Change orders only, e.g. "Labor and Material are included". */
   description?: string;
+  /** Change orders only: "Change Order" or "My Change Order", when the API sends it. */
+  source?: string;
   /** Invoices only: the subcontractor's own invoice number; empty when there's none. */
   vendorInvoiceNumber?: string;
 }
