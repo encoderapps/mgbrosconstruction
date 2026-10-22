@@ -8,6 +8,12 @@ export interface ChangeOrderSummary {
   /** The change order's total, in dollars. */
   amount: number;
   description: string;
+  /**
+   * Where it came from, as the API names it: "Change Order" (from the job) or
+   * "My Change Order". Decides the Add Line Item form. Absent when the API
+   * doesn't say.
+   */
+  source?: string;
 }
 
 export interface ChangeOrderItem {
@@ -16,6 +22,8 @@ export interface ChangeOrderItem {
   description: string;
   /** e.g. "HVAC Service"; empty when unknown. */
   category: string;
+  /** The category's Salesforce Id (serviceCategoryId); absent when the API doesn't send it. */
+  categoryId?: string;
   quantity: number;
   unitPrice: number;
   /** quantity × unitPrice, rounded to cents. */
@@ -49,8 +57,33 @@ export interface CreatedChangeOrder {
   message: string;
 }
 
-/** What the Add Line Item form sends. */
-export type NewChangeOrderItem = Pick<ChangeOrderItem, 'description' | 'quantity' | 'unitPrice'>;
+/** A Job Purchase Order item a "My Job Change Order" line item can relate to. */
+export interface MyJobPurchaseOrderItem {
+  id: string;
+  /** e.g. "J-POI#00000004 – Item #1". */
+  label: string;
+}
+
+/** What the Add Line Item form sends for a "My Job Change Order". Amounts in dollars. */
+export interface NewMyJobChangeOrderItem {
+  /** The related Job Purchase Order item (optional); null when none was picked. */
+  purchaseOrderItemId: string | null;
+  description: string;
+  itemCost: number;
+  itemPrice: number;
+}
+
+/** What the Add Line Item form sends for a "Job Change Order". Amounts in dollars. */
+export interface NewJobChangeOrderItem {
+  serviceItem: string;
+  category: string;
+  product: string;
+  description: string;
+  /** ≥ 0. */
+  markup: number;
+  cost: number;
+  poCost: number;
+}
 
 /** Who signed a change order, with the signature the API has on file for them. */
 export interface ChangeOrderSignature {

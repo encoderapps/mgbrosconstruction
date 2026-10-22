@@ -1,10 +1,16 @@
 import {
   SALESFORCE_CREATE_CHANGE_ORDER_URL,
+  SALESFORCE_JOB_CHANGE_ORDER_LINE_ITEMS_URL,
+  SALESFORCE_MY_JOB_CHANGE_ORDER_ITEMS_URL,
   SALESFORCE_PURCHASE_ORDER_CHANGE_ORDERS_URL,
   SALESFORCE_SIGN_CHANGE_ORDER_URL,
 } from '../constants/config';
 import { EMPTY_VALUE } from '../constants/display';
 import {
+  AddChangeOrderItemApiResponse,
+  AddJobChangeOrderLineItemApiPayload,
+  AddMyJobChangeOrderItemApiPayload,
+  MyJobPurchaseOrderItemsApiResponse,
   ChangeOrderDetailApiRecord,
   ChangeOrderDetailItemApiRecord,
   CreateChangeOrderApiPayload,
@@ -21,15 +27,18 @@ import {
   ChangeOrderSummary,
   CreatedChangeOrder,
   NewChangeOrder,
-  NewChangeOrderItem,
+  NewJobChangeOrderItem,
+  MyJobPurchaseOrderItem,
+  NewMyJobChangeOrderItem,
 } from '../types/changeOrder';
 import { isChangeOrderSigned, lineItemAmount } from '../utils/changeOrder';
 import { isDateOnlyString, todayDateString } from '../utils/dateValidation';
 import { htmlToPlainText } from '../utils/html';
 import { toNumber } from '../utils/toNumber';
 import { SignedPdf } from '../types/signedDocument';
+import { changeOrderSource, rememberChangeOrderSource } from './changeOrderSourceStore';
 import { fetchPurchaseOrderJobId } from './purchaseOrderInvoiceService';
-import { salesforceSend } from './salesforceClient';
+import { salesforceGet, salesforceSend } from './salesforceClient';
 
 const LOAD_ERROR_MESSAGE = 'Unable to load this change order.';
 const SIGN_ERROR_MESSAGE = 'Unable to sign this change order. Please try again.';
@@ -37,25 +46,19 @@ const SIGN_ERROR_MESSAGE = 'Unable to sign this change order. Please try again.'
 const SIGNED_STATUS = 'Signed';
 
 /*
- * TODO: there's no API yet for adding a line item to a change order, so added
- * items are kept in memory here (until the app restarts) and laid over the
- * change order the API returns. Replace them with the Salesforce call once the
- * endpoint ships.
- *
  * Signing is done by the API (signChangeOrder), which doesn't return who
- * signed or in what style, so the signature shown afterwards is also kept here.
+ * signed or in what style, so the signature shown afterwards is kept here, in
+ * memory (until the app restarts).
  */
 interface LocalChanges {
-  addedItems: ChangeOrderItem[];
   signature: ChangeOrderSignature | null;
 }
 const localChangesById = new Map<string, LocalChanges>();
-let nextLocalItemNumber = 1;
 
 function getLocalChanges(changeOrderId: string): LocalChanges {
   let changes = localChangesById.get(changeOrderId);
   if (!changes) {
-    changes = { addedItems: [], signature: null };
+    changes = { signature: null };
     localChangesById.set(changeOrderId, changes);
   }
   return changes;
@@ -68,6 +71,7 @@ function toChangeOrderItem(record: ChangeOrderDetailItemApiRecord, index: number
     id: record.id || `change-order-item-${index}`,
     description: htmlToPlainText(record.description ?? '') || record.productOrServices?.trim() || EMPTY_VALUE,
     category: record.categoryName?.trim() ?? '',
+    ...(record.serviceCategoryId?.trim() && { categoryId: record.serviceCategoryId.trim() }),
     quantity,
     unitPrice,
     amount: lineItemAmount(quantity, unitPrice),
@@ -77,30 +81,28 @@ function toChangeOrderItem(record: ChangeOrderDetailItemApiRecord, index: number
 /** The API's change order, falling back to what the PO's change-order list said for anything missing. */
 function toChangeOrderDetail(record: ChangeOrderDetailApiRecord, summary: ChangeOrderSummary): ChangeOrderDetail {
   const description = htmlToPlainText(record.description ?? '') || summary.description;
+  const source = changeOrderSource(summary.id, record.source) || summary.source;
   return {
     id: record.id || summary.id,
     name: record.changeOrderNo?.trim() || summary.name,
     status: record.status?.trim() || summary.status,
     amount: toNumber(record.amount) ?? summary.amount,
     description,
+    ...(source && { source }),
     notes: description,
     items: (record.items ?? []).map(toChangeOrderItem),
     signature: null,
   };
 }
 
-/** Lays the in-app (not yet saved to Salesforce) items and signature over the API's change order. */
+/** Lays the signature made in this app over the API's change order. */
 function withLocalChanges(changeOrder: ChangeOrderDetail): ChangeOrderDetail {
   const changes = localChangesById.get(changeOrder.id);
-  if (!changes) {
+  if (!changes?.signature) {
     return changeOrder;
   }
-  return {
-    ...changeOrder,
-    items: [...changeOrder.items, ...changes.addedItems.map((item) => ({ ...item }))],
-    // Only shows who signed: the status is the API's.
-    ...(changes.signature && { signature: { ...changes.signature } }),
-  };
+  // Only shows who signed: the status is the API's.
+  return { ...changeOrder, signature: { ...changes.signature } };
 }
 
 async function fetchFromApi(accountId: string, poId: string, summary: ChangeOrderSummary): Promise<ChangeOrderDetail> {
@@ -132,30 +134,101 @@ export async function fetchChangeOrderDetail(
   return withLocalChanges(await fetchFromApi(accountId, poId, summary));
 }
 
-/** Throws unless the change order (as the API has it now, plus in-app changes) is still unsigned. */
-async function assertChangeOrderOpen(accountId: string, poId: string, summary: ChangeOrderSummary): Promise<void> {
-  if (isChangeOrderSigned(await fetchChangeOrderDetail(accountId, poId, summary))) {
-    throw new Error('This change order has been signed and can no longer be changed.');
+const ADD_ITEM_ERROR_MESSAGE = 'Unable to save the line item. Please try again.';
+
+async function postChangeOrderItem(url: string, data: object): Promise<void> {
+  const response = await salesforceSend<AddChangeOrderItemApiResponse>({ method: 'post', url, data }, ADD_ITEM_ERROR_MESSAGE);
+  if (!response.success) {
+    throw new Error(response.message || ADD_ITEM_ERROR_MESSAGE);
   }
 }
 
-/** Adds a line item to an unsigned change order; returns the updated change order. */
-export async function addChangeOrderItem(
+/** The change order as the API has it now; throws if it's signed and can't be changed. */
+async function fetchOpenChangeOrder(
   accountId: string,
   poId: string,
   summary: ChangeOrderSummary,
-  item: NewChangeOrderItem,
 ): Promise<ChangeOrderDetail> {
-  await assertChangeOrderOpen(accountId, poId, summary);
-  getLocalChanges(summary.id).addedItems.push({
-    id: `${summary.id}-local-${nextLocalItemNumber++}`,
-    description: item.description.trim(),
-    category: '',
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    amount: lineItemAmount(item.quantity, item.unitPrice),
+  const changeOrder = await fetchChangeOrderDetail(accountId, poId, summary);
+  if (isChangeOrderSigned(changeOrder)) {
+    throw new Error('This change order has been signed and can no longer be changed.');
+  }
+  return changeOrder;
+}
+
+const PURCHASE_ORDER_ITEMS_ERROR_MESSAGE = 'Unable to load the purchase order items.';
+
+/**
+ * The Job Purchase Order items a "My Job Change Order" line item can relate
+ * to (GET /myjobchangeorderitems?changeOrderId=…). Throws an Error with a
+ * message fit to show.
+ */
+export async function fetchMyJobPurchaseOrderItems(changeOrderId: string): Promise<MyJobPurchaseOrderItem[]> {
+  const data = await salesforceGet<MyJobPurchaseOrderItemsApiResponse>(SALESFORCE_MY_JOB_CHANGE_ORDER_ITEMS_URL, {
+    changeOrderId,
   });
-  return fetchChangeOrderDetail(accountId, poId, summary);
+  if (!data.success) {
+    throw new Error(data.message || PURCHASE_ORDER_ITEMS_ERROR_MESSAGE);
+  }
+  return (data.items ?? [])
+    .filter((record) => record.id)
+    .map((record) => ({
+      id: record.id,
+      label: [record.name, record.itemName].map((part) => part?.trim()).filter(Boolean).join(' – ') || record.id,
+    }));
+}
+
+/**
+ * Adds a line item to an unsigned "My Job Change Order" (POST
+ * /myjobchangeorderitems). Throws an Error with a message fit to show.
+ */
+export async function addMyJobChangeOrderItem(
+  accountId: string,
+  poId: string,
+  summary: ChangeOrderSummary,
+  item: NewMyJobChangeOrderItem,
+): Promise<void> {
+  await fetchOpenChangeOrder(accountId, poId, summary);
+  const payload: AddMyJobChangeOrderItemApiPayload = {
+    changeOrderId: summary.id,
+    ...(item.purchaseOrderItemId && { purchaseOrderItemId: item.purchaseOrderItemId }),
+    description: item.description.trim(),
+    itemCost: item.itemCost,
+    itemPrice: item.itemPrice,
+  };
+  await postChangeOrderItem(SALESFORCE_MY_JOB_CHANGE_ORDER_ITEMS_URL, payload);
+}
+
+/**
+ * Adds a line item to an unsigned "Job Change Order" (POST
+ * /jobchangeorderlineitems). A category already on the change order (matched
+ * by name against its items) is sent by Id (EXISTING_CATEGORY); any other is
+ * created with it from the service item and category name (NEW_CATEGORY).
+ * Throws an Error with a message fit to show.
+ */
+export async function addJobChangeOrderItem(
+  accountId: string,
+  poId: string,
+  summary: ChangeOrderSummary,
+  item: NewJobChangeOrderItem,
+): Promise<void> {
+  const changeOrder = await fetchOpenChangeOrder(accountId, poId, summary);
+  const wanted = item.category.trim().toLowerCase();
+  const categoryId = changeOrder.items.find(
+    (existing) => existing.categoryId && existing.category.trim().toLowerCase() === wanted,
+  )?.categoryId;
+  const fields = {
+    changeOrderId: summary.id,
+    product: item.product,
+    description: item.description.trim(),
+    markup: item.markup,
+    cost: item.cost,
+    poCost: item.poCost,
+  };
+  const payload: AddJobChangeOrderLineItemApiPayload = categoryId
+    ? { operation: 'EXISTING_CATEGORY', categoryId, ...fields }
+    : { operation: 'NEW_CATEGORY', serviceItem: item.serviceItem, category: item.category, ...fields };
+  await postChangeOrderItem(SALESFORCE_JOB_CHANGE_ORDER_LINE_ITEMS_URL, payload);
 }
 
 /** The status every new change order starts in. */
@@ -220,6 +293,7 @@ export async function createChangeOrder(accountId: string, input: NewChangeOrder
   if (!data.success) {
     throw new Error(data.message || CREATE_ERROR_MESSAGE);
   }
+  rememberChangeOrderSource(data.changeOrderId?.trim() ?? '', data.source);
   return {
     id: data.changeOrderId?.trim() ?? '',
     changeOrderNumber: data.changeOrderNo?.trim() || data.changeOrderNumber?.trim() || '',

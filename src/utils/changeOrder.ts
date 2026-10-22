@@ -22,8 +22,31 @@ export function isChangeOrderSigned(changeOrder: Pick<ChangeOrderDetail, 'status
 }
 
 /** A loaded change order's latest list-level fields, to pass to the next change-order screen. */
-export function toChangeOrderSummary({ id, name, status, amount, description }: ChangeOrderSummary): ChangeOrderSummary {
-  return { id, name, status, amount, description };
+export function toChangeOrderSummary({
+  id,
+  name,
+  status,
+  amount,
+  description,
+  source,
+}: ChangeOrderSummary): ChangeOrderSummary {
+  return { id, name, status, amount, description, ...(source && { source }) };
+}
+
+/** Which Add Line Item form a change order gets. */
+export type ChangeOrderKind = 'jobChangeOrder' | 'myChangeOrder';
+
+/**
+ * "My Change Order" (or "My Job Change Order") → myChangeOrder: made in this
+ * app. Any other source, e.g. "Change Order" or "Job Change Order", is from
+ * the job. A missing source counts as myChangeOrder.
+ */
+export function changeOrderKind(source: string | undefined): ChangeOrderKind {
+  const normalized = (source ?? '').trim();
+  if (!normalized || /^my\b/i.test(normalized)) {
+    return 'myChangeOrder';
+  }
+  return 'jobChangeOrder';
 }
 
 /**

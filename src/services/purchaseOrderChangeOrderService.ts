@@ -7,6 +7,7 @@ import {
 } from '../types';
 import { PurchaseOrderLedgerEntry } from '../types/purchaseOrder';
 import { toNumber } from '../utils/toNumber';
+import { changeOrderSource } from './changeOrderSourceStore';
 import { salesforceSend } from './salesforceClient';
 
 const DEFAULT_ERROR_MESSAGE = 'Unable to load the change orders for this purchase order.';
@@ -17,12 +18,14 @@ export interface PurchaseOrderChangeOrders {
 }
 
 function toChangeOrder(record: ChangeOrderApiRecord, index: number): PurchaseOrderLedgerEntry {
+  const source = changeOrderSource(record.id, record.source);
   return {
     id: record.id || `change-order-${index}`,
     name: record.changeOrderNo ?? '',
     status: record.status ?? '',
     amount: toNumber(record.amount) ?? 0,
     description: record.description?.trim() ?? '',
+    ...(source && { source }),
   };
 }
 

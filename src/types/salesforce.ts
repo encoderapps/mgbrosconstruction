@@ -311,6 +311,8 @@ export interface CreateChangeOrderApiResponse {
   /** e.g. "Draft Change Order created successfully. Approval is pending." */
   message?: string | null;
   changeOrderId?: string | null;
+  /** e.g. "Job Change Order". */
+  source?: string | null;
   /** The number shown in the PO's change-order table, e.g. "CO#08". */
   changeOrderNo?: string | null;
   /** The record name, e.g. "Job-CO#0000568". */
@@ -329,6 +331,73 @@ export interface CreateChangeOrderApiResponse {
   jobId?: string | null;
   generalContractorId?: string | null;
   recordTypeId?: string | null;
+}
+
+/** POST /myjobchangeorderitems request body: a line item on a "My Job Change Order". */
+export interface AddMyJobChangeOrderItemApiPayload {
+  changeOrderId: string;
+  /** The related Job Purchase Order item; left out when none was picked. */
+  purchaseOrderItemId?: string;
+  description: string;
+  itemCost: number;
+  itemPrice: number;
+}
+
+/** One Job Purchase Order item in GET /myjobchangeorderitems?changeOrderId=…. */
+export interface MyJobPurchaseOrderItemApiRecord {
+  id: string;
+  /** e.g. "J-POI#00000004". */
+  name: string | null;
+  /** e.g. "Item #1". */
+  itemName: string | null;
+  itemId: string | null;
+  purchaseOrderId: string | null;
+}
+
+/** GET /myjobchangeorderitems?changeOrderId=… response: the purchase order items a line item can relate to. */
+export interface MyJobPurchaseOrderItemsApiResponse {
+  success: boolean;
+  /** e.g. "Purchase Order Items fetched successfully." */
+  message?: string | null;
+  changeOrderId?: string | null;
+  purchaseOrderId?: string | null;
+  items: MyJobPurchaseOrderItemApiRecord[] | null;
+}
+
+interface JobChangeOrderLineItemFields {
+  changeOrderId: string;
+  /** "Product" or "Service". */
+  product: string;
+  description: string;
+  markup: number;
+  cost: number;
+  poCost: number;
+}
+
+/**
+ * POST /jobchangeorderlineitems request body: a line item on a "Job Change
+ * Order", under a category already on it (EXISTING_CATEGORY, by its Id) or
+ * under a new one (NEW_CATEGORY, by service item and category name).
+ */
+export type AddJobChangeOrderLineItemApiPayload =
+  | (JobChangeOrderLineItemFields & {
+      operation: 'EXISTING_CATEGORY';
+      /** The category's Id, e.g. "a4oQL000000uoJtYAI". */
+      categoryId: string;
+    })
+  | (JobChangeOrderLineItemFields & {
+      operation: 'NEW_CATEGORY';
+      /** e.g. "Asphalt". */
+      serviceItem: string;
+      /** e.g. "Asphalt Service". */
+      category: string;
+    });
+
+/** The response of both add-line-item endpoints (only what the app reads). */
+export interface AddChangeOrderItemApiResponse {
+  success: boolean;
+  /** e.g. "Change Order Item created successfully." */
+  message?: string | null;
 }
 
 /** POST /purchaseorderchangeorder request body. */
@@ -359,6 +428,8 @@ export interface ChangeOrderDetailApiRecord {
   id: string;
   changeOrderNo: string | null;
   status: string | null;
+  /** See ChangeOrderApiRecord.source. */
+  source?: string | null;
   description: string | null;
   amount: number | string | null;
   cost: number | string | null;
@@ -375,6 +446,8 @@ export interface ChangeOrderApiRecord {
   status: string | null;
   description: string | null;
   amount: number | string | null;
+  /** "Change Order" (from a job) or "My Change Order" (made in this app); decides the Add Line Item form. */
+  source?: string | null;
 }
 
 /** A SOQL query's response (GET /services/data/vXX.X/query). */
