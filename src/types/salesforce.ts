@@ -336,9 +336,32 @@ export interface CreateChangeOrderApiResponse {
 /** POST /myjobchangeorderitems request body: a line item on a "My Job Change Order". */
 export interface AddMyJobChangeOrderItemApiPayload {
   changeOrderId: string;
+  /** The related Job Purchase Order item; left out when none was picked. */
+  purchaseOrderItemId?: string;
   description: string;
   itemCost: number;
   itemPrice: number;
+}
+
+/** One Job Purchase Order item in GET /myjobchangeorderitems?changeOrderId=…. */
+export interface MyJobPurchaseOrderItemApiRecord {
+  id: string;
+  /** e.g. "J-POI#00000004". */
+  name: string | null;
+  /** e.g. "Item #1". */
+  itemName: string | null;
+  itemId: string | null;
+  purchaseOrderId: string | null;
+}
+
+/** GET /myjobchangeorderitems?changeOrderId=… response: the purchase order items a line item can relate to. */
+export interface MyJobPurchaseOrderItemsApiResponse {
+  success: boolean;
+  /** e.g. "Purchase Order Items fetched successfully." */
+  message?: string | null;
+  changeOrderId?: string | null;
+  purchaseOrderId?: string | null;
+  items: MyJobPurchaseOrderItemApiRecord[] | null;
 }
 
 interface JobChangeOrderLineItemFields {

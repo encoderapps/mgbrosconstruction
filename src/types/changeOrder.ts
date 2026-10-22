@@ -57,8 +57,17 @@ export interface CreatedChangeOrder {
   message: string;
 }
 
+/** A Job Purchase Order item a "My Job Change Order" line item can relate to. */
+export interface MyJobPurchaseOrderItem {
+  id: string;
+  /** e.g. "J-POI#00000004 – Item #1". */
+  label: string;
+}
+
 /** What the Add Line Item form sends for a "My Job Change Order". Amounts in dollars. */
 export interface NewMyJobChangeOrderItem {
+  /** The related Job Purchase Order item (optional); null when none was picked. */
+  purchaseOrderItemId: string | null;
   description: string;
   itemCost: number;
   itemPrice: number;

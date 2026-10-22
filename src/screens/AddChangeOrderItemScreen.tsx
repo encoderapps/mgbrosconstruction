@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -12,8 +12,9 @@ import { fontFamily, radius, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { SERVICE_ITEM_CATEGORIES, SERVICE_ITEM_OPTIONS } from '../constants/serviceItemCategories';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
+import { useAsyncResource } from '../hooks/useAsyncResource';
 import { useBlockBackWhile } from '../hooks/useBlockBackWhile';
-import { addJobChangeOrderItem, addMyJobChangeOrderItem } from '../services/changeOrderService';
+import { addJobChangeOrderItem, addMyJobChangeOrderItem, fetchMyJobPurchaseOrderItems } from '../services/changeOrderService';
 import { ChangeOrderSummary } from '../types/changeOrder';
 import { changeOrderKind } from '../utils/changeOrder';
 import { MAX_CURRENCY_AMOUNT, parseCurrencyInput, sanitizeCurrencyInput } from '../utils/currencyInput';
@@ -254,9 +255,15 @@ function JobChangeOrderItemForm(props: FormProps): React.JSX.Element {
   );
 }
 
-/** Description, Item Cost and Item Price. */
+/** The dropdown option that clears the (optional) Job Purchase Order item. */
+const NO_PURCHASE_ORDER_ITEM = '';
+
+/** Job Purchase Order Item (optional), Description, Item Cost and Item Price. */
 function MyChangeOrderItemForm(props: FormProps): React.JSX.Element {
   const { poId, changeOrder, isSaving } = props;
+  const loadPurchaseOrderItems = useCallback(() => fetchMyJobPurchaseOrderItems(changeOrder.id), [changeOrder.id]);
+  const { data: purchaseOrderItems, status: purchaseOrderItemsStatus } = useAsyncResource(loadPurchaseOrderItems);
+  const [purchaseOrderItemId, setPurchaseOrderItemId] = useState(NO_PURCHASE_ORDER_ITEM);
   const [description, setDescription] = useState('');
   const [itemCostText, setItemCostText] = useState('');
   const [itemPriceText, setItemPriceText] = useState('');
@@ -279,11 +286,39 @@ function MyChangeOrderItemForm(props: FormProps): React.JSX.Element {
       Alert.alert('Invalid item price', `Please enter an item price ${INVALID_AMOUNT_MESSAGE}.`);
       return;
     }
-    submit(props, (accountId) => addMyJobChangeOrderItem(accountId, poId, changeOrder, { description, itemCost, itemPrice }));
+    submit(props, (accountId) =>
+      addMyJobChangeOrderItem(accountId, poId, changeOrder, {
+        purchaseOrderItemId: purchaseOrderItemId || null,
+        description,
+        itemCost,
+        itemPrice,
+      }),
+    );
   };
+
+  const items = purchaseOrderItems ?? [];
+  const labelsById = new Map(items.map((item) => [item.id, item.label]));
+  let purchaseOrderItemPlaceholder = 'Select purchase order item';
+  if (purchaseOrderItemsStatus === 'loading' || purchaseOrderItemsStatus === 'idle') {
+    purchaseOrderItemPlaceholder = 'Loading purchase order items…';
+  } else if (purchaseOrderItemsStatus === 'error') {
+    purchaseOrderItemPlaceholder = 'Unable to load purchase order items';
+  } else if (items.length === 0) {
+    purchaseOrderItemPlaceholder = 'No purchase order items';
+  }
 
   return (
     <>
+      <SelectInput
+        label="Job Purchase Order Item"
+        placeholder={purchaseOrderItemPlaceholder}
+        value={purchaseOrderItemId}
+        // "None" first, so a picked item can be cleared: the field is optional.
+        options={[NO_PURCHASE_ORDER_ITEM, ...items.map((item) => item.id)]}
+        formatOption={(id) => (id === NO_PURCHASE_ORDER_ITEM ? 'None' : (labelsById.get(id) ?? id))}
+        onSelect={setPurchaseOrderItemId}
+        disabled={isSaving || items.length === 0}
+      />
       <LoginInput
         label="Description"
         required

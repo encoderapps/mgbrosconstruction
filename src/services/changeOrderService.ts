@@ -10,6 +10,7 @@ import {
   AddChangeOrderItemApiResponse,
   AddJobChangeOrderLineItemApiPayload,
   AddMyJobChangeOrderItemApiPayload,
+  MyJobPurchaseOrderItemsApiResponse,
   ChangeOrderDetailApiRecord,
   ChangeOrderDetailItemApiRecord,
   CreateChangeOrderApiPayload,
@@ -27,6 +28,7 @@ import {
   CreatedChangeOrder,
   NewChangeOrder,
   NewJobChangeOrderItem,
+  MyJobPurchaseOrderItem,
   NewMyJobChangeOrderItem,
 } from '../types/changeOrder';
 import { isChangeOrderSigned, lineItemAmount } from '../utils/changeOrder';
@@ -36,7 +38,7 @@ import { toNumber } from '../utils/toNumber';
 import { SignedPdf } from '../types/signedDocument';
 import { changeOrderSource, rememberChangeOrderSource } from './changeOrderSourceStore';
 import { fetchPurchaseOrderJobId } from './purchaseOrderInvoiceService';
-import { salesforceSend } from './salesforceClient';
+import { salesforceGet, salesforceSend } from './salesforceClient';
 
 const LOAD_ERROR_MESSAGE = 'Unable to load this change order.';
 const SIGN_ERROR_MESSAGE = 'Unable to sign this change order. Please try again.';
@@ -154,6 +156,28 @@ async function fetchOpenChangeOrder(
   return changeOrder;
 }
 
+const PURCHASE_ORDER_ITEMS_ERROR_MESSAGE = 'Unable to load the purchase order items.';
+
+/**
+ * The Job Purchase Order items a "My Job Change Order" line item can relate
+ * to (GET /myjobchangeorderitems?changeOrderId=…). Throws an Error with a
+ * message fit to show.
+ */
+export async function fetchMyJobPurchaseOrderItems(changeOrderId: string): Promise<MyJobPurchaseOrderItem[]> {
+  const data = await salesforceGet<MyJobPurchaseOrderItemsApiResponse>(SALESFORCE_MY_JOB_CHANGE_ORDER_ITEMS_URL, {
+    changeOrderId,
+  });
+  if (!data.success) {
+    throw new Error(data.message || PURCHASE_ORDER_ITEMS_ERROR_MESSAGE);
+  }
+  return (data.items ?? [])
+    .filter((record) => record.id)
+    .map((record) => ({
+      id: record.id,
+      label: [record.name, record.itemName].map((part) => part?.trim()).filter(Boolean).join(' – ') || record.id,
+    }));
+}
+
 /**
  * Adds a line item to an unsigned "My Job Change Order" (POST
  * /myjobchangeorderitems). Throws an Error with a message fit to show.
@@ -167,6 +191,7 @@ export async function addMyJobChangeOrderItem(
   await fetchOpenChangeOrder(accountId, poId, summary);
   const payload: AddMyJobChangeOrderItemApiPayload = {
     changeOrderId: summary.id,
+    ...(item.purchaseOrderItemId && { purchaseOrderItemId: item.purchaseOrderItemId }),
     description: item.description.trim(),
     itemCost: item.itemCost,
     itemPrice: item.itemPrice,

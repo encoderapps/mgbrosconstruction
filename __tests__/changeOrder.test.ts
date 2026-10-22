@@ -2,12 +2,14 @@ import {
   addJobChangeOrderItem,
   addMyJobChangeOrderItem,
   fetchChangeOrderDetail,
+  fetchMyJobPurchaseOrderItems,
   signChangeOrder,
 } from '../src/services/changeOrderService';
-import { salesforceSend } from '../src/services/salesforceClient';
+import { salesforceGet, salesforceSend } from '../src/services/salesforceClient';
 import {
   AddChangeOrderItemApiResponse,
   ChangeOrderDetailApiRecord,
+  MyJobPurchaseOrderItemsApiResponse,
   PurchaseOrderChangeOrdersApiResponse,
   SignChangeOrderApiResponse,
 } from '../src/types';
@@ -16,9 +18,11 @@ import { isChangeOrderSigned, lineItemAmount } from '../src/utils/changeOrder';
 import { todayDateString } from '../src/utils/dateValidation';
 
 jest.mock('../src/services/salesforceClient', () => ({
+  salesforceGet: jest.fn(),
   salesforceSend: jest.fn(),
 }));
 
+const mockedGet = salesforceGet as jest.MockedFunction<typeof salesforceGet>;
 const mockedSend = salesforceSend as jest.MockedFunction<typeof salesforceSend>;
 
 const ACCOUNT_ID = '001QL00002WQD8ZYAX';
@@ -90,6 +94,7 @@ function signResponse(response: SignChangeOrderApiResponse): SignChangeOrderApiR
 }
 
 afterEach(() => {
+  mockedGet.mockReset();
   mockedSend.mockReset();
 });
 
@@ -193,6 +198,7 @@ describe('addMyJobChangeOrderItem', () => {
       .mockResolvedValueOnce(added(true, 'Change Order Item created successfully.'));
 
     await addMyJobChangeOrderItem(ACCOUNT_ID, PO_ID, summary('a6XQL000000XQ5N2AW'), {
+      purchaseOrderItemId: null,
       description: ' Condensate drain ',
       itemCost: 222,
       itemPrice: 333,
@@ -208,13 +214,34 @@ describe('addMyJobChangeOrderItem', () => {
     );
   });
 
+  it('sends the picked Job Purchase Order item', async () => {
+    mockedSend
+      .mockResolvedValueOnce(loaded(detail('co-10', { status: 'Draft' })))
+      .mockResolvedValueOnce(added(true, 'Change Order Item created successfully.'));
+
+    await addMyJobChangeOrderItem(ACCOUNT_ID, PO_ID, summary('co-10'), {
+      purchaseOrderItemId: 'a6aQL000000Kp3BYAS',
+      description: 'Extra vent',
+      itemCost: 80,
+      itemPrice: 96,
+    });
+
+    expect(mockedSend.mock.calls[1][0].data).toEqual({
+      changeOrderId: 'co-10',
+      purchaseOrderItemId: 'a6aQL000000Kp3BYAS',
+      description: 'Extra vent',
+      itemCost: 80,
+      itemPrice: 96,
+    });
+  });
+
   it('throws the API message when the item is not created', async () => {
     mockedSend
       .mockResolvedValueOnce(loaded(detail('co-8', { status: 'Draft' })))
       .mockResolvedValueOnce(added(false, 'Change Order not found.'));
 
     await expect(
-      addMyJobChangeOrderItem(ACCOUNT_ID, PO_ID, summary('co-8'), { description: 'X', itemCost: 1, itemPrice: 2 }),
+      addMyJobChangeOrderItem(ACCOUNT_ID, PO_ID, summary('co-8'), { purchaseOrderItemId: null, description: 'X', itemCost: 1, itemPrice: 2 }),
     ).rejects.toThrow('Change Order not found.');
   });
 
@@ -222,8 +249,48 @@ describe('addMyJobChangeOrderItem', () => {
     respondWith(detail('co-5', { status: 'Signed by Both Parties' }));
 
     await expect(
-      addMyJobChangeOrderItem(ACCOUNT_ID, PO_ID, summary('co-5'), { description: 'X', itemCost: 1, itemPrice: 2 }),
+      addMyJobChangeOrderItem(ACCOUNT_ID, PO_ID, summary('co-5'), { purchaseOrderItemId: null, description: 'X', itemCost: 1, itemPrice: 2 }),
     ).rejects.toThrow('can no longer be changed');
+  });
+});
+
+describe('fetchMyJobPurchaseOrderItems', () => {
+  it("lists the change order's Job Purchase Order items by number and name", async () => {
+    // Shaped like the sandbox response.
+    const response: MyJobPurchaseOrderItemsApiResponse = {
+      success: true,
+      message: 'Purchase Order Items fetched successfully.',
+      changeOrderId: 'a6XQL000000XcjF2AS',
+      purchaseOrderId: 'a6bQL000001ocJFYAY',
+      items: [
+        {
+          id: 'a6aQL000000Kp3BYAS',
+          name: 'J-POI#00000004',
+          itemName: 'Item #1',
+          itemId: 'a6VQL000003mn4j2AA',
+          purchaseOrderId: 'a6bQL000001ocJFYAY',
+        },
+        { id: 'a6aQL000000Kp4nYAC', name: 'J-POI#00000005', itemName: null, itemId: null, purchaseOrderId: null },
+      ],
+    };
+    mockedGet.mockResolvedValueOnce(response);
+
+    const items = await fetchMyJobPurchaseOrderItems('a6XQL000000XcjF2AS');
+
+    expect(mockedGet).toHaveBeenCalledWith(expect.stringMatching(/\/services\/apexrest\/myjobchangeorderitems\/$/), {
+      changeOrderId: 'a6XQL000000XcjF2AS',
+    });
+    expect(items).toEqual([
+      { id: 'a6aQL000000Kp3BYAS', label: 'J-POI#00000004 – Item #1' },
+      { id: 'a6aQL000000Kp4nYAC', label: 'J-POI#00000005' },
+    ]);
+  });
+
+  it('throws the API message when they cannot be loaded', async () => {
+    const response: MyJobPurchaseOrderItemsApiResponse = { success: false, message: 'Change Order not found.', items: null };
+    mockedGet.mockResolvedValueOnce(response);
+
+    await expect(fetchMyJobPurchaseOrderItems('missing')).rejects.toThrow('Change Order not found.');
   });
 });
 
@@ -375,7 +442,7 @@ describe('signChangeOrder', () => {
     expect(reloaded.status).toBe('Signed');
     expect(reloaded.signature).toEqual({ name: 'Deepak Rathore', imageBase64: SIGNATURE_IMAGE, date: '2026-10-13' });
     await expect(
-      addMyJobChangeOrderItem(ACCOUNT_ID, PO_ID, summary('co-6'), { description: 'X', itemCost: 1, itemPrice: 2 }),
+      addMyJobChangeOrderItem(ACCOUNT_ID, PO_ID, summary('co-6'), { purchaseOrderItemId: null, description: 'X', itemCost: 1, itemPrice: 2 }),
     ).rejects.toThrow('can no longer be changed');
   });
 
