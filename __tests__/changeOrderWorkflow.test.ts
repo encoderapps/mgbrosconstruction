@@ -2,7 +2,7 @@ import { NEW_CHANGE_ORDER_STATUS, createChangeOrder } from '../src/services/chan
 import { salesforceGet, salesforceSend } from '../src/services/salesforceClient';
 import { CreateChangeOrderApiResponse } from '../src/types';
 import { NewChangeOrder } from '../src/types/changeOrder';
-import { changeOrderStage, isAwaitingApproval, toChangeOrderSummary } from '../src/utils/changeOrder';
+import { changeOrderKind, changeOrderStage, isAwaitingApproval, toChangeOrderSummary } from '../src/utils/changeOrder';
 import { statusTone } from '../src/utils/purchaseOrderStatus';
 
 jest.mock('../src/services/salesforceClient', () => ({
@@ -188,5 +188,18 @@ describe('isAwaitingApproval', () => {
     expect(isAwaitingApproval('signed')).toBe(false);
     expect(isAwaitingApproval('rejected')).toBe(false);
     expect(isAwaitingApproval('unknown')).toBe(false);
+  });
+});
+
+describe('changeOrderKind', () => {
+  it.each([
+    ['Change Order', 'jobChangeOrder'],
+    ['Job Change Order', 'jobChangeOrder'],
+    ['My Change Order', 'myChangeOrder'],
+    ['my job change order', 'myChangeOrder'],
+    [undefined, 'myChangeOrder'],
+    ['  ', 'myChangeOrder'],
+  ])('maps %p to %p', (source, kind) => {
+    expect(changeOrderKind(source)).toBe(kind);
   });
 });

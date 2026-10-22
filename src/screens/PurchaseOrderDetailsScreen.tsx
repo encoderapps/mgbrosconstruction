@@ -173,8 +173,15 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
                   opportunityId: detail.opportunityId,
                 })
               }
-              onOpenChangeOrder={({ id, name, status: changeOrderStatus, amount, description }) => {
-                const changeOrder = { id, name, status: changeOrderStatus, amount, description: description ?? '' };
+              onOpenChangeOrder={({ id, name, status: changeOrderStatus, amount, description, source }) => {
+                const changeOrder = {
+                  id,
+                  name,
+                  status: changeOrderStatus,
+                  amount,
+                  description: description ?? '',
+                  ...(source && { source }),
+                };
                 // One waiting on approval (a Draft included) opens its approval status; any other its details.
                 if (isAwaitingApproval(changeOrderStage(changeOrder))) {
                   navigation.navigate('ChangeOrderApproval', { poId, changeOrder });
