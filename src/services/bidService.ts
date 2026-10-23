@@ -4,6 +4,8 @@ import { Bid, BidDetail, BidLineItem, BidsView, NewBidLineItem } from '../types/
 import { AccountListResult } from '../types/list';
 import { isBidEditable, sumBidLineItems } from '../utils/bidStatus';
 import { timestampToLocalDate } from '../utils/dateValidation';
+import { htmlToPlainText } from '../utils/html';
+import { toNumber } from '../utils/toNumber';
 import { salesforceGet } from './salesforceClient';
 import { fetchSubcontractorProjects } from './subcontractorProjectService';
 
@@ -41,17 +43,16 @@ function getLocalChanges(bidId: string): LocalChanges {
 
 /**
  * A copy of the loaded bid with the in-app line items and completion laid
- * over it. The status is Salesforce's unless the bid was completed here. The
- * total is that of the line items added here, or null (the API sends none).
+ * over it. The status is Salesforce's unless the bid was completed here, and
+ * the total is Salesforce's plus the line items added here.
  */
 function withLocalChanges(bid: BidDetail): BidDetail {
   const changes = localChangesById.get(bid.id);
   const lineItems = changes?.lineItems ?? bid.lineItems;
   return {
     ...bid,
-    projectAddress: bid.projectAddress && { ...bid.projectAddress },
     lineItems: lineItems.map((item) => ({ ...item })),
-    total: lineItems.length > 0 ? sumBidLineItems(lineItems) : bid.total,
+    total: lineItems.length > 0 ? sumBidLineItems([{ amount: bid.total ?? 0 }, ...lineItems]) : bid.total,
     status: changes?.completed ? COMPLETED_STATUS : bid.status,
   };
 }
@@ -82,14 +83,13 @@ function toBidDetail(record: BidApiRecord): BidDetail {
     id: record.id,
     bidNumber: record.bidNumber?.trim() ?? '',
     projectName: record.projectName?.trim() ?? '',
-    // The API doesn't send an amount.
-    total: null,
+    total: toNumber(record.totalAmount),
     status: record.status?.trim() ?? '',
     bidDate: timestampToLocalDate(record.createdDate),
-    // Not in the API: Bid Details shows the project name and no address.
+    // Not in the API: Bid Details shows the project name instead.
     projectNumber: '',
-    projectAddress: null,
-    description: record.notes?.trim() ?? '',
+    projectAddress: record.projectAddress?.trim() ?? '',
+    description: htmlToPlainText(record.description ?? '') || record.notes?.trim() || '',
     lineItems: [],
   };
 }

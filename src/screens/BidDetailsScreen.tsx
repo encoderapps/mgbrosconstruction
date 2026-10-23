@@ -64,7 +64,6 @@ export function BidDetailsScreen({ navigation, route }: Props): React.JSX.Elemen
 
   const renderBid = (detail: BidDetail): React.JSX.Element => {
     const editable = isBidEditable(detail.status);
-    const address = detail.projectAddress;
 
     return (
       <>
@@ -75,14 +74,7 @@ export function BidDetailsScreen({ navigation, route }: Props): React.JSX.Elemen
             Project Information
           </Text>
           <Text style={styles.label}>Address</Text>
-          {address ? (
-            <Text style={styles.bodyText}>
-              {address.street},{'\n'}
-              {address.city}, {address.state} {address.postalCode}
-            </Text>
-          ) : (
-            <Text style={styles.bodyText}>{EMPTY_VALUE}</Text>
-          )}
+          <Text style={styles.bodyText}>{detail.projectAddress || EMPTY_VALUE}</Text>
           <View style={styles.actions}>
             {PROJECT_FILE_ACTIONS.map(({ label, Icon }) => (
               <ActionChip key={label} label={label} Icon={Icon} onPress={() => showComingSoon(label)} />
@@ -97,7 +89,6 @@ export function BidDetailsScreen({ navigation, route }: Props): React.JSX.Elemen
 
         <BidLineItemsCard
           lineItems={detail.lineItems}
-          // No amount from the API yet: the total is that of the line items added here.
           total={detail.total ?? 0}
           editable={editable}
           deletingId={deletingId}

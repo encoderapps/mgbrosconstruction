@@ -686,6 +686,12 @@ export interface BidApiRecord {
   /** e.g. "[TEST] 666 Post Street, San Francisco, CA, 94109". */
   projectName: string | null;
   notes: string | null;
+  /** Rich text. */
+  description?: string | null;
+  /** One line, e.g. "666 Post Street, San Francisco, California, 94109, United States". */
+  projectAddress?: string | null;
+  /** In dollars, e.g. 0.00. */
+  totalAmount?: number | string | null;
   /** ISO timestamp, e.g. "2026-10-02T12:57:10.000Z". */
   createdDate: string | null;
   totalBidItems?: number | null;

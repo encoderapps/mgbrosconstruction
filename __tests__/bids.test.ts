@@ -47,7 +47,13 @@ function bid(id: string, createdDate: string, overrides: Partial<BidApiRecord> =
 
 const BIDS_BY_PROJECT: Record<string, BidApiRecord[]> = {
   [PROJECT_A]: [
-    bid('a6QQL000000njlZ2AQ', '2026-10-02T12:57:10.000Z', { bidNumber: 'BID-00000001', notes: ' Rough-in only ' }),
+    bid('a6QQL000000njlZ2AQ', '2026-10-02T12:57:10.000Z', {
+      bidNumber: 'BID-00000001',
+      totalAmount: 1250.5,
+      projectAddress: ' 666 Post Street, San Francisco, California, 94109, United States ',
+      description: '<p><a href="https://example.com">100 Congress Avenue, Austin, TX, 78701</a></p>',
+    }),
+    bid('bid-notes', '2026-09-15T09:00:00.000Z', { notes: ' Rough-in only ', totalAmount: '0.00' }),
     bid('bid-a2', '2026-10-05T09:00:00.000Z'),
     bid('bid-won', '2026-09-01T09:00:00.000Z', { status: 'Won' }),
   ],
@@ -82,12 +88,12 @@ afterEach(() => {
 });
 
 describe('fetchBids', () => {
-  it("loads each of the account's projects' bids, newest first, as list rows without an amount", async () => {
+  it("loads each of the account's projects' bids, newest first, as list rows", async () => {
     const result = await fetchBids(ACCOUNT, 'all');
 
     expect(mockedGet).toHaveBeenCalledWith(SALESFORCE_BIDS_URL, { projectId: PROJECT_A });
     expect(mockedGet).toHaveBeenCalledWith(SALESFORCE_BIDS_URL, { projectId: PROJECT_B });
-    expect(result.count).toBe(7);
+    expect(result.count).toBe(8);
     expect(result.items.map((row) => row.id)).toEqual([
       'bid-a2',
       'bid-b1',
@@ -95,13 +101,14 @@ describe('fetchBids', () => {
       'a6QQL000000njlZ2AQ',
       'bid-b3',
       'bid-b4',
+      'bid-notes',
       'bid-won',
     ]);
     expect(result.items[3]).toEqual({
       id: 'a6QQL000000njlZ2AQ',
       bidNumber: 'BID-00000001',
       projectName: '[TEST] 666 Post Street, San Francisco, CA, 94109',
-      total: null,
+      total: 1250.5,
       status: 'New',
     });
   });
@@ -110,7 +117,7 @@ describe('fetchBids', () => {
     const result = await fetchBids(ACCOUNT, 'home');
 
     expect(result.items).toHaveLength(HOME_BIDS_LIMIT);
-    expect(result.count).toBe(7);
+    expect(result.count).toBe(8);
   });
 
   it('throws the API message when a project fails to load', async () => {
@@ -132,7 +139,7 @@ describe('fetchBidDetail', () => {
     expect(again.lineItems).toEqual([]);
   });
 
-  it('returns a loaded bid with its date, project and notes, and no line items yet', async () => {
+  it('returns a loaded bid with its date, project, address, plain-text description and total', async () => {
     await fetchBids(ACCOUNT, 'all');
 
     const detail = await fetchBidDetail(ACCOUNT, 'a6QQL000000njlZ2AQ');
@@ -141,10 +148,28 @@ describe('fetchBidDetail', () => {
       bidNumber: 'BID-00000001',
       bidDate: '2026-10-02',
       projectName: '[TEST] 666 Post Street, San Francisco, CA, 94109',
-      description: 'Rough-in only',
+      projectAddress: '666 Post Street, San Francisco, California, 94109, United States',
+      description: '100 Congress Avenue, Austin, TX, 78701',
+      total: 1250.5,
       status: 'New',
       lineItems: [],
     });
+  });
+
+  it('falls back to the notes for the description, and reads a total sent as a string', async () => {
+    await fetchBids(ACCOUNT, 'all');
+
+    const detail = await fetchBidDetail(ACCOUNT, 'bid-notes');
+
+    expect(detail).toMatchObject({ description: 'Rough-in only', total: 0, projectAddress: '' });
+  });
+
+  it("adds the line items made in the app to Salesforce's total", async () => {
+    await fetchBids(ACCOUNT, 'all');
+
+    const updated = await addBidLineItem(ACCOUNT, 'a6QQL000000njlZ2AQ', { description: 'Permit fees', amount: 100.25 });
+
+    expect(updated.total).toBe(1350.75);
   });
 
   it('rejects an unknown bid', async () => {
@@ -165,7 +190,7 @@ describe('line items and completing (in the app until the API exists)', () => {
 
     const removed = await deleteBidLineItem(ACCOUNT, 'bid-b1', added.lineItems[0].id);
     expect(removed.lineItems).toEqual([]);
-    // Back to no known amount, as the API sends none.
+    // Back to Salesforce's total, which this bid doesn't have.
     expect(removed.total).toBeNull();
   });
 
