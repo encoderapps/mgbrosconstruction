@@ -674,3 +674,37 @@ export interface ContactsApiResponse {
   totalContacts?: number | null;
   contacts: ContactApiRecord[] | null;
 }
+
+/** One bid in GET /bids?projectId=…. Only the fields the app reads are typed. */
+export interface BidApiRecord {
+  id: string;
+  /** e.g. "BID-00000001". */
+  bidNumber: string | null;
+  /** e.g. "New". */
+  status: string | null;
+  projectId: string | null;
+  /** e.g. "[TEST] 666 Post Street, San Francisco, CA, 94109". */
+  projectName: string | null;
+  notes: string | null;
+  /** Rich text. */
+  description?: string | null;
+  /** One line, e.g. "666 Post Street, San Francisco, California, 94109, United States". */
+  projectAddress?: string | null;
+  /** In dollars, e.g. 0.00. */
+  totalAmount?: number | string | null;
+  /** ISO timestamp, e.g. "2026-10-02T12:57:10.000Z". */
+  createdDate: string | null;
+  totalBidItems?: number | null;
+  approvedBidItems?: number | null;
+  approvalPercentage?: number | null;
+  signed?: boolean | null;
+}
+
+/** GET /bids?projectId=… response. */
+export interface BidsApiResponse {
+  success: boolean;
+  /** e.g. "Bids fetched successfully." */
+  message?: string | null;
+  totalRecords?: number | null;
+  bids: BidApiRecord[] | null;
+}

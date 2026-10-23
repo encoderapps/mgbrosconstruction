@@ -16,6 +16,8 @@ export interface DataTableColumn<Row> {
    */
   grow?: boolean;
   align?: 'left' | 'right';
+  /** Lets long text wrap onto more lines within the column's width (otherwise one line, cut off). */
+  wrap?: boolean;
   /** Shown in the link style (blue, medium weight), like a record name. */
   isLink?: boolean;
   /** The cell's text; an empty or blank value shows as a dash. */
@@ -24,6 +26,8 @@ export interface DataTableColumn<Row> {
   getColor?: (row: Row) => string | undefined;
   /** Makes this column's cells tappable (e.g. the name opens the record). */
   onPress?: (row: Row) => void;
+  /** Custom cell content (e.g. a status pill) in place of the getValue text, which stays the accessible label. */
+  renderCell?: (row: Row) => React.ReactNode;
 }
 
 type DataTableProps<Row> = {
@@ -58,8 +62,10 @@ export function DataTable<Row>({
     return <TableStatusMessage status={status} errorText={errorText} onRetry={onRetry} />;
   }
   const widthOf = (column: DataTableColumn<Row>) => (fitWidth ? fittedColumnWidth(column) : columnWidth(column));
-  // Wrapping only when the table can't scroll to show the rest.
-  const cellLines = fitWidth ? undefined : 1;
+  // Wrapping only when the table can't scroll to show the rest, or the column asks for it.
+  const linesOf = (column: DataTableColumn<Row>) => (fitWidth || column.wrap ? undefined : 1);
+  // Multi-line cells start at the top so a row's texts line up.
+  const wrapsRows = fitWidth || columns.some((column) => column.wrap);
 
   const table = (
     // collapsable={false} here and on each row: see LoginInput (rows are added as data arrives).
@@ -69,7 +75,7 @@ export function DataTable<Row>({
           <Text
             key={column.key}
             style={[styles.headerCell, widthOf(column), column.align === 'right' && styles.alignRight]}
-            numberOfLines={cellLines}
+            numberOfLines={fitWidth ? undefined : 1}
           >
             {column.label}
           </Text>
@@ -82,14 +88,23 @@ export function DataTable<Row>({
         rows.map((row, index) => (
           <View
             key={getRowKey(row)}
-            style={[styles.row, fitWidth && styles.wrappingRow, index > 0 && styles.rowDivider]}
+            style={[styles.row, wrapsRows && styles.wrappingRow, index > 0 && styles.rowDivider]}
             collapsable={false}
           >
             {columns.map((column) => {
               const { onPress } = column;
+              const value = column.getValue(row).trim() || EMPTY_VALUE;
               // Only override when a colour is given: `color: undefined` would wipe the cell's own colour.
               const color = column.getColor?.(row);
-              const cell = (
+              const cell = column.renderCell ? (
+                <View
+                  style={[widthOf(column), styles.customCell, column.align === 'right' && styles.alignEnd]}
+                  accessible
+                  accessibilityLabel={value}
+                >
+                  {column.renderCell(row)}
+                </View>
+              ) : (
                 <Text
                   style={[
                     styles.cellText,
@@ -98,9 +113,9 @@ export function DataTable<Row>({
                     column.align === 'right' && styles.alignRight,
                     color !== undefined && { color },
                   ]}
-                  numberOfLines={cellLines}
+                  numberOfLines={linesOf(column)}
                 >
-                  {column.getValue(row).trim() || EMPTY_VALUE}
+                  {value}
                 </Text>
               );
               return onPress ? (
@@ -189,6 +204,13 @@ const styles = StyleSheet.create({
   },
   alignRight: {
     textAlign: 'right',
+  },
+  // A renderCell cell sizes its content (e.g. a pill) to fit rather than stretching it across the column.
+  customCell: {
+    alignItems: 'flex-start',
+  },
+  alignEnd: {
+    alignItems: 'flex-end',
   },
   emptyText: {
     fontFamily: fontFamily.regular,
