@@ -40,6 +40,7 @@ const PURCHASE_ORDER: PurchaseOrderDetail = {
   signedDate: null,
   vendorSignature: null,
   signatureOnFile: null,
+  signedPdfBase64: null,
   opportunityId: null,
   changeOrders: [],
   invoices: [],

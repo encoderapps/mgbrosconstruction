@@ -726,10 +726,15 @@ export async function generatePurchaseOrderPdf(
   vendor: PurchaseOrderVendor,
   signature?: PurchaseOrderSignature,
 ): Promise<string> {
+  return writePurchaseOrderPdf(purchaseOrder.name, await buildPurchaseOrderPdfBase64(purchaseOrder, vendor, signature));
+}
+
+/** Writes a ready-made PO PDF (base64), e.g. the signed one from the API, to a cache file for the viewer. */
+export async function writePurchaseOrderPdf(purchaseOrderName: string, base64: string): Promise<string> {
   // The PO name can contain "#", which would end a file:// URI, so keep the file name to safe characters.
-  const safeName = purchaseOrder.name.replace(/[^A-Za-z0-9-]+/g, '-') || 'PO';
+  const safeName = purchaseOrderName.replace(/[^A-Za-z0-9-]+/g, '-') || 'PO';
   const outputPath = `${RNFS.CachesDirectoryPath}/${OUTPUT_FILE_PREFIX}-${safeName}-${Date.now()}.pdf`;
-  await RNFS.writeFile(outputPath, await buildPurchaseOrderPdfBase64(purchaseOrder, vendor, signature), 'base64');
+  await RNFS.writeFile(outputPath, base64, 'base64');
   return outputPath;
 }
 

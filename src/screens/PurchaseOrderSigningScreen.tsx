@@ -29,6 +29,7 @@ import {
   buildPurchaseOrderPdfBase64,
   deletePurchaseOrderPdf,
   generatePurchaseOrderPdf,
+  writePurchaseOrderPdf,
 } from '../services/purchaseOrderPdfService';
 import { PurchaseOrderSignature, SignatureOnFile } from '../types/purchaseOrder';
 import { savePurchaseOrderSignature } from '../services/purchaseOrderSignatureStore';
@@ -102,15 +103,19 @@ export function PurchaseOrderSigningScreen({ navigation, route }: Props): React.
     };
   }, []);
 
-  // Builds the PDF once the PO has loaded, and again with the signature after signing. A PO
-  // signed earlier on this device shows the signature saved then.
+  // A signed PO shows the signed PDF from the API (signature and date filled in) when it sends one.
+  // Otherwise the PDF is built here once the PO has loaded, and again with the signature after
+  // signing; a PO signed earlier on this device shows the signature saved then.
   useEffect(() => {
     if (!purchaseOrder) {
       return;
     }
     let isCancelled = false;
     setHasPdfError(false);
-    generatePurchaseOrderPdf(purchaseOrder, vendor, purchaseOrder.vendorSignature ?? undefined)
+    const pdfFile = purchaseOrder.signedPdfBase64
+      ? writePurchaseOrderPdf(purchaseOrder.name, purchaseOrder.signedPdfBase64)
+      : generatePurchaseOrderPdf(purchaseOrder, vendor, purchaseOrder.vendorSignature ?? undefined);
+    pdfFile
       .then((path) => {
         if (isCancelled) {
           deletePurchaseOrderPdf(path);
@@ -212,6 +217,8 @@ export function PurchaseOrderSigningScreen({ navigation, route }: Props): React.
       );
       setSignedSignature(signature);
       updateReviewScreen(result.status, signedDate);
+      // Picks up the signed PDF and signing date the API now has (the PDF drawn here shows until then).
+      refresh();
     } catch (error) {
       if (isMountedRef.current) {
         Alert.alert(
@@ -369,9 +376,9 @@ export function PurchaseOrderSigningScreen({ navigation, route }: Props): React.
       );
     }
     // Just signed here, or opened later from a signed PO's document link: both show the signed
-    // state. The signing date (and the PDF's signature) are only known for POs signed on this device.
+    // state, with the API's signing date (else the one from signing on this device).
     const isPurchaseOrderSigned = !!signedSignature || isSigned(purchaseOrder.status);
-    const signedOn = signedSignature?.date ?? purchaseOrder.signedDate;
+    const signedOn = purchaseOrder.signedDate ?? signedSignature?.date;
     return (
       <>
         {isPurchaseOrderSigned && (

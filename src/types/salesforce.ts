@@ -213,6 +213,8 @@ export interface PurchaseOrderDetailApiResponse {
     /** Whether MG Bros has signed, and when (YYYY-MM-DD). */
     contractorSigned?: boolean | null;
     contractorSignedDate?: string | null;
+    /** The signed PO as a base64 PDF, with the vendor's signature and signing date on it; only once signed. */
+    pdfBase64Data?: string | null;
     /**
      * The job (Opportunity) the PO belongs to, which a new invoice is created on.
      * NOTE: not returned yet; the PO record has it (Job__c / Opportunity__c).

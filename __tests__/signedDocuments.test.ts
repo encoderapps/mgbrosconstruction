@@ -89,6 +89,7 @@ describe('buildPurchaseOrderPdfBase64', () => {
       signedDate: null,
       vendorSignature: null,
       signatureOnFile: null,
+      signedPdfBase64: null,
       opportunityId: null,
       changeOrders: null,
       invoices: null,

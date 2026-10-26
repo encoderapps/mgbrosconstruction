@@ -92,6 +92,8 @@ export interface PurchaseOrderDetail {
   vendorSignature: PurchaseOrderSignature | null;
   /** The signature to sign this PO with, from the API; null when it sends none. */
   signatureOnFile: SignatureOnFile | null;
+  /** The signed PO from the API as a base64 PDF (signature and date filled in); null when it sends none. */
+  signedPdfBase64: string | null;
   /** null when they couldn't be loaded (the screen offers a retry). */
   changeOrders: PurchaseOrderLedgerEntry[] | null;
   /** null when they couldn't be loaded (the screen offers a retry). */
