@@ -215,12 +215,22 @@ export interface PurchaseOrderDetailApiResponse {
     contractorSignedDate?: string | null;
     /** The signed PO as a base64 PDF, with the vendor's signature and signing date on it; only once signed. */
     pdfBase64Data?: string | null;
+    /** The signed copies of the PO; the newest is the one shown. */
+    signedPurchaseOrderFiles?: SignedPurchaseOrderFileApiRecord[] | null;
     /**
      * The job (Opportunity) the PO belongs to, which a new invoice is created on.
      * NOTE: not returned yet; the PO record has it (Job__c / Opportunity__c).
      */
     opportunityId?: string | null;
   } | null;
+}
+
+/** One signed copy of a PO, as in the PO detail's signedPurchaseOrderFiles. */
+export interface SignedPurchaseOrderFileApiRecord {
+  /** YYYY-MM-DD. */
+  signedDate?: string | null;
+  /** The signed PO as a base64 PDF. */
+  pdfBase64Data?: string | null;
 }
 
 /** One term as sent to PATCH /modifyPaymentTerms; Salesforce works out the amount. */
