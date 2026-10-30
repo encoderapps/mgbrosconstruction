@@ -33,7 +33,7 @@ export function GeneralLiabilityScreen({ navigation, route }: Props): React.JSX.
   const [isUploading, setIsUploading] = useState(false);
 
   const handleGLTemplatePress = (): void => {
-    navigation.navigate('TemplatePreview', { title: 'GL Template', template: 'gl', currentStep: 4 });
+    navigation.navigate('TemplatePreview', { title: 'GL Template', template: 'gl' });
   };
 
   const handleUploadPress = async (): Promise<void> => {

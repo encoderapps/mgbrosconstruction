@@ -1,26 +1,30 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AuthCard } from '../components/AuthCard';
-import { AuthHeader } from '../components/AuthHeader';
-import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
-import { RegistrationProgress } from '../components/RegistrationProgress';
 import { ZoomablePdf } from '../components/ZoomablePdf';
-import { fontFamily, welcomeColors } from '../theme';
+import { ArrowLeftIcon } from '../assets/icons';
+import { fontFamily, radius, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { getCertificateTemplatePath } from '../services/certificateTemplateService';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'TemplatePreview'>;
 
-const TOTAL_STEPS = 6;
-
+/**
+ * A registration PDF (the GL or WC template, or the agreement) full screen,
+ * to pinch or double-tap zoom, with a back arrow top left.
+ */
 export function TemplatePreviewScreen({ navigation, route }: Props): React.JSX.Element {
-  const { title, template, currentStep } = route.params;
-  const [pdfPath, setPdfPath] = useState<string | null>(null);
+  const { title } = route.params;
+  const givenPath = 'path' in route.params ? route.params.path : null;
+  const template = 'template' in route.params ? route.params.template : null;
+  const [pdfPath, setPdfPath] = useState<string | null>(givenPath);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
+    if (!template) {
+      return;
+    }
     let isMounted = true;
     getCertificateTemplatePath(template)
       .then((path) => {
@@ -52,25 +56,24 @@ export function TemplatePreviewScreen({ navigation, route }: Props): React.JSX.E
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        <AuthHeader />
+        <View style={styles.titleRow}>
+          <Pressable onPress={() => navigation.goBack()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
+            <ArrowLeftIcon size={18} color={welcomeColors.accent} />
+          </Pressable>
+          <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
+            {title}
+          </Text>
+        </View>
 
-        <RegistrationProgress totalSteps={TOTAL_STEPS} currentStep={currentStep} />
-
-        <AuthCard style={styles.card}>
-          <Text style={styles.title}>{title}</Text>
-
-          <View style={styles.pdfWrapper}>
-            {hasError ? (
-              <Text style={styles.errorText}>Unable to display the template. Please try again.</Text>
-            ) : pdfPath ? (
-              <ZoomablePdf path={pdfPath} style={styles.pdf} onError={handlePdfError} />
-            ) : (
-              <ActivityIndicator color={welcomeColors.accent} />
-            )}
-          </View>
-
-          <AuthPrimaryButton title="Back" onPress={() => navigation.goBack()} />
-        </AuthCard>
+        <View style={styles.pdfWrapper}>
+          {hasError ? (
+            <Text style={styles.errorText}>Unable to display this document. Please try again.</Text>
+          ) : pdfPath ? (
+            <ZoomablePdf path={pdfPath} style={styles.pdf} onError={handlePdfError} />
+          ) : (
+            <ActivityIndicator color={welcomeColors.accent} />
+          )}
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -83,26 +86,28 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 20,
-    gap: 24,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    gap: 12,
   },
-  card: {
-    flex: 1,
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 36,
   },
   title: {
+    flex: 1,
     fontFamily: fontFamily.semiBold,
     fontWeight: '600',
-    fontSize: 13,
-    lineHeight: 18,
-    color: welcomeColors.textPrimary,
-    marginBottom: 12,
+    fontSize: 14,
+    color: welcomeColors.accent,
   },
   pdfWrapper: {
     flex: 1,
     justifyContent: 'center',
-    marginBottom: 16,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: welcomeColors.cardBorder,
     backgroundColor: welcomeColors.cardBackground,
@@ -116,7 +121,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: fontFamily.regular,
     fontWeight: '400',
-    fontSize: 12,
+    fontSize: 13,
     color: welcomeColors.textSecondary,
     textAlign: 'center',
     padding: 16,

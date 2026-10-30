@@ -28,14 +28,15 @@ const NUMBER_MAX_LENGTH = 11;
 
 const INVALID_AMOUNT_MESSAGE = `greater than $0 and no more than ${formatCurrency(MAX_CURRENCY_AMOUNT, true)}`;
 
-/** Like parseCurrencyInput, but 0 (and empty) is allowed: a markup can be nothing. */
-function parseMarkupInput(text: string): number | null {
-  const trimmed = text.trim();
-  if (!trimmed || /^0*(\.0*)?$/.test(trimmed)) {
-    return 0;
-  }
-  return parseCurrencyInput(trimmed);
-}
+// Used by the Markup field, which is hidden for now.
+// /** Like parseCurrencyInput, but 0 (and empty) is allowed: a markup can be nothing. */
+// function parseMarkupInput(text: string): number | null {
+//   const trimmed = text.trim();
+//   if (!trimmed || /^0*(\.0*)?$/.test(trimmed)) {
+//     return 0;
+//   }
+//   return parseCurrencyInput(trimmed);
+// }
 
 /** The Product picklist on a "Job Change Order" line item. */
 const PRODUCT_OPTIONS = ['Product', 'Service'];
@@ -126,7 +127,7 @@ export function AddChangeOrderItemScreen({ navigation, route }: Props): React.JS
 
 /**
  * Service Item → Category → Product (each narrowed by the one before),
- * Description, Markup, Cost and PO Cost.
+ * Description and PO Cost (Markup and Cost are hidden for now).
  */
 function JobChangeOrderItemForm(props: FormProps): React.JSX.Element {
   const { poId, changeOrder, isSaving } = props;
@@ -134,8 +135,9 @@ function JobChangeOrderItemForm(props: FormProps): React.JSX.Element {
   const [category, setCategory] = useState('');
   const [product, setProduct] = useState('');
   const [description, setDescription] = useState('');
-  const [markupText, setMarkupText] = useState('');
-  const [costText, setCostText] = useState('');
+  // Markup and Cost are hidden for now; 0 is sent for both.
+  // const [markupText, setMarkupText] = useState('');
+  // const [costText, setCostText] = useState('');
   const [poCostText, setPoCostText] = useState('');
 
   const categories = SERVICE_ITEM_CATEGORIES[serviceItem] ?? [];
@@ -168,25 +170,27 @@ function JobChangeOrderItemForm(props: FormProps): React.JSX.Element {
       Alert.alert('Missing description', 'Please enter a description for this line item.');
       return;
     }
-    const markup = parseMarkupInput(markupText);
-    if (markup === null) {
-      Alert.alert('Invalid markup', `Please enter a markup of 0 or more, up to ${formatCurrency(MAX_CURRENCY_AMOUNT, true)}.`);
-      return;
-    }
-    const cost = parseCurrencyInput(costText);
-    if (cost === null) {
-      Alert.alert('Invalid cost', `Please enter a cost ${INVALID_AMOUNT_MESSAGE}.`);
-      return;
-    }
+    // const markup = parseMarkupInput(markupText);
+    // if (markup === null) {
+    //   Alert.alert('Invalid markup', `Please enter a markup of 0 or more, up to ${formatCurrency(MAX_CURRENCY_AMOUNT, true)}.`);
+    //   return;
+    // }
+    // const cost = parseCurrencyInput(costText);
+    // if (cost === null) {
+    //   Alert.alert('Invalid cost', `Please enter a cost ${INVALID_AMOUNT_MESSAGE}.`);
+    //   return;
+    // }
+    const markup = 0;
+    const cost = 0;
     const poCost = parseCurrencyInput(poCostText);
     if (poCost === null) {
       Alert.alert('Invalid PO cost', `Please enter a PO cost ${INVALID_AMOUNT_MESSAGE}.`);
       return;
     }
-    if (cost + markup > MAX_CURRENCY_AMOUNT) {
-      Alert.alert('Amount too large', `Cost plus markup can't be more than ${formatCurrency(MAX_CURRENCY_AMOUNT, true)}.`);
-      return;
-    }
+    // if (cost + markup > MAX_CURRENCY_AMOUNT) {
+    //   Alert.alert('Amount too large', `Cost plus markup can't be more than ${formatCurrency(MAX_CURRENCY_AMOUNT, true)}.`);
+    //   return;
+    // }
     submit(props, (accountId) =>
       addJobChangeOrderItem(accountId, poId, changeOrder, {
         serviceItem,
@@ -240,8 +244,8 @@ function JobChangeOrderItemForm(props: FormProps): React.JSX.Element {
         multiline
         editable={!isSaving}
       />
-      <CurrencyInput label="Markup" placeholder="0.00" value={markupText} onChange={setMarkupText} editable={!isSaving} />
-      <CurrencyInput label="Cost" required placeholder="0.00" value={costText} onChange={setCostText} editable={!isSaving} />
+      {/* <CurrencyInput label="Markup" placeholder="0.00" value={markupText} onChange={setMarkupText} editable={!isSaving} /> */}
+      {/* <CurrencyInput label="Cost" required placeholder="0.00" value={costText} onChange={setCostText} editable={!isSaving} /> */}
       <CurrencyInput
         label="PO Cost"
         required

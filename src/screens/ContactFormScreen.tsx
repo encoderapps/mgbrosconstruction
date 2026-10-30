@@ -37,7 +37,6 @@ export function ContactFormScreen({ navigation, route }: Props): React.JSX.Eleme
   const [middleName, setMiddleName] = useState(existing?.middleName ?? '');
   const [lastName, setLastName] = useState(existing?.lastName ?? '');
   const [suffix, setSuffix] = useState(existing?.suffix ?? '');
-  const [contactOwner, setContactOwner] = useState(existing?.contactOwner ?? '');
   // Contacts store one address line; edit it as separate parts and join them back on save.
   const [initialAddress] = useState(() => splitAddress(existing?.address));
   const [street, setStreet] = useState(initialAddress.street);
@@ -78,7 +77,6 @@ export function ContactFormScreen({ navigation, route }: Props): React.JSX.Eleme
       middleName: middleName.trim(),
       lastName: lastName.trim(),
       suffix: suffix.trim(),
-      contactOwner: contactOwner.trim(),
       address: joinAddressParts([street, city, addressState, zipCode]),
       phone: phone.trim(),
       email: email.trim(),
@@ -86,8 +84,7 @@ export function ContactFormScreen({ navigation, route }: Props): React.JSX.Eleme
 
     setIsSaving(true);
     try {
-      // Suffix and Contact Owner aren't accepted by the contact API yet, so
-      // they're only kept locally.
+      // Suffix isn't accepted by the contact API yet, so it's only kept locally.
       const payload = {
         AccountId: accountId,
         Salutation: contact.salutation,
@@ -185,13 +182,6 @@ export function ContactFormScreen({ navigation, route }: Props): React.JSX.Eleme
               placeholder="Enter suffix"
               value={suffix}
               onChangeText={setSuffix}
-              autoCapitalize="words"
-            />
-            <LoginInput
-              label="Contact Owner"
-              placeholder="Enter contact owner"
-              value={contactOwner}
-              onChangeText={setContactOwner}
               autoCapitalize="words"
             />
             <LoginInput

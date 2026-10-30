@@ -32,7 +32,6 @@ import { Bid } from '../types/bid';
 import { fetchInvoices } from '../services/invoiceService';
 import { fetchPurchaseOrders } from '../services/purchaseOrderService';
 import { fetchSubcontractorProjects } from '../services/subcontractorProjectService';
-import { showComingSoon } from '../utils/comingSoon';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Home'>;
 
@@ -184,8 +183,7 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
             projects={recentProjects.items}
             status={recentProjects.status}
             onRetry={recentProjects.reload}
-            // TODO: open the project once its screen is designed.
-            onProjectPress={(project) => showComingSoon(project.name)}
+            // TODO: pass onProjectPress once the project screen is designed; until then the rows can't be tapped.
           />
         </ExpandableTableSection>
 

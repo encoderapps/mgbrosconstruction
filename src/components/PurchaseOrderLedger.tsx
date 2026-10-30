@@ -13,10 +13,15 @@ type PurchaseOrderLedgerProps = {
   purchaseOrder: PurchaseOrderDetail;
   /** For the document link: "PO - <vendor> - <job address>". */
   vendorName: string;
+  /** Creates a change order straight away, without a form. */
   onAddChangeOrder: () => void;
-  onAddInvoice: () => void;
+  /** While a change order is being created: its button says so and can't be tapped again. */
+  isAddingChangeOrder?: boolean;
+  /** Shows the Add Invoice button by Total Amount; left out, the button is hidden. */
+  onAddInvoice?: () => void;
   onOpenChangeOrder: (changeOrder: PurchaseOrderLedgerEntry) => void;
-  onOpenInvoice: (invoice: PurchaseOrderLedgerEntry) => void;
+  /** Makes the invoice numbers links; left out, they're plain text. */
+  onOpenInvoice?: (invoice: PurchaseOrderLedgerEntry) => void;
   onOpenDocument: () => void;
   /** Re-loads the PO when its change orders and invoices couldn't be loaded. */
   onRetry: () => void;
@@ -51,10 +56,17 @@ function ledgerColumns(nameLabel: string, onOpen: (entry: PurchaseOrderLedgerEnt
   ];
 }
 
-/** The invoice table: invoice number (opens it), vendor invoice number, amount and status. */
-function invoiceColumns(onOpen: (invoice: PurchaseOrderLedgerEntry) => void): DataTableColumn<LedgerRow>[] {
+/** The invoice table: invoice number (opens it, when onOpen is given), vendor invoice number, amount and status. */
+function invoiceColumns(onOpen?: (invoice: PurchaseOrderLedgerEntry) => void): DataTableColumn<LedgerRow>[] {
   return [
-    { key: 'name', label: 'Invoice Number', width: 104, isLink: true, getValue: (invoice) => invoice.name, onPress: onOpen },
+    {
+      key: 'name',
+      label: 'Invoice Number',
+      width: 104,
+      isLink: !!onOpen,
+      getValue: (invoice) => invoice.name,
+      onPress: onOpen,
+    },
     {
       key: 'vendorInvoiceNumber',
       label: 'Vendor Invoice Number',
@@ -85,6 +97,7 @@ export function PurchaseOrderLedger({
   purchaseOrder,
   vendorName,
   onAddChangeOrder,
+  isAddingChangeOrder = false,
   onAddInvoice,
   onOpenChangeOrder,
   onOpenInvoice,
@@ -96,7 +109,13 @@ export function PurchaseOrderLedger({
 
   return (
     <>
-      <AmountRow label="PO Amount" amount={totals.poAmount} actionLabel="Add Change Order" onAction={onAddChangeOrder} />
+      <AmountRow
+        label="PO Amount"
+        amount={totals.poAmount}
+        actionLabel={isAddingChangeOrder ? 'Adding…' : 'Add Change Order'}
+        onAction={onAddChangeOrder}
+        isActionBusy={isAddingChangeOrder}
+      />
       <DataTable
         columns={ledgerColumns('Change Order', onOpenChangeOrder)}
         rows={withIndex(purchaseOrder.changeOrders ?? [])}
@@ -140,12 +159,15 @@ function AmountRow({
   amount,
   actionLabel,
   onAction,
+  isActionBusy = false,
 }: {
   label: string;
   /** null when it can't be worked out (shown as a dash). */
   amount: number | null;
   actionLabel?: string;
   onAction?: () => void;
+  /** The action is running: its button can't be tapped again. */
+  isActionBusy?: boolean;
 }): React.JSX.Element {
   return (
     <View style={[styles.section, styles.amountRow]}>
@@ -156,8 +178,10 @@ function AmountRow({
       {actionLabel && onAction && (
         <Pressable
           onPress={onAction}
-          style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
+          disabled={isActionBusy}
+          style={({ pressed }) => [styles.actionButton, (pressed || isActionBusy) && styles.pressed]}
           accessibilityRole="button"
+          accessibilityState={{ disabled: isActionBusy, busy: isActionBusy }}
         >
           <Text style={styles.actionText}>{actionLabel}</Text>
         </Pressable>

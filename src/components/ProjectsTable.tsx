@@ -10,7 +10,8 @@ type ProjectsTableProps = {
   projects: SubcontractorProject[];
   status: LoadStatus;
   onRetry: () => void;
-  onProjectPress: (project: SubcontractorProject) => void;
+  /** Left out while a project can't be opened yet: the rows are plain text, not links. */
+  onProjectPress?: (project: SubcontractorProject) => void;
 };
 
 /** The Home screen's Projects preview: a brown "Project" header over one tappable row per project. */
@@ -29,17 +30,18 @@ export function ProjectsTable({ projects, status, onRetry, onProjectPress }: Pro
           {projects.map((project, index) => (
             <Pressable
               key={project.id}
-              onPress={() => onProjectPress(project)}
+              onPress={onProjectPress && (() => onProjectPress(project))}
+              disabled={!onProjectPress}
               style={({ pressed }) => [styles.row, index > 0 && styles.rowDivider, pressed && styles.pressed]}
-              accessibilityRole="link"
+              accessibilityRole={onProjectPress ? 'link' : 'text'}
             >
               <View style={styles.iconWrapper}>
                 <BriefcaseIcon size={14} color={welcomeColors.accent} />
               </View>
-              <Text style={styles.name} numberOfLines={1}>
+              <Text style={[styles.name, !onProjectPress && styles.plainName]} numberOfLines={1}>
                 {project.name}
               </Text>
-              <ChevronRightIcon size={14} color={welcomeColors.accent} />
+              {onProjectPress && <ChevronRightIcon size={14} color={welcomeColors.accent} />}
             </Pressable>
           ))}
         </View>
@@ -86,6 +88,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontSize: 12,
     color: welcomeColors.link,
+  },
+  plainName: {
+    color: welcomeColors.textPrimary,
   },
   pressed: {
     opacity: 0.7,

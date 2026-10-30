@@ -116,23 +116,33 @@ export interface CreateContactResponse {
 
 export type InvoicesView = 'recent' | 'all';
 
-/** One invoice as returned by the invoices API (field names not yet confirmed). */
+/** One invoice (a bookkeeping record) as returned by GET /bookkeeping/fetch. Only the fields the app uses. */
 export interface InvoiceApiRecord {
+  /** The record's Salesforce Id. */
   id?: string | null;
   invoiceId?: string | null;
+  /** e.g. "BR-000027379". */
   invoiceNumber?: string | null;
+  /** The subcontractor's own invoice number. */
   vendorInvoiceNumber?: string | null;
   /** Salesforce may send amounts as text, e.g. "1000.00". */
-  amount?: number | string | null;
+  totalAmount?: number | string | null;
+  /** e.g. "Created". */
   status?: string | null;
 }
 
 export interface InvoicesApiResponse {
   success: boolean;
   message?: string;
-  view: InvoicesView;
-  totalInvoices: number;
-  invoices: InvoiceApiRecord[];
+  totalRecords?: number | null;
+  invoices?: InvoiceApiRecord[] | null;
+}
+
+/** GET /serviceitems: the "Service" picklist values offered at registration. */
+export interface ServiceItemsApiResponse {
+  success: boolean;
+  message?: string;
+  serviceItems?: (string | null)[] | null;
 }
 
 export type PurchaseOrdersView = 'home' | 'all';
@@ -144,6 +154,20 @@ export interface PurchaseOrderApiRecord {
   paidAmount: number | null;
   vendor: string | null;
   createdDate: string | null;
+  totalAmount?: number | null;
+  projectName?: string | null;
+}
+
+/** One change order in the purchase orders list API's top-level changeOrders (every PO's, together). */
+export interface PurchaseOrderListChangeOrderApiRecord {
+  id: string;
+  name: string | null;
+  status: string | null;
+  totalAmount: number | null;
+  source?: string | null;
+  /** The name (not Id) of the PO it belongs to. */
+  purchaseOrderName: string | null;
+  projectName: string | null;
 }
 
 export interface PurchaseOrdersApiResponse {
@@ -152,6 +176,7 @@ export interface PurchaseOrdersApiResponse {
   /** Number of purchase orders returned (5 at most for view=home, so not the total). */
   count: number;
   purchaseOrders: PurchaseOrderApiRecord[];
+  changeOrders?: PurchaseOrderListChangeOrderApiRecord[] | null;
 }
 
 /** One payment term inside the detail API's paymentTerms. */
@@ -222,6 +247,8 @@ export interface PurchaseOrderDetailApiResponse {
      * NOTE: not returned yet; the PO record has it (Job__c / Opportunity__c).
      */
     opportunityId?: string | null;
+    /** The PO's invoices; null or absent when the API doesn't send them. */
+    bookkeepingRecords?: PurchaseOrderInvoiceApiRecord[] | null;
   } | null;
 }
 
@@ -316,6 +343,18 @@ export interface CreateChangeOrderApiPayload {
   dateOfIssue: string;
   /** Optional: left out when empty. */
   specialInstructions?: string;
+}
+
+/**
+ * POST /createjobchangeorder body for a blank change order: just the PO and
+ * account; the API works out the rest (job, project, today's date of issue)
+ * from the PO, for a Job PO and a My Job PO alike.
+ */
+export interface CreateBlankChangeOrderApiPayload {
+  poId: string;
+  accountId: string;
+  /** The PO's job, sent when the PO detail already has it; a My Job PO has none. */
+  jobId?: string;
 }
 
 export interface CreateChangeOrderApiResponse {
@@ -499,14 +538,25 @@ export interface CreateInvoiceApiResponse {
   } | null;
 }
 
-/** NOTE: field names not yet confirmed — every PO tested so far returned no invoices. */
+/**
+ * One of a PO's invoices: a bookkeeping record, with the same fields as
+ * GET /bookkeeping/fetch (invoiceNumber, totalAmount, …). The older invoice
+ * field names (invoiceNo, name, amount) are still read as a fallback.
+ */
 export interface PurchaseOrderInvoiceApiRecord {
   id?: string;
+  /** e.g. "BR-000027379". */
+  invoiceNumber?: string | null;
   invoiceNo?: string | null;
+  /** The PO detail API's name for the invoice number, e.g. "BR-000027381". */
+  recordNumber?: string | null;
   name?: string | null;
-  /** NOTE: field name assumed; the sample responses don't include one yet. */
   vendorInvoiceNumber?: string | null;
+  /** The PO detail API's name for the vendor's own invoice number. */
+  vendorNumber?: string | null;
   status?: string | null;
+  /** Salesforce may send amounts as text, e.g. "1000.00". */
+  totalAmount?: number | string | null;
   amount?: number | string | null;
   balanceDue?: number | string | null;
 }
@@ -522,6 +572,9 @@ export interface PurchaseOrderChangeOrdersApiResponse {
   paidInvoiceAmount?: number | null;
   balanceDue?: number | null;
   changeOrders?: ChangeOrderApiRecord[] | null;
+  /** The PO's invoices. */
+  bookkeepingRecords?: PurchaseOrderInvoiceApiRecord[] | null;
+  /** Older name for bookkeepingRecords. */
   invoices?: PurchaseOrderInvoiceApiRecord[] | null;
   /** Only when the request names a changeOrderId. */
   changeOrderDetail?: ChangeOrderDetailApiRecord | null;

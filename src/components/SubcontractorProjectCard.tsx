@@ -26,8 +26,10 @@ const ACTIONS: readonly { key: ProjectAction; Icon: React.ComponentProps<typeof 
 
 type SubcontractorProjectCardProps = {
   project: SubcontractorProject;
-  onOpen: (project: SubcontractorProject) => void;
-  onAction: (project: SubcontractorProject, action: ProjectAction) => void;
+  /** Left out while a project can't be opened yet: its name can't be tapped. */
+  onOpen?: (project: SubcontractorProject) => void;
+  /** Left out while the shortcuts aren't available yet: they're shown disabled. */
+  onAction?: (project: SubcontractorProject, action: ProjectAction) => void;
 };
 
 /**
@@ -43,10 +45,11 @@ export const SubcontractorProjectCard = memo(function SubcontractorProjectCardVi
   return (
     <AuthCard style={styles.card}>
       <Pressable
-        onPress={() => onOpen(project)}
+        onPress={onOpen && (() => onOpen(project))}
+        disabled={!onOpen}
         style={({ pressed }) => [styles.header, pressed && styles.pressed]}
-        accessibilityRole="button"
-        accessibilityLabel={`Open ${project.name}`}
+        accessibilityRole={onOpen ? 'button' : 'text'}
+        accessibilityLabel={onOpen ? `Open ${project.name}` : project.name}
       >
         <View style={styles.iconWrapper}>
           <FolderIcon size={18} color={welcomeColors.accent} />
@@ -54,7 +57,7 @@ export const SubcontractorProjectCard = memo(function SubcontractorProjectCardVi
         <Text style={styles.name} numberOfLines={1}>
           {project.name}
         </Text>
-        <ChevronRightIcon size={16} color={welcomeColors.accent} />
+        {onOpen && <ChevronRightIcon size={16} color={welcomeColors.accent} />}
       </Pressable>
 
       <View style={styles.actions}>
@@ -63,7 +66,7 @@ export const SubcontractorProjectCard = memo(function SubcontractorProjectCardVi
             key={key}
             label={PROJECT_ACTION_LABELS[key]}
             Icon={Icon}
-            onPress={() => onAction(project, key)}
+            onPress={onAction && (() => onAction(project, key))}
             accessibilityLabel={`${PROJECT_ACTION_LABELS[key]}, ${project.name}`}
           />
         ))}

@@ -17,7 +17,7 @@ import {
   DocumentIcon,
   PlusIcon,
 } from '../assets/icons';
-import { fontFamily, portalColors, radius, toneColors, welcomeColors } from '../theme';
+import { fontFamily, portalColors, radius, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { DUE_DATE_TERM_DAYS, DUE_DATE_TERMS } from '../constants/paymentSettings';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
@@ -76,20 +76,19 @@ export function PaymentSettingsScreen({ navigation }: Props): React.JSX.Element 
           <CardIcon size={16} color={welcomeColors.accent} />
         </View>
         <Text style={styles.sectionTitle}>ACH Info</Text>
-        {ach && (
-          <Pressable
-            onPress={() => navigation.navigate('AchInformation', { existing: ach })}
-            hitSlop={8}
-            style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Replace ACH information"
-          >
-            <PlusIcon size={14} />
-          </Pressable>
-        )}
+        {/* Adds the bank details, or replaces the ones on file. */}
+        <Pressable
+          onPress={() => navigation.navigate('AchInformation', ach ? { existing: ach } : undefined)}
+          hitSlop={8}
+          style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={ach ? 'Replace ACH information' : 'Add ACH information'}
+        >
+          <PlusIcon size={14} />
+        </Pressable>
       </View>
 
-      {ach ? (
+      {ach && (
         <>
           <View style={styles.detailsBox}>
             {[
@@ -115,17 +114,6 @@ export function PaymentSettingsScreen({ navigation }: Props): React.JSX.Element 
             <Text style={styles.fileLinkText}>ACH Form</Text>
           </Pressable>
         </>
-      ) : (
-        <View style={[styles.detailsBox, styles.emptyBox]}>
-          <Text style={styles.emptyText}>No ACH information on file</Text>
-          <Pressable
-            onPress={() => navigation.navigate('AchInformation')}
-            style={({ pressed }) => [styles.addAchButton, pressed && styles.pressed]}
-            accessibilityRole="button"
-          >
-            <Text style={styles.addAchText}>Add ACH</Text>
-          </Pressable>
-        </View>
       )}
     </View>
   );
@@ -327,29 +315,6 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontFamily: fontFamily.semiBold,
     fontWeight: '600',
-  },
-  emptyBox: {
-    alignItems: 'center',
-    paddingVertical: 18,
-    gap: 12,
-  },
-  emptyText: {
-    fontFamily: fontFamily.medium,
-    fontWeight: '500',
-    fontSize: 13,
-    color: welcomeColors.textSecondary,
-  },
-  addAchButton: {
-    backgroundColor: toneColors.success.foreground,
-    borderRadius: radius.sm,
-    paddingHorizontal: 22,
-    paddingVertical: 9,
-  },
-  addAchText: {
-    fontFamily: fontFamily.semiBold,
-    fontWeight: '600',
-    fontSize: 14,
-    color: welcomeColors.cardBackground,
   },
   fileLink: {
     flexDirection: 'row',

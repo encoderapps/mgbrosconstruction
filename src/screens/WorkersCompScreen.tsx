@@ -31,7 +31,7 @@ export function WorkersCompScreen({ navigation, route }: Props): React.JSX.Eleme
   const [isUploading, setIsUploading] = useState(false);
 
   const handleWCTemplatePress = (): void => {
-    navigation.navigate('TemplatePreview', { title: 'WC Template', template: 'wc', currentStep: 5 });
+    navigation.navigate('TemplatePreview', { title: 'WC Template', template: 'wc' });
   };
 
   const handleUploadPress = async (): Promise<void> => {

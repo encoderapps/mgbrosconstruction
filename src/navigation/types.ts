@@ -126,7 +126,8 @@ export type AuthStackParamList = {
   VerifyResetCode: { email: string };
   ChangePassword: { email: string; resetCode: string };
   PasswordResetSuccess: undefined;
-  TemplatePreview: { title: string; template: CertificateTemplate; currentStep: number };
+  /** A registration PDF full screen: a bundled GL/WC template, or a PDF already on disk (the agreement). */
+  TemplatePreview: { title: string } & ({ template: CertificateTemplate } | { path: string });
   Home: undefined;
   AddContact: undefined;
   EditContact: { contactId: string };

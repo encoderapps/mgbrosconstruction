@@ -1,6 +1,6 @@
 import { fetchInvoices } from '../src/services/invoiceService';
 import { fetchPurchaseOrderDetail } from '../src/services/purchaseOrderDetailService';
-import { fetchPurchaseOrders } from '../src/services/purchaseOrderService';
+import { fetchAllPurchaseOrders, fetchPurchaseOrders } from '../src/services/purchaseOrderService';
 import { salesforceGet } from '../src/services/salesforceClient';
 import { toDateOnlyString } from '../src/utils/dateValidation';
 
@@ -27,6 +27,8 @@ describe('fetchPurchaseOrders', () => {
           paidAmount: 0,
           vendor: 'ABC Construction Services',
           createdDate: '2026-09-29T20:21:34.000Z',
+          totalAmount: 1400,
+          projectName: '[TEST] 666 Post Street - Test Account',
         },
       ],
     });
@@ -49,6 +51,8 @@ describe('fetchPurchaseOrders', () => {
           vendor: 'ABC Construction Services',
           // The timestamp's calendar date on this machine (it differs by time zone).
           createdDate: toDateOnlyString(new Date('2026-09-29T20:21:34.000Z')),
+          totalAmount: 1400,
+          projectName: '[TEST] 666 Post Street - Test Account',
         },
       ],
     });
@@ -91,7 +95,16 @@ describe('fetchPurchaseOrders', () => {
 
     const { items } = await fetchPurchaseOrders('001ACCOUNT', 'all');
 
-    expect(items[0]).toEqual({ id: 'a1w2', name: '', status: '', paidAmount: 0, vendor: '', createdDate: null });
+    expect(items[0]).toEqual({
+      id: 'a1w2',
+      name: '',
+      status: '',
+      paidAmount: 0,
+      vendor: '',
+      createdDate: null,
+      totalAmount: 0,
+      projectName: '',
+    });
   });
 
   it('throws the API message when the request is unsuccessful', async () => {
@@ -101,13 +114,70 @@ describe('fetchPurchaseOrders', () => {
   });
 });
 
+describe('fetchAllPurchaseOrders', () => {
+  it('returns every change order, linked to its PO by name', async () => {
+    mockedGet.mockResolvedValue({
+      success: true,
+      count: 1,
+      purchaseOrders: [
+        { id: 'a1w1', name: 'Job-PO#0001135', status: 'Signed', paidAmount: 0, vendor: 'ABC', createdDate: null },
+      ],
+      changeOrders: [
+        {
+          id: 'a1u1',
+          name: 'Job-CO#0000552',
+          status: 'Signed by Vendor',
+          totalAmount: 500,
+          source: 'Job Change Order',
+          purchaseOrderName: 'Job-PO#0001135',
+          projectName: '[TEST] 666 Post Street - Test Account',
+        },
+        {
+          id: 'a6X1',
+          name: null,
+          status: null,
+          totalAmount: null,
+          purchaseOrderName: 'J-PO#0000004',
+          projectName: null,
+        },
+      ],
+    });
+
+    const result = await fetchAllPurchaseOrders('001ACCOUNT');
+
+    expect(mockedGet).toHaveBeenCalledWith(expect.any(String), { accountId: '001ACCOUNT', view: 'all' });
+    expect(result.count).toBe(1);
+    expect(result.changeOrders).toEqual([
+      {
+        id: 'a1u1',
+        name: 'Job-CO#0000552',
+        status: 'Signed by Vendor',
+        totalAmount: 500,
+        source: 'Job Change Order',
+        purchaseOrderName: 'Job-PO#0001135',
+        purchaseOrderId: 'a1w1',
+        projectName: '[TEST] 666 Post Street - Test Account',
+      },
+      {
+        id: 'a6X1',
+        name: '',
+        status: '',
+        totalAmount: 0,
+        purchaseOrderName: 'J-PO#0000004',
+        purchaseOrderId: null,
+        projectName: '',
+      },
+    ]);
+  });
+});
+
 describe('fetchInvoices', () => {
-  it('uses totalInvoices as the count', async () => {
-    mockedGet.mockResolvedValue({ success: true, view: 'recent', totalInvoices: 55, invoices: [] });
+  it('uses totalRecords as the count', async () => {
+    mockedGet.mockResolvedValue({ success: true, totalRecords: 55, invoices: [] });
 
     const result = await fetchInvoices('001ACCOUNT', 'recent');
 
-    expect(mockedGet).toHaveBeenCalledWith(expect.stringMatching(/\/invoices\/fetch$/), {
+    expect(mockedGet).toHaveBeenCalledWith(expect.stringMatching(/\/bookkeeping\/fetch$/), {
       accountId: '001ACCOUNT',
       view: 'recent',
     });
@@ -117,18 +187,17 @@ describe('fetchInvoices', () => {
   it('maps each invoice, reading text amounts and leaving missing values empty (shown as a dash)', async () => {
     mockedGet.mockResolvedValue({
       success: true,
-      view: 'all',
-      totalInvoices: 2,
+      totalRecords: 2,
       invoices: [
-        { invoiceId: 'a0n1', invoiceNumber: 'INV-000004645', vendorInvoiceNumber: 'V-77', amount: '1000.00', status: 'New' },
-        { id: 'a0n2', invoiceNumber: null, vendorInvoiceNumber: null, amount: null, status: null },
+        { id: 'a1k1', invoiceNumber: 'BR-000027379', vendorInvoiceNumber: 'V-77', totalAmount: '1000.00', status: 'Created' },
+        { invoiceId: 'a0n2', invoiceNumber: null, vendorInvoiceNumber: null, totalAmount: null, status: null },
       ],
     });
 
     const { items } = await fetchInvoices('001ACCOUNT', 'all');
 
     expect(items).toEqual([
-      { id: 'a0n1', invoiceNumber: 'INV-000004645', vendorInvoiceNumber: 'V-77', amount: 1000, status: 'New' },
+      { id: 'a1k1', invoiceNumber: 'BR-000027379', vendorInvoiceNumber: 'V-77', amount: 1000, status: 'Created' },
       { id: 'a0n2', invoiceNumber: '', vendorInvoiceNumber: '', amount: null, status: '' },
     ]);
   });
@@ -242,6 +311,49 @@ describe('fetchPurchaseOrderDetail', () => {
     await expect(fetchPurchaseOrderDetail('001ACCOUNT', 'a1w1')).resolves.toMatchObject({
       opportunityId: '006QL00000iYFEtYAO',
     });
+  });
+
+  it("maps the PO's invoices from bookkeepingRecords", async () => {
+    mockedGet.mockResolvedValue({
+      success: true,
+      purchaseOrder: {
+        id: 'a1wQL0000091T61YAE',
+        name: 'Job-PO#0001147',
+        status: 'Signed',
+        project: null,
+        projectAddress: null,
+        totalAmount: 0,
+        paymentTerms: null,
+        bookkeepingRecords: [
+          {
+            id: 'a1kQL0000bGuqjuYAB',
+            name: 'BR-000027381',
+            recordNumber: 'BR-000027381',
+            vendorNumber: null,
+            status: 'Created',
+            totalAmount: 0,
+            paidAmount: 0,
+          },
+          { id: 'a1k2', recordNumber: 'BR-000027382', vendorNumber: ' INV-7 ', status: 'Paid', totalAmount: '250.50' },
+        ],
+      },
+    });
+
+    const detail = await fetchPurchaseOrderDetail('001ACCOUNT', 'a1w1');
+
+    expect(detail.invoices).toEqual([
+      { id: 'a1kQL0000bGuqjuYAB', name: 'BR-000027381', vendorInvoiceNumber: '', status: 'Created', amount: 0 },
+      { id: 'a1k2', name: 'BR-000027382', vendorInvoiceNumber: 'INV-7', status: 'Paid', amount: 250.5 },
+    ]);
+  });
+
+  it('leaves the invoices null when the API does not send them', async () => {
+    mockedGet.mockResolvedValue({
+      success: true,
+      purchaseOrder: { id: 'a1w1', name: 'PO', status: 'Signed', project: null, projectAddress: null, totalAmount: 0, paymentTerms: null },
+    });
+
+    await expect(fetchPurchaseOrderDetail('001ACCOUNT', 'a1w1')).resolves.toMatchObject({ invoices: null });
   });
 
   it('maps line items and falls back to their sum when the total is 0', async () => {

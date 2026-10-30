@@ -1,8 +1,10 @@
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PDFFont, PDFImage, PDFPage, StandardFonts, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import RNFS from 'react-native-fs';
 import { MASTER_SUBCONTRACT_AGREEMENT_PDF_BASE64 } from '../assets/pdf/masterSubcontractAgreementPdf';
+import { MG_BROS_SIGNATURE_PNG_BASE64 } from '../assets/pdf/mgBrosSignaturePng';
 import { SignatureFontId } from '../constants/signatureFonts';
+import { todayDateString } from '../utils/dateValidation';
 import { formatUsDate } from '../utils/formatDate';
 import { readSignatureFontBase64 } from '../utils/signatureFontFile';
 
@@ -67,6 +69,20 @@ const PAGE_10_SIGNATURE_LINES = {
   pageIndex: 9,
   signature: { startX: 325.12, endX: 520.92, baseline: 350.5, fontSize: 22 },
   date: { x: 346, baseline: 388.4 },
+};
+
+/**
+ * Page 10, Contractor column: MG Bros' signature on its "By: ______" line and
+ * the date on its "Dated: ______" line. The column mirrors the Subcontractor's,
+ * 234.1pt to the left, with the same baselines.
+ */
+const PAGE_10_CONTRACTOR_SIGNATURE = {
+  pageIndex: 9,
+  startX: 91,
+  endX: 286.8,
+  baseline: 350.5,
+  maxHeight: 30, // the line above ("MG Bros Construction, Inc.") ends at ~314
+  date: { x: 112.6, baseline: 388.4 },
 };
 
 const INK_BLUE = rgb(0.05, 0.1, 0.35); // like a pen signature
@@ -203,8 +219,26 @@ function drawSignatureBlock(
 }
 
 /**
+ * Signs page 10's Contractor block for MG Bros: its signature sitting on the
+ * "By:" line and `date` (YYYY-MM-DD) on the "Dated:" line.
+ */
+function drawContractorSignature(page: PDFPage, image: PDFImage, textFont: PDFFont, date: string): void {
+  const line = PAGE_10_CONTRACTOR_SIGNATURE;
+  const { width, height } = image.scaleToFit(line.endX - line.startX - 12, line.maxHeight);
+  page.drawImage(image, { x: line.startX + 6, y: PAGE_HEIGHT - line.baseline, width, height });
+  page.drawText(formatUsDate(date), {
+    x: line.date.x,
+    y: PAGE_HEIGHT - line.date.baseline,
+    size: FONT_SIZE,
+    font: textFont,
+    color: rgb(0, 0, 0),
+  });
+}
+
+/**
  * Writes the Master Subcontract Agreement, with the Step 2 company name filled
- * in on page 1 and in the page 10 signature block — plus, once the user has
+ * in on page 1 and in the page 10 signature block, and MG Bros' signature and
+ * date on the Contractor's lines — plus, once the user has
  * signed, their initials at the bottom of every page and their signature and
  * the signing date on page 10 — to the cache directory and returns its path.
  * Nothing else on the agreement is changed.
@@ -240,6 +274,13 @@ export async function buildMasterSubcontractAgreementBase64(
 
   drawNameLine(pages[PAGE_1_NAME_LINE.pageIndex], regularFont, name);
   drawSignatureName(pages[PAGE_10_SIGNATURE_NAME.pageIndex], boldFont, name);
+  // Dated the day the subcontractor signs, or today while it's still unsigned.
+  drawContractorSignature(
+    pages[PAGE_10_CONTRACTOR_SIGNATURE.pageIndex],
+    await pdfDoc.embedPng(MG_BROS_SIGNATURE_PNG_BASE64),
+    regularFont,
+    signature?.date ?? todayDateString(),
+  );
 
   if (signature?.name && signature.initials) {
     const signatureFont = await pdfDoc.embedFont(await readSignatureFontBase64(signature.fontId), { subset: true });

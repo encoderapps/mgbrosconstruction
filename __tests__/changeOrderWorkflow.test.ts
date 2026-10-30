@@ -1,4 +1,8 @@
-import { NEW_CHANGE_ORDER_STATUS, createChangeOrder } from '../src/services/changeOrderService';
+import {
+  NEW_CHANGE_ORDER_STATUS,
+  createBlankChangeOrder,
+  createChangeOrder,
+} from '../src/services/changeOrderService';
 import { salesforceGet, salesforceSend } from '../src/services/salesforceClient';
 import { CreateChangeOrderApiResponse } from '../src/types';
 import { NewChangeOrder } from '../src/types/changeOrder';
@@ -135,6 +139,7 @@ describe('createChangeOrder', () => {
       changeOrderNumber: 'CO#08',
       status: 'Draft',
       approvalStatus: 'Pending',
+      amount: 3799,
       message: 'Draft Change Order created successfully. Approval is pending.',
     });
   });
@@ -177,6 +182,76 @@ describe('createChangeOrder', () => {
     mockedSend.mockResolvedValue(failure);
 
     await expect(createChangeOrder(ACCOUNT_ID, input())).rejects.toThrow('Purchase order is not signed.');
+  });
+});
+
+describe('createBlankChangeOrder', () => {
+  it('posts only the PO, account and known job, and returns what the API created', async () => {
+    const response: CreateChangeOrderApiResponse = {
+      success: true,
+      changeOrderId: 'a1uQL00000Jr93pYAB',
+      changeOrderNumber: 'Job-CO#0000568',
+      source: 'Job Change Order',
+    };
+    mockedSend.mockResolvedValue(response);
+
+    const created = await createBlankChangeOrder(ACCOUNT_ID, { poId: PO_ID, opportunityId: JOB_ID });
+
+    expect(mockedSend.mock.calls[0][0].data).toEqual({ poId: PO_ID, accountId: ACCOUNT_ID, jobId: JOB_ID });
+    expect(created).toMatchObject({
+      id: 'a1uQL00000Jr93pYAB',
+      changeOrderNumber: 'Job-CO#0000568',
+      status: 'Draft',
+      amount: 0,
+      source: 'Job Change Order',
+    });
+  });
+
+  it('creates one on a My Job PO, which has no job, without sending one', async () => {
+    const response: CreateChangeOrderApiResponse = {
+      success: true,
+      changeOrderId: 'a6XQL000000YXJJ2A4',
+      changeOrderNumber: 'J-CO#0000021',
+      source: 'My Job Change Order',
+      status: 'Draft',
+      changeOrderAmount: null,
+    };
+    mockedGet.mockResolvedValue({ records: [] });
+    mockedSend.mockResolvedValue(response);
+
+    const created = await createBlankChangeOrder(ACCOUNT_ID, { poId: 'a6bQL000001ocJFYAY', opportunityId: null });
+
+    expect(mockedSend.mock.calls[0][0].data).toEqual({ poId: 'a6bQL000001ocJFYAY', accountId: ACCOUNT_ID });
+    expect(created).toMatchObject({ id: 'a6XQL000000YXJJ2A4', amount: 0, source: 'My Job Change Order' });
+  });
+
+  it('looks up the job when the PO detail sends none, as on a PO whose source is a change order', async () => {
+    const response: CreateChangeOrderApiResponse = { success: true, changeOrderId: 'a1uQL00000Jr93pYAB' };
+    mockedGet.mockResolvedValue({ records: [{ Job__c: JOB_ID }] });
+    mockedSend.mockResolvedValue(response);
+
+    await createBlankChangeOrder(ACCOUNT_ID, { poId: PO_ID, opportunityId: null });
+
+    expect(mockedSend.mock.calls[0][0].data).toEqual({ poId: PO_ID, accountId: ACCOUNT_ID, jobId: JOB_ID });
+  });
+
+  it('never sends a job that is not an Opportunity', async () => {
+    const response: CreateChangeOrderApiResponse = { success: true, changeOrderId: 'a1uQL00000Jr93pYAB' };
+    mockedGet.mockResolvedValue({ records: [{ Job__c: 'a1uQL00000Jr11bYAB' }] });
+    mockedSend.mockResolvedValue(response);
+
+    await createBlankChangeOrder(ACCOUNT_ID, { poId: PO_ID, opportunityId: 'a1uQL00000Jr00aYAB' });
+
+    expect(mockedSend.mock.calls[0][0].data).toEqual({ poId: PO_ID, accountId: ACCOUNT_ID });
+  });
+
+  it('throws the API message when the change order is not created', async () => {
+    const failure: CreateChangeOrderApiResponse = { success: false, message: 'Amount is required.' };
+    mockedSend.mockResolvedValue(failure);
+
+    await expect(createBlankChangeOrder(ACCOUNT_ID, { poId: PO_ID, opportunityId: JOB_ID })).rejects.toThrow(
+      'Amount is required.',
+    );
   });
 });
 

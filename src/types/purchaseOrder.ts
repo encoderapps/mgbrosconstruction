@@ -8,6 +8,21 @@ export interface PurchaseOrder {
   vendor: string;
   /** The PO's date (when it was created), as a local YYYY-MM-DD; null when unknown. */
   createdDate: string | null;
+  totalAmount: number;
+  projectName: string;
+}
+
+/** A change order as listed on the Purchase Orders screen, alongside every PO. */
+export interface PurchaseOrderListChangeOrder {
+  id: string;
+  name: string;
+  status: string;
+  totalAmount: number;
+  source?: string;
+  purchaseOrderName: string;
+  /** The Id of the PO it belongs to, matched by name; null when that PO isn't in the list. */
+  purchaseOrderId: string | null;
+  projectName: string;
 }
 
 export interface PurchaseOrderLineItem {

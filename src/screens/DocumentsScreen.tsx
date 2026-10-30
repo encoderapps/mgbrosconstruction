@@ -10,10 +10,8 @@ import { LoadStateMessage } from '../components/LoadStateMessage';
 import { ArrowLeftIcon, FolderIcon } from '../assets/icons';
 import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
-import { COMPLIANCE_DOCUMENT_INFO } from '../constants/complianceDocuments';
 import { useComplianceDocuments } from '../hooks/useComplianceDocuments';
 import { ComplianceDocument } from '../types/document';
-import { showComingSoon } from '../utils/comingSoon';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Documents'>;
 
@@ -23,10 +21,6 @@ export function DocumentsScreen({ navigation }: Props): React.JSX.Element {
 
   const openDocument = (document: ComplianceDocument): void => {
     navigation.navigate('DocumentDetails', { documentType: document.type });
-  };
-
-  const addDocument = (document: ComplianceDocument): void => {
-    showComingSoon(`Add ${COMPLIANCE_DOCUMENT_INFO[document.type].label}`);
   };
 
   const renderDocuments = (): React.JSX.Element => {
@@ -50,7 +44,7 @@ export function DocumentsScreen({ navigation }: Props): React.JSX.Element {
             document={document}
             showDivider={index > 0}
             onOpen={openDocument}
-            onAdd={addDocument}
+            // No onAdd: adding a W9, General Liability or Workers' Comp isn't available yet, so its + is disabled.
           />
         ))}
       </AuthCard>

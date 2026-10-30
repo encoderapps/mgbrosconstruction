@@ -14,6 +14,7 @@ import { decodeHtmlEntities, htmlToPlainText } from '../utils/html';
 import { withCalculatedAmounts } from '../utils/paymentTerms';
 import { isSigned } from '../utils/purchaseOrderStatus';
 import { toNumber } from '../utils/toNumber';
+import { toPurchaseOrderInvoice } from './purchaseOrderChangeOrderService';
 import { salesforceGet } from './salesforceClient';
 
 /**
@@ -134,9 +135,10 @@ export async function fetchPurchaseOrderDetail(accountId: string, poId: string):
     opportunityId: po.opportunityId?.trim() || null,
     // NOTE: the detail API doesn't return these. usePurchaseOrderDetail adds the PO
     // date (from the Purchase Orders list), a signature made on this device (for POs
-    // the API has no signature for) and the change orders and invoices.
+    // the API has no signature for) and the change orders.
     poDate: null,
     changeOrders: null,
-    invoices: null,
+    // The PO's invoices (bookkeepingRecords); null when not sent, so the change-orders API's are used instead.
+    invoices: po.bookkeepingRecords ? po.bookkeepingRecords.map(toPurchaseOrderInvoice) : null,
   };
 }

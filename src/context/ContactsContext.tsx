@@ -13,7 +13,7 @@ interface ContactsContextValue {
   /** Re-fetches in the background, keeping the current list on screen. */
   refresh: () => void;
   /** Adds a contact already saved to Salesforce, under the id Salesforce returned. */
-  addContact: (id: string, input: NewContactInput) => Contact;
+  addContact: (id: string, input: NewContactInput) => void;
   /** Applies edits already saved to Salesforce; fields the form doesn't edit (role) are kept. */
   updateContact: (id: string, input: NewContactInput) => void;
 }
@@ -49,12 +49,11 @@ export function ContactsProvider({ children }: { children: React.ReactNode }): R
   const contacts = data?.accountId === accountId ? data.contacts : NO_CONTACTS;
 
   const addContact = useCallback(
-    (id: string, input: NewContactInput): Contact => {
+    (id: string, input: NewContactInput): void => {
       const contact: Contact = { id, role: '', ...input };
       setData((current) => current && { ...current, contacts: [...current.contacts, contact] });
       // Then sync with Salesforce in the background (and load the list if it never did).
       refresh();
-      return contact;
     },
     [setData, refresh],
   );

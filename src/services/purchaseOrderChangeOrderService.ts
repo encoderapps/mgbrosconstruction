@@ -29,14 +29,18 @@ function toChangeOrder(record: ChangeOrderApiRecord, index: number): PurchaseOrd
   };
 }
 
-/** NOTE: the invoice field names are assumed (see PurchaseOrderInvoiceApiRecord). */
-function toInvoice(record: PurchaseOrderInvoiceApiRecord, index: number): PurchaseOrderLedgerEntry {
+/**
+ * Maps one of the PO's bookkeeping records (invoices) to a ledger entry. Used
+ * for the invoices of both this API and the PO detail API, which name some
+ * fields differently (recordNumber, vendorNumber).
+ */
+export function toPurchaseOrderInvoice(record: PurchaseOrderInvoiceApiRecord, index: number): PurchaseOrderLedgerEntry {
   return {
     id: record.id || `invoice-${index}`,
-    name: record.invoiceNo ?? record.name ?? '',
-    vendorInvoiceNumber: record.vendorInvoiceNumber?.trim() ?? '',
+    name: record.invoiceNumber ?? record.invoiceNo ?? record.recordNumber ?? record.name ?? '',
+    vendorInvoiceNumber: (record.vendorInvoiceNumber ?? record.vendorNumber)?.trim() ?? '',
     status: record.status ?? '',
-    amount: toNumber(record.amount) ?? 0,
+    amount: toNumber(record.totalAmount ?? record.amount) ?? 0,
   };
 }
 
@@ -63,6 +67,6 @@ export async function fetchPurchaseOrderChangeOrders(
   }
   return {
     changeOrders: (data.changeOrders ?? []).map(toChangeOrder),
-    invoices: (data.invoices ?? []).map(toInvoice),
+    invoices: (data.bookkeepingRecords ?? data.invoices ?? []).map(toPurchaseOrderInvoice),
   };
 }

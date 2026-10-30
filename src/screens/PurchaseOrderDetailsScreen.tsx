@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   LayoutAnimation,
   Pressable,
   ScrollView,
@@ -29,9 +30,9 @@ import { EMPTY_VALUE } from '../constants/display';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { usePurchaseOrderDetail } from '../hooks/usePurchaseOrderDetail';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
+import { createBlankChangeOrder } from '../services/changeOrderService';
 import { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
 import { changeOrderStage, isAwaitingApproval } from '../utils/changeOrder';
-import { showComingSoon } from '../utils/comingSoon';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatUsDate } from '../utils/formatDate';
 import { isAwaitingSignature, isSigned } from '../utils/purchaseOrderStatus';
@@ -62,7 +63,9 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
   const { data: detail, status, reload, refresh, setData } = usePurchaseOrderDetail(poId, poDate);
   // Back from signing, adding an invoice etc.: pick up the PO's new status and invoices from the API.
   useRefreshOnReturn(refresh);
-  const vendorName = useSubcontractorSession().company?.name ?? '';
+  const company = useSubcontractorSession().company;
+  const vendorName = company?.name ?? '';
+  const [isAddingChangeOrder, setIsAddingChangeOrder] = useState(false);
   const signed = detail ? isSigned(detail.status) : false;
   // Payment terms can only change before the PO is signed, while it waits for the subcontractor's signature.
   const canModifyPaymentTerms = detail ? isAwaitingSignature(detail.status) : false;
@@ -84,6 +87,36 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
       setData((current) => current && { ...current, status: updatedStatus, signedDate: signedDate ?? current.signedDate });
     }
   }, [updatedStatus, signedDate, setData]);
+
+  // The +: creates a blank Draft change order right away and adds it to the table, without a form.
+  const addChangeOrder = async (): Promise<void> => {
+    if (isAddingChangeOrder || !detail) {
+      return;
+    }
+    if (!company) {
+      Alert.alert('Unable to create change order', 'Your account could not be found. Please log in again.');
+      return;
+    }
+    setIsAddingChangeOrder(true);
+    try {
+      const created = await createBlankChangeOrder(company.accountId, { poId, opportunityId: detail.opportunityId });
+      const row = {
+        id: created.id,
+        name: created.changeOrderNumber,
+        status: created.status,
+        amount: created.amount,
+        description: '',
+        ...(created.source && { source: created.source }),
+      };
+      setData((current) => current && { ...current, changeOrders: [...(current.changeOrders ?? []), row] });
+      // Picks up anything the API filled in (e.g. its number) that the create response left out.
+      refresh();
+    } catch (error) {
+      Alert.alert('Unable to create change order', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setIsAddingChangeOrder(false);
+    }
+  };
 
   const toggleDetails = (): void => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -117,10 +150,12 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
             <Text style={styles.poName} numberOfLines={1}>
               {detail.name}
             </Text>
+            {/* Disabled until Communication is available. */}
             <Pressable
-              onPress={() => showComingSoon('Communication')}
-              style={({ pressed }) => [styles.communicationButton, pressed && styles.pressed]}
+              disabled
+              style={[styles.communicationButton, styles.disabled]}
               accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
             >
               <View style={styles.communicationIcon}>
                 <ChatIcon size={12} color={welcomeColors.accent} />
@@ -159,20 +194,16 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
             <PurchaseOrderLedger
               purchaseOrder={detail}
               vendorName={vendorName}
-              onAddChangeOrder={() =>
-                navigation.navigate('AddChangeOrder', {
-                  poId,
-                  poName: detail.name,
-                  opportunityId: detail.opportunityId,
-                })
-              }
-              onAddInvoice={() =>
-                navigation.navigate('AddPurchaseOrderInvoice', {
-                  poId,
-                  poName: detail.name,
-                  opportunityId: detail.opportunityId,
-                })
-              }
+              onAddChangeOrder={addChangeOrder}
+              isAddingChangeOrder={isAddingChangeOrder}
+              // Add Invoice is hidden for now: without onAddInvoice the ledger shows no button.
+              // onAddInvoice={() =>
+              //   navigation.navigate('AddPurchaseOrderInvoice', {
+              //     poId,
+              //     poName: detail.name,
+              //     opportunityId: detail.opportunityId,
+              //   })
+              // }
               onOpenChangeOrder={({ id, name, status: changeOrderStatus, amount, description, source }) => {
                 const changeOrder = {
                   id,
@@ -189,7 +220,7 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
                   navigation.navigate('ChangeOrderDetails', { poId, changeOrder });
                 }
               }}
-              onOpenInvoice={(invoice) => showComingSoon(invoice.name || 'Invoice')}
+              // No onOpenInvoice: invoices can't be opened yet, so their numbers aren't links.
               onOpenDocument={() => navigation.navigate('PurchaseOrderSigning', { poId, poDate })}
               onRetry={reload}
             />
@@ -541,5 +572,8 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.85,
+  },
+  disabled: {
+    opacity: 0.45,
   },
 });

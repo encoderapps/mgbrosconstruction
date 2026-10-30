@@ -11,7 +11,8 @@ type ComplianceDocumentSectionProps = {
   /** Draws a divider above the section (all but the first). */
   showDivider: boolean;
   onOpen: (document: ComplianceDocument) => void;
-  onAdd: (document: ComplianceDocument) => void;
+  /** Left out while adding isn't available yet: the + is shown dimmed and can't be tapped. */
+  onAdd?: (document: ComplianceDocument) => void;
 };
 
 /**
@@ -46,11 +47,13 @@ export function ComplianceDocumentSection({
           <Text style={styles.title}>{label}</Text>
         </Pressable>
         <Pressable
-          onPress={() => onAdd(document)}
+          onPress={onAdd && (() => onAdd(document))}
+          disabled={!onAdd}
           hitSlop={8}
-          style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.addButton, pressed && styles.pressed, !onAdd && styles.disabled]}
           accessibilityRole="button"
           accessibilityLabel={`Add ${label}`}
+          accessibilityState={{ disabled: !onAdd }}
         >
           <PlusIcon size={14} />
         </Pressable>
@@ -175,5 +178,8 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  disabled: {
+    opacity: 0.45,
   },
 });
