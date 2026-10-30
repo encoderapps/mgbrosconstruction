@@ -6,18 +6,13 @@ import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { HomeHeader } from '../components/HomeHeader';
 import { LoadStateMessage } from '../components/LoadStateMessage';
 import { TableStatusMessage } from '../components/TableStatusMessage';
-import {
-  PROJECT_ACTION_LABELS,
-  ProjectAction,
-  SubcontractorProjectCard,
-} from '../components/SubcontractorProjectCard';
+import { SubcontractorProjectCard } from '../components/SubcontractorProjectCard';
 import { ArrowLeftIcon, PlusIcon } from '../assets/icons';
 import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { useAccountList } from '../hooks/useAccountList';
 import { fetchSubcontractorProjects } from '../services/subcontractorProjectService';
 import { SubcontractorProject } from '../types/subcontractorProject';
-import { showComingSoon } from '../utils/comingSoon';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Projects'>;
 
@@ -25,11 +20,9 @@ const LOAD_ERROR_TEXT = 'Unable to load projects.';
 
 const keyExtractor = (project: SubcontractorProject): string => project.id;
 
-// TODO: open the project, its files and the add-project form once their APIs and designs exist.
-const openProject = (project: SubcontractorProject): void => showComingSoon(project.name);
-const runProjectAction = (project: SubcontractorProject, action: ProjectAction): void =>
-  showComingSoon(`${PROJECT_ACTION_LABELS[action]} for ${project.name}`);
-const addProject = (): void => showComingSoon('Add Project');
+// TODO: open the project, its files and the add-project form once their APIs and designs exist. Until
+// then a project can't be opened and its file shortcuts (View Blueprint, Show Design Panel, Scans,
+// Photos) are shown disabled, as is Add Project.
 
 /** "View All" from the Home screen's Projects card: every project, with shortcuts to its files. */
 export function ProjectsScreen({ navigation }: Props): React.JSX.Element {
@@ -37,7 +30,7 @@ export function ProjectsScreen({ navigation }: Props): React.JSX.Element {
   const hasProjects = projects.length > 0;
 
   const renderProject: ListRenderItem<SubcontractorProject> = useCallback(
-    ({ item }) => <SubcontractorProjectCard project={item} onOpen={openProject} onAction={runProjectAction} />,
+    ({ item }) => <SubcontractorProjectCard project={item} />,
     [],
   );
 
@@ -96,7 +89,8 @@ export function ProjectsScreen({ navigation }: Props): React.JSX.Element {
       <View style={styles.footer}>
         <AuthPrimaryButton
           title="Add Project"
-          onPress={addProject}
+          onPress={() => undefined}
+          disabled
           icon={<PlusIcon size={16} color={welcomeColors.cardBackground} />}
         />
       </View>

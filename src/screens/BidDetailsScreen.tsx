@@ -20,7 +20,6 @@ import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { deleteBidLineItem } from '../services/bidService';
 import { BidDetail, BidLineItem } from '../types/bid';
 import { isBidEditable } from '../utils/bidStatus';
-import { showComingSoon } from '../utils/comingSoon';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'BidDetails'>;
 
@@ -76,8 +75,9 @@ export function BidDetailsScreen({ navigation, route }: Props): React.JSX.Elemen
           <Text style={styles.label}>Address</Text>
           <Text style={styles.bodyText}>{detail.projectAddress || EMPTY_VALUE}</Text>
           <View style={styles.actions}>
+            {/* Disabled until the project's files can be opened. */}
             {PROJECT_FILE_ACTIONS.map(({ label, Icon }) => (
-              <ActionChip key={label} label={label} Icon={Icon} onPress={() => showComingSoon(label)} />
+              <ActionChip key={label} label={label} Icon={Icon} />
             ))}
           </View>
         </AuthCard>
@@ -92,7 +92,8 @@ export function BidDetailsScreen({ navigation, route }: Props): React.JSX.Elemen
           total={detail.total ?? 0}
           editable={editable}
           deletingId={deletingId}
-          onAddPress={() => navigation.navigate('AddBidLineItem', { bidId, bidNumber: detail.bidNumber })}
+          // Add Line Item is hidden for now: without onAddPress the card shows no button.
+          // onAddPress={() => navigation.navigate('AddBidLineItem', { bidId, bidNumber: detail.bidNumber })}
           onDeletePress={confirmDeleteLineItem}
         />
 

@@ -16,8 +16,6 @@ function toContact(record: ContactApiRecord): Contact {
     middleName: text(record.middleName),
     lastName: text(record.lastName),
     suffix: text(record.suffix),
-    // Not returned by the API (and not accepted when saving yet).
-    contactOwner: '',
     // The one-line address, or the separate parts when it's missing.
     address: text(record.address) || joinAddressParts([record.city, record.state, record.postalCode]),
     phone: text(record.phone),

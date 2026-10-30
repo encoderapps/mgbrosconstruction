@@ -119,7 +119,7 @@ export function validatePaymentTermDrafts(drafts: PaymentTermDraft[]): string | 
   for (const [index, draft] of drafts.entries()) {
     const termLabel = `payment term ${index + 1}`;
     if (!draft.description.trim()) {
-      return `Select a description for ${termLabel}.`;
+      return `Enter a description for ${termLabel}.`;
     }
     const percentage = parsePercentage(draft.percentageText);
     if (percentage === null) {

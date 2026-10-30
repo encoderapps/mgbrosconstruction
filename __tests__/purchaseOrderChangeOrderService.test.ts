@@ -86,6 +86,33 @@ describe('fetchPurchaseOrderChangeOrders', () => {
     });
   });
 
+  it('maps the bookkeeping records as the invoices', async () => {
+    mockedAxiosRequest.mockResolvedValue({
+      data: {
+        success: true,
+        changeOrders: [],
+        bookkeepingRecords: [
+          {
+            id: 'a1kQL0000bLP6CrYAL',
+            invoiceNumber: 'BR-000027384',
+            vendorInvoiceNumber: 'VN-549823',
+            status: 'Created',
+            totalAmount: 250.0,
+          },
+          { id: 'a1kQL0000bLGvitYAD', invoiceNumber: 'BR-000027383', vendorInvoiceNumber: null, status: 'Created', totalAmount: '0.00' },
+        ],
+      },
+    });
+
+    await expect(fetchPurchaseOrderChangeOrders(ACCOUNT_ID, PO_ID)).resolves.toEqual({
+      changeOrders: [],
+      invoices: [
+        { id: 'a1kQL0000bLP6CrYAL', name: 'BR-000027384', vendorInvoiceNumber: 'VN-549823', status: 'Created', amount: 250 },
+        { id: 'a1kQL0000bLGvitYAD', name: 'BR-000027383', vendorInvoiceNumber: '', status: 'Created', amount: 0 },
+      ],
+    });
+  });
+
   it('throws the API message on success: false', async () => {
     mockedAxiosRequest.mockResolvedValue({ data: { success: false, message: 'poId is required.' } });
     await expect(fetchPurchaseOrderChangeOrders(ACCOUNT_ID, '')).rejects.toThrow('poId is required.');

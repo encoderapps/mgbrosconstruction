@@ -6,7 +6,6 @@ import { HomeHeader } from '../components/HomeHeader';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 import { PAYMENT_TERM_COLUMN_WIDTHS, PaymentTermEditorRow } from '../components/PaymentTermEditorRow';
 import { AlertCircleIcon, CheckCircleIcon, PlusIcon } from '../assets/icons';
-import { PAYMENT_TERM_DESCRIPTION_OPTIONS } from '../constants/paymentTermOptions';
 import { fontFamily, portalColors, radius, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
@@ -48,12 +47,6 @@ export function ModifyPaymentTermsScreen({ navigation, route }: Props): React.JS
   const [isSaving, setIsSaving] = useState(false);
   const nextKeyRef = useRef(0);
   const isMountedRef = useRef(true);
-
-  // The fixed options, plus any description already on this PO so it still shows as selected.
-  const descriptionOptions = useMemo(() => {
-    const existing = paymentTerms.map((term) => term.description).filter(Boolean);
-    return Array.from(new Set<string>([...PAYMENT_TERM_DESCRIPTION_OPTIONS, ...existing]));
-  }, [paymentTerms]);
 
   const amounts = useMemo(
     () =>
@@ -166,7 +159,6 @@ export function ModifyPaymentTermsScreen({ navigation, route }: Props): React.JS
                 draft={draft}
                 position={index + 1}
                 amount={amounts[index]}
-                descriptionOptions={descriptionOptions}
                 canDelete={drafts.length > 1}
                 disabled={isSaving}
                 onDescriptionChange={handleDescriptionChange}

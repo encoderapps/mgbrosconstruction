@@ -30,7 +30,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'AchInformation'>;
 
 const BANK_NAME_MAX_LENGTH = 80;
 
-/** Payment Settings → Add ACH (or +): the company's bank details, saved and turned into an ACH form. */
+/** Payment Settings → the + by ACH Info: the company's bank details, saved and turned into an ACH form. */
 export function AchInformationScreen({ navigation, route }: Props): React.JSX.Element {
   const existing = route.params?.existing;
   const company = useSubcontractorSession().company;

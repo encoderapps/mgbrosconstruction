@@ -7,6 +7,7 @@ import { DataTable, DataTableColumn } from './DataTable';
 function getColumns(
   onOrderPress: (order: PurchaseOrder) => void,
   showStatus: boolean,
+  showProjectAndTotal: boolean,
 ): DataTableColumn<PurchaseOrder>[] {
   const columns: DataTableColumn<PurchaseOrder>[] = [
     {
@@ -18,13 +19,26 @@ function getColumns(
       onPress: onOrderPress,
     },
     { key: 'status', label: 'Status', width: 128, getValue: (order) => order.status },
-    {
-      key: 'paidAmount',
-      label: 'Paid Amount',
-      width: 90,
-      getValue: (order) => formatCurrency(order.paidAmount),
-    },
-    { key: 'vendor', label: 'Vendor', width: 160, grow: true, getValue: (order) => order.vendor },
+    ...(showProjectAndTotal
+      ? [
+          { key: 'projectName', label: 'Project', width: 180, getValue: (order: PurchaseOrder) => order.projectName },
+          {
+            key: 'totalAmount',
+            label: 'Total Amount',
+            width: 100,
+            grow: true,
+            getValue: (order: PurchaseOrder) => formatCurrency(order.totalAmount),
+          },
+        ]
+      : [
+          {
+            key: 'paidAmount',
+            label: 'Paid Amount',
+            width: 90,
+            getValue: (order: PurchaseOrder) => formatCurrency(order.paidAmount),
+          },
+          { key: 'vendor', label: 'Vendor', width: 160, grow: true, getValue: (order: PurchaseOrder) => order.vendor },
+        ]),
   ];
   return showStatus ? columns : columns.filter((column) => column.key !== 'status');
 }
@@ -37,6 +51,8 @@ type PurchaseOrdersTableProps = {
   onOrderPress: (order: PurchaseOrder) => void;
   /** Off when the table already sits under its status, e.g. on the Purchase Orders screen. */
   showStatus?: boolean;
+  /** Project and Total Amount in place of Paid Amount and Vendor, as on the Purchase Orders screen. */
+  showProjectAndTotal?: boolean;
 };
 
 export function PurchaseOrdersTable({
@@ -45,8 +61,12 @@ export function PurchaseOrdersTable({
   onRetry,
   onOrderPress,
   showStatus = true,
+  showProjectAndTotal = false,
 }: PurchaseOrdersTableProps): React.JSX.Element {
-  const columns = useMemo(() => getColumns(onOrderPress, showStatus), [onOrderPress, showStatus]);
+  const columns = useMemo(
+    () => getColumns(onOrderPress, showStatus, showProjectAndTotal),
+    [onOrderPress, showStatus, showProjectAndTotal],
+  );
   return (
     <DataTable
       columns={columns}

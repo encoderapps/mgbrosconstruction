@@ -13,6 +13,8 @@ import { RegistrationProgress } from '../components/RegistrationProgress';
 import { BriefcaseIcon } from '../assets/icons';
 import { welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
+import { useAsyncResource } from '../hooks/useAsyncResource';
+import { fetchServiceItems } from '../services/serviceItemService';
 import { findMissingRequiredField } from '../utils/formValidation';
 import { isValidZipCode } from '../utils/address';
 import { US_STATE_CODES, formatUsStateOption } from '../constants/usStates';
@@ -31,6 +33,10 @@ export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.El
   const [services, setServices] = useState<string[]>([]);
   const [yearsOfExperience, setYearsOfExperience] = useState('');
   const [numberOfEmployees, setNumberOfEmployees] = useState('');
+  const { data: serviceItems, status: serviceItemsStatus } = useAsyncResource(fetchServiceItems);
+  const isLoadingServices = serviceItemsStatus === 'idle' || serviceItemsStatus === 'loading';
+  // The API's services; the built-in list if they couldn't be loaded, so registration can go on.
+  const serviceOptions = serviceItems?.length ? serviceItems : isLoadingServices ? [] : SERVICE_OPTIONS;
 
   const handleContinue = (): void => {
     if (!company.trim()) {
@@ -147,9 +153,9 @@ export function CompanyDetailsScreen({ navigation, route }: Props): React.JSX.El
 
         <MultiSelectInput
           label="Service"
-          placeholder="Select services"
+          placeholder={isLoadingServices ? 'Loading services…' : 'Select services'}
           values={services}
-          options={SERVICE_OPTIONS}
+          options={serviceOptions}
           onChange={setServices}
         />
 

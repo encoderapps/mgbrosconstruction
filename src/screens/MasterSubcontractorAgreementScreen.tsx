@@ -211,6 +211,10 @@ export function MasterSubcontractorAgreementScreen({ navigation, route }: Props)
                     setHasReadAgreement(true);
                   }
                 }}
+                // A tap opens the agreement full screen, to read and zoom it more easily.
+                onPageSingleTap={() =>
+                  navigation.navigate('TemplatePreview', { title: 'Master Subcontractor Agreement', path: pdf.path })
+                }
                 onPageChanged={(page, numberOfPages) => {
                   currentPageRef.current = page;
                   // The signature section unlocks once the user has reached the last page.
@@ -261,7 +265,11 @@ export function MasterSubcontractorAgreementScreen({ navigation, route }: Props)
               ))}
             </ScrollView>
           ) : (
-            !hasError && <Text style={styles.hintText}>Scroll to the end of the agreement to sign it.</Text>
+            !hasError && (
+              <Text style={styles.hintText}>
+                Scroll to the end of the agreement to sign it. Tap it to view full screen.
+              </Text>
+            )
           )}
 
           <AuthPrimaryButton

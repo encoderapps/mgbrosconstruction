@@ -13,6 +13,7 @@ import {
   MyJobPurchaseOrderItemsApiResponse,
   ChangeOrderDetailApiRecord,
   ChangeOrderDetailItemApiRecord,
+  CreateBlankChangeOrderApiPayload,
   CreateChangeOrderApiPayload,
   CreateChangeOrderApiResponse,
   PurchaseOrderChangeOrdersApiPayload,
@@ -238,10 +239,37 @@ const CREATE_ERROR_MESSAGE = 'Unable to create the change order. Please try agai
 const CHANGE_ORDER_JOB_NOT_FOUND_MESSAGE =
   'This purchase order is not linked to a job, so a change order cannot be added to it.';
 
+/** Opportunity Ids start with "006". */
+const OPPORTUNITY_ID_PATTERN = /^006[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?$/;
+
+/**
+ * The PO detail's opportunityId when it is a job (Opportunity). A PO whose
+ * source is a change order sends another record's Id there, which
+ * /createjobchangeorder rejects ("jobId must be an Opportunity ID").
+ */
+function toOpportunityId(id: string | null | undefined): string | null {
+  return id && OPPORTUNITY_ID_PATTERN.test(id) ? id : null;
+}
+
+/**
+ * The PO's Job__c when it is an Opportunity, else null. The API requires it for
+ * an Opportunity-based PO, which (e.g. one whose source is a change order) the
+ * PO detail may not send. A failed lookup is left for the API to report.
+ */
+async function lookUpOpportunityJobId(accountId: string, poId: string): Promise<string | null> {
+  try {
+    return toOpportunityId(await fetchPurchaseOrderJobId(accountId, poId));
+  } catch (error) {
+    console.error('Failed to look up the purchase order job:', error);
+    return null;
+  }
+}
+
 /** The PO's job: the one the PO detail sent, else looked up. Throws a message fit to show when there's none. */
 async function resolvePurchaseOrderJobId(accountId: string, input: NewChangeOrder): Promise<string> {
-  if (input.opportunityId) {
-    return input.opportunityId;
+  const opportunityId = toOpportunityId(input.opportunityId);
+  if (opportunityId) {
+    return opportunityId;
   }
   let jobId: string | null;
   try {
@@ -286,6 +314,33 @@ export async function createChangeOrder(accountId: string, input: NewChangeOrder
     dateOfIssue: input.dateOfIssue,
     ...(specialInstructions && { specialInstructions }),
   };
+  return postChangeOrder(payload);
+}
+
+/**
+ * Creates an empty Draft change order on a signed purchase order, straight
+ * from its Add Change Order button. Only the PO and account are sent: the API
+ * fills in the rest from the PO, including a My Job PO, which has no job to
+ * look up. Its line items (and so its amount) are added afterwards, on the
+ * change order itself.
+ */
+export async function createBlankChangeOrder(
+  accountId: string,
+  input: Pick<NewChangeOrder, 'poId' | 'opportunityId'>,
+): Promise<CreatedChangeOrder> {
+  const jobId = toOpportunityId(input.opportunityId) ?? (await lookUpOpportunityJobId(accountId, input.poId));
+  const payload: CreateBlankChangeOrderApiPayload = {
+    poId: input.poId,
+    accountId,
+    // Left out when there's none (a My Job PO): the API then works the rest out from the PO.
+    ...(jobId && { jobId }),
+  };
+  return postChangeOrder(payload);
+}
+
+async function postChangeOrder(
+  payload: CreateChangeOrderApiPayload | CreateBlankChangeOrderApiPayload,
+): Promise<CreatedChangeOrder> {
   const data = await salesforceSend<CreateChangeOrderApiResponse>(
     { method: 'post', url: SALESFORCE_CREATE_CHANGE_ORDER_URL, data: payload },
     CREATE_ERROR_MESSAGE,
@@ -293,12 +348,16 @@ export async function createChangeOrder(accountId: string, input: NewChangeOrder
   if (!data.success) {
     throw new Error(data.message || CREATE_ERROR_MESSAGE);
   }
-  rememberChangeOrderSource(data.changeOrderId?.trim() ?? '', data.source);
+  const id = data.changeOrderId?.trim() ?? '';
+  const source = data.source?.trim();
+  rememberChangeOrderSource(id, data.source);
   return {
-    id: data.changeOrderId?.trim() ?? '',
+    id,
     changeOrderNumber: data.changeOrderNo?.trim() || data.changeOrderNumber?.trim() || '',
     status: data.status?.trim() || NEW_CHANGE_ORDER_STATUS,
     approvalStatus: data.approvalStatus?.trim() ?? '',
+    amount: data.changeOrderAmount ?? ('changeOrderAmount' in payload ? payload.changeOrderAmount : 0),
+    ...(source && { source }),
     message: data.message?.trim() || 'Change order created successfully.',
   };
 }

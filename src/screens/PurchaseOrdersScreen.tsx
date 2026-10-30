@@ -4,26 +4,38 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
 import { HomeHeader } from '../components/HomeHeader';
+import { PurchaseOrderChangeOrdersTable } from '../components/PurchaseOrderChangeOrdersTable';
 import { PurchaseOrdersTable } from '../components/PurchaseOrdersTable';
 import { BagIcon, ChevronRightIcon } from '../assets/icons';
 import { fontFamily, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
-import { useAccountList } from '../hooks/useAccountList';
+import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
+import { useAsyncResource } from '../hooks/useAsyncResource';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
-import { fetchPurchaseOrders } from '../services/purchaseOrderService';
-import { PurchaseOrder } from '../types/purchaseOrder';
+import { fetchAllPurchaseOrders } from '../services/purchaseOrderService';
+import { PurchaseOrder, PurchaseOrderListChangeOrder } from '../types/purchaseOrder';
+import { changeOrderStage, isAwaitingApproval } from '../utils/changeOrder';
 import { groupPurchaseOrdersByStatus, statusTone } from '../utils/purchaseOrderStatus';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'PurchaseOrders'>;
 
+const NO_ORDERS: PurchaseOrder[] = [];
+const NO_CHANGE_ORDERS: PurchaseOrderListChangeOrder[] = [];
+
 /**
  * "View All" from the Home screen's Purchase Orders card: every purchase
  * order, in one table per status (Ready for Signature, Signed, Signed by both
- * sides, then any other status).
+ * sides, then any other status), then every PO's change orders in one more
+ * table.
  */
 export function PurchaseOrdersScreen({ navigation }: Props): React.JSX.Element {
-  const { items: orders, count, status, reload, refresh } = useAccountList(fetchPurchaseOrders, 'all');
-  // A PO opened from here may have been signed or changed since.
+  const accountId = useSubcontractorSession().company?.accountId;
+  const load = useCallback(() => fetchAllPurchaseOrders(accountId as string), [accountId]);
+  const { data, status, reload, refresh } = useAsyncResource(accountId ? load : null);
+  const orders = data?.items ?? NO_ORDERS;
+  const changeOrders = data?.changeOrders ?? NO_CHANGE_ORDERS;
+  const count = data?.count ?? null;
+  // A PO or change order opened from here may have been signed or changed since.
   useRefreshOnReturn(refresh);
 
   const groups = useMemo(() => groupPurchaseOrdersByStatus(orders), [orders]);
@@ -32,13 +44,42 @@ export function PurchaseOrdersScreen({ navigation }: Props): React.JSX.Element {
       navigation.navigate('PurchaseOrderDetails', { poId: order.id, poDate: order.createdDate ?? undefined }),
     [navigation],
   );
+  const openChangeOrder = useCallback(
+    ({ id, name, status: changeOrderStatus, totalAmount, source, purchaseOrderId }: PurchaseOrderListChangeOrder) => {
+      // Its PO isn't in the list, so there's nothing to open it under.
+      if (!purchaseOrderId) {
+        return;
+      }
+      const changeOrder = {
+        id,
+        name,
+        status: changeOrderStatus,
+        amount: totalAmount,
+        description: '',
+        ...(source && { source }),
+      };
+      // As from the PO's details: one waiting on approval (a Draft included) opens its approval status; any other its details.
+      if (isAwaitingApproval(changeOrderStage(changeOrder))) {
+        navigation.navigate('ChangeOrderApproval', { poId: purchaseOrderId, changeOrder });
+      } else {
+        navigation.navigate('ChangeOrderDetails', { poId: purchaseOrderId, changeOrder });
+      }
+    },
+    [navigation],
+  );
 
   const renderTables = (): React.ReactNode => {
     // Loading, failed or empty: one table shows the spinner, the error with a retry, or "No purchase orders yet."
     if (status !== 'success' || groups.length === 0) {
       return (
         <AuthCard style={styles.tableCard}>
-          <PurchaseOrdersTable orders={orders} status={status} onRetry={reload} onOrderPress={openOrder} />
+          <PurchaseOrdersTable
+            orders={orders}
+            status={status}
+            onRetry={reload}
+            onOrderPress={openOrder}
+            showProjectAndTotal
+          />
         </AuthCard>
       );
     }
@@ -61,6 +102,7 @@ export function PurchaseOrdersScreen({ navigation }: Props): React.JSX.Element {
             onRetry={reload}
             onOrderPress={openOrder}
             showStatus={false}
+            showProjectAndTotal
           />
         </AuthCard>
       );
@@ -93,6 +135,24 @@ export function PurchaseOrdersScreen({ navigation }: Props): React.JSX.Element {
         </AuthCard>
 
         {renderTables()}
+
+        {status === 'success' && (
+          <AuthCard style={styles.tableCard}>
+            <View style={styles.groupHeader}>
+              <View style={[styles.statusDot, { backgroundColor: welcomeColors.accent }]} />
+              <Text style={styles.groupTitle} accessibilityRole="header">
+                Change Orders
+                <Text style={styles.count}> ({changeOrders.length})</Text>
+              </Text>
+            </View>
+            <PurchaseOrderChangeOrdersTable
+              changeOrders={changeOrders}
+              status={status}
+              onRetry={reload}
+              onChangeOrderPress={openChangeOrder}
+            />
+          </AuthCard>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

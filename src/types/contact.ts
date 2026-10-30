@@ -5,7 +5,6 @@ export interface Contact {
   middleName: string;
   lastName: string;
   suffix: string;
-  contactOwner: string;
   address: string;
   phone: string;
   email: string;
@@ -20,7 +19,6 @@ export type NewContactInput = Pick<
   | 'middleName'
   | 'lastName'
   | 'suffix'
-  | 'contactOwner'
   | 'address'
   | 'phone'
   | 'email'

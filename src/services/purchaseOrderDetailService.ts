@@ -14,6 +14,7 @@ import { decodeHtmlEntities, htmlToPlainText } from '../utils/html';
 import { withCalculatedAmounts } from '../utils/paymentTerms';
 import { isSigned } from '../utils/purchaseOrderStatus';
 import { toNumber } from '../utils/toNumber';
+import { toPurchaseOrderInvoice } from './purchaseOrderChangeOrderService';
 import { salesforceGet } from './salesforceClient';
 
 /**
@@ -76,6 +77,19 @@ function toSignatureOnFile(po: PurchaseOrderApiRecord): SignatureOnFile | null {
   };
 }
 
+/**
+ * The signed PO PDF to show: the newest of signedPurchaseOrderFiles, else the
+ * older pdfBase64Data field. Any "data:application/pdf;base64," prefix and line
+ * breaks are stripped, so it can be written straight to a file.
+ */
+function toSignedPdfBase64(po: PurchaseOrderApiRecord): string | null {
+  const newestFile = (po.signedPurchaseOrderFiles ?? [])
+    .filter((file) => file.pdfBase64Data)
+    .sort((a, b) => (b.signedDate ?? '').localeCompare(a.signedDate ?? ''))[0];
+  const base64 = newestFile?.pdfBase64Data || po.pdfBase64Data;
+  return base64?.replace(/^data:[^,]*,/, '').replace(/\s/g, '') || null;
+}
+
 /** Fetches one purchase order's details (GET /purchaseorderdetail?poId=…&accountId=…). */
 export async function fetchPurchaseOrderDetail(accountId: string, poId: string): Promise<PurchaseOrderDetail> {
   const data = await salesforceGet<PurchaseOrderDetailApiResponse>(SALESFORCE_PURCHASE_ORDER_DETAIL_URL, {
@@ -96,8 +110,7 @@ export async function fetchPurchaseOrderDetail(accountId: string, poId: string):
   // When the vendor has signed, the API's date of signing and its signature on file are the PO's signature.
   const hasVendorSigned = !!po.vendorSigned || isSigned(po.status ?? '');
   const vendorSignedDate = hasVendorSigned ? po.vendorSignedDate || po.signedDate || null : null;
-  // Strip any "data:application/pdf;base64," prefix and line breaks, so it can be written straight to a file.
-  const signedPdfBase64 = po.pdfBase64Data?.replace(/^data:[^,]*,/, '').replace(/\s/g, '') || null;
+  const signedPdfBase64 = toSignedPdfBase64(po);
   const lineItemsTotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
   // Some POs report a total of 0 despite having priced line items; fall back to their sum.
   const totalAmount = po.totalAmount || lineItemsTotal;
@@ -117,13 +130,15 @@ export async function fetchPurchaseOrderDetail(accountId: string, poId: string):
         ? { name: signatureOnFile.name, fontId: null, imageBase64: signatureOnFile.imageBase64, date: vendorSignedDate }
         : null,
     signatureOnFile,
-    signedPdfBase64: hasVendorSigned ? signedPdfBase64 : null,
+    // A signed file from signedPurchaseOrderFiles means it's signed, even if the status lags behind.
+    signedPdfBase64: hasVendorSigned || po.signedPurchaseOrderFiles?.length ? signedPdfBase64 : null,
     opportunityId: po.opportunityId?.trim() || null,
     // NOTE: the detail API doesn't return these. usePurchaseOrderDetail adds the PO
     // date (from the Purchase Orders list), a signature made on this device (for POs
-    // the API has no signature for) and the change orders and invoices.
+    // the API has no signature for) and the change orders.
     poDate: null,
     changeOrders: null,
-    invoices: null,
+    // The PO's invoices (bookkeepingRecords); null when not sent, so the change-orders API's are used instead.
+    invoices: po.bookkeepingRecords ? po.bookkeepingRecords.map(toPurchaseOrderInvoice) : null,
   };
 }

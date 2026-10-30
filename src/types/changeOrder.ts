@@ -53,6 +53,10 @@ export interface CreatedChangeOrder {
   status: string;
   /** e.g. "Pending"; empty when the API leaves it out. */
   approvalStatus: string;
+  /** In dollars: the API's, else what was sent. */
+  amount: number;
+  /** e.g. "Job Change Order"; absent when the API leaves it out. */
+  source?: string;
   /** The API's message, fit to show the user. */
   message: string;
 }

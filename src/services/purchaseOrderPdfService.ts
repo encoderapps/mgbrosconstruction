@@ -2,6 +2,7 @@ import { PDFDocument, PDFFont, PDFImage, PDFPage, RGB, StandardFonts, rgb } from
 import fontkit from '@pdf-lib/fontkit';
 import RNFS from 'react-native-fs';
 import { MG_BROS_LOGO_PNG_BASE64 } from '../assets/pdf/mgBrosLogoPng';
+import { MG_BROS_SIGNATURE_PNG_BASE64 } from '../assets/pdf/mgBrosSignaturePng';
 import { EMPTY_VALUE } from '../constants/display';
 import {
   GENERAL_CONTRACTOR,
@@ -451,9 +452,13 @@ function drawStandardTerms(writer: PageWriter): void {
   writer.top += 14;
 }
 
-/** A vendor signature to draw: the registration signature image, or the name written in a signature font. */
+/**
+ * A signature to draw: an image (the vendor's registration signature, or MG
+ * Bros'), or the vendor's name written in a signature font. The date, when
+ * given, fills the block's "Date" line.
+ */
 type DrawnSignature =
-  | { kind: 'image'; image: PDFImage; date: string }
+  | { kind: 'image'; image: PDFImage; date?: string }
   | { kind: 'text'; text: string; font: PDFFont; date: string };
 
 /** Room above the signature line for the handwritten signature. */
@@ -489,7 +494,7 @@ function drawSignatureBlock(
       color: COLORS.signatureInk,
     });
   }
-  if (signature) {
+  if (signature?.date) {
     writer.text(signature.date, dateLineX, writer.top - 13, { align: 'center', width: DATE_LINE_WIDTH });
   }
   writer.rule(lineX, SIGNATURE_LINE_WIDTH, writer.top, COLORS.ink);
@@ -533,6 +538,11 @@ async function embedSignature(doc: PDFDocument, signature?: PurchaseOrderSignatu
   return undefined;
 }
 
+/** MG Bros' signature for the General Contractor line, already signed on every document. */
+async function embedGeneralContractorSignature(doc: PDFDocument): Promise<DrawnSignature> {
+  return { kind: 'image', image: await doc.embedPng(MG_BROS_SIGNATURE_PNG_BASE64) };
+}
+
 async function embedFonts(doc: PDFDocument): Promise<PurchaseOrderFonts> {
   return {
     regular: await doc.embedFont(StandardFonts.Helvetica),
@@ -542,12 +552,17 @@ async function embedFonts(doc: PDFDocument): Promise<PurchaseOrderFonts> {
 }
 
 /** "This … is accepted by:", the vendor's and MG Bros' signature lines, and the closing thanks. */
-function drawAcceptance(writer: PageWriter, documentName: string, vendorSignature?: DrawnSignature): void {
+function drawAcceptance(
+  writer: PageWriter,
+  documentName: string,
+  generalContractorSignature: DrawnSignature,
+  vendorSignature?: DrawnSignature,
+): void {
   writer.ensureSpace(ACCEPTANCE_HEIGHT);
   writer.text(`This ${documentName} is accepted by:`, MARGIN, writer.top);
   writer.top += lineHeight(FONT_SIZE);
   drawSignatureBlock(writer, 'Vendor:', undefined, vendorSignature);
-  drawSignatureBlock(writer, 'General Contractor:', GENERAL_CONTRACTOR.name);
+  drawSignatureBlock(writer, 'General Contractor:', GENERAL_CONTRACTOR.name, generalContractorSignature);
   writer.top += 18;
   writer.text('Thank You For Your Business!', MARGIN, writer.top, {
     font: writer.fonts.boldItalic,
@@ -583,7 +598,7 @@ export async function buildPurchaseOrderPdfBase64(
   drawPaymentTerms(writer, purchaseOrder);
   drawSpecialInstructions(writer, purchaseOrder);
   drawStandardTerms(writer);
-  drawAcceptance(writer, 'Purchase Order', vendorSignature);
+  drawAcceptance(writer, 'Purchase Order', await embedGeneralContractorSignature(doc), vendorSignature);
   drawPageNumbers(doc, fonts.regular);
   return doc.saveAsBase64();
 }
@@ -710,7 +725,7 @@ export async function buildChangeOrderPdfBase64(
   drawParties(writer, context.projectAddress, vendor);
   drawChangeOrderItems(writer, changeOrder);
   drawChangeOrderNotes(writer, changeOrder.notes);
-  drawAcceptance(writer, 'Change Order', vendorSignature);
+  drawAcceptance(writer, 'Change Order', await embedGeneralContractorSignature(doc), vendorSignature);
   drawPageNumbers(doc, fonts.regular);
   return doc.saveAsBase64();
 }

@@ -1,7 +1,12 @@
 import { SALESFORCE_PURCHASE_ORDERS_URL } from '../constants/config';
 import { AccountListResult } from '../types/list';
-import { PurchaseOrderApiRecord, PurchaseOrdersApiResponse, PurchaseOrdersView } from '../types';
-import { PurchaseOrder } from '../types/purchaseOrder';
+import {
+  PurchaseOrderApiRecord,
+  PurchaseOrderListChangeOrderApiRecord,
+  PurchaseOrdersApiResponse,
+  PurchaseOrdersView,
+} from '../types';
+import { PurchaseOrder, PurchaseOrderListChangeOrder } from '../types/purchaseOrder';
 import { timestampToLocalDate } from '../utils/dateValidation';
 import { salesforceGet } from './salesforceClient';
 
@@ -13,6 +18,25 @@ function toPurchaseOrder(record: PurchaseOrderApiRecord): PurchaseOrder {
     paidAmount: record.paidAmount ?? 0,
     vendor: record.vendor ?? '',
     createdDate: timestampToLocalDate(record.createdDate),
+    totalAmount: record.totalAmount ?? 0,
+    projectName: record.projectName ?? '',
+  };
+}
+
+function toChangeOrder(
+  record: PurchaseOrderListChangeOrderApiRecord,
+  poIdsByName: Map<string, string>,
+): PurchaseOrderListChangeOrder {
+  const purchaseOrderName = record.purchaseOrderName ?? '';
+  return {
+    id: record.id,
+    name: record.name ?? '',
+    status: record.status ?? '',
+    totalAmount: record.totalAmount ?? 0,
+    ...(record.source && { source: record.source }),
+    purchaseOrderName,
+    purchaseOrderId: poIdsByName.get(purchaseOrderName) ?? null,
+    projectName: record.projectName ?? '',
   };
 }
 
@@ -45,4 +69,22 @@ export async function fetchPurchaseOrders(
   ]);
   const items = (data.purchaseOrders ?? []).map(toPurchaseOrder);
   return { items, count: countOf(all ?? data) };
+}
+
+export interface AllPurchaseOrdersResult extends AccountListResult<PurchaseOrder> {
+  /** Every PO's change orders, together. */
+  changeOrders: PurchaseOrderListChangeOrder[];
+}
+
+/**
+ * Every purchase order (view=all) plus the change orders the API lists
+ * alongside them. The API names each change order's PO but not its Id, so
+ * that's looked up from the returned POs.
+ */
+export async function fetchAllPurchaseOrders(accountId: string): Promise<AllPurchaseOrdersResult> {
+  const data = await requestPurchaseOrders(accountId, 'all');
+  const items = (data.purchaseOrders ?? []).map(toPurchaseOrder);
+  const poIdsByName = new Map(items.map((order) => [order.name, order.id]));
+  const changeOrders = (data.changeOrders ?? []).map((record) => toChangeOrder(record, poIdsByName));
+  return { items, count: countOf(data), changeOrders };
 }

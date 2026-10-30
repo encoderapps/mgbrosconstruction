@@ -26,7 +26,7 @@ export const SALESFORCE_FORGOT_PASSWORD_URL = `${SALESFORCE_INSTANCE_URL}/servic
 export const SALESFORCE_CONTACT_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/contact`;
 // The trailing "*" is part of the Apex REST URL mapping (/getcontact/*).
 export const SALESFORCE_GET_CONTACTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/getcontact/*`;
-export const SALESFORCE_INVOICES_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/invoices/fetch`;
+export const SALESFORCE_INVOICES_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/bookkeeping/fetch`;
 // The trailing "*" is part of the Apex REST URL mapping (/invoices/create/*).
 export const SALESFORCE_CREATE_INVOICE_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/invoices/create/*`;
 // Salesforce REST API SOQL query endpoint (not Apex REST).
@@ -42,6 +42,7 @@ export const SALESFORCE_JOB_CHANGE_ORDER_LINE_ITEMS_URL = `${SALESFORCE_INSTANCE
 export const SALESFORCE_MY_JOB_CHANGE_ORDER_ITEMS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/myjobchangeorderitems/`;
 export const SALESFORCE_SUBCONTRACTOR_DOCUMENTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractordocuments`;
 export const SALESFORCE_BIDS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/bids`;
+export const SALESFORCE_SERVICE_ITEMS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/serviceitems`;
 // The trailing "*" is part of the Apex REST URL mapping (/projects/fetch/*).
 export const SALESFORCE_PROJECTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/projects/fetch/*`;
 export const SALESFORCE_CLIENT_ID =

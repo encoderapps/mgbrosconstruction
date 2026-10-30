@@ -5,24 +5,20 @@ import { Invoice } from '../types/invoice';
 import { toNumber } from '../utils/toNumber';
 import { salesforceGet } from './salesforceClient';
 
-/**
- * Maps one invoice from the API to the app's Invoice.
- * NOTE: the field names below are assumed — the sandbox accounts tested so far
- * returned no invoices. Adjust them to match the real response.
- */
+/** Maps one invoice (bookkeeping record) from the API to the app's Invoice. */
 function toInvoice(record: InvoiceApiRecord, index: number): Invoice {
   return {
-    id: record.invoiceId || record.id || `invoice-${index}`,
+    id: record.id || record.invoiceId || `invoice-${index}`,
     invoiceNumber: record.invoiceNumber?.trim() ?? '',
     vendorInvoiceNumber: record.vendorInvoiceNumber?.trim() ?? '',
-    amount: toNumber(record.amount),
+    amount: toNumber(record.totalAmount),
     status: record.status?.trim() ?? '',
   };
 }
 
 /**
  * Fetches the account's invoices: view=recent returns the latest 5, view=all
- * returns every invoice. `count` is the account's total (totalInvoices).
+ * returns every invoice. `count` is the account's total (totalRecords).
  */
 export async function fetchInvoices(accountId: string, view: InvoicesView): Promise<AccountListResult<Invoice>> {
   const data = await salesforceGet<InvoicesApiResponse>(SALESFORCE_INVOICES_URL, { accountId, view });
@@ -30,5 +26,5 @@ export async function fetchInvoices(accountId: string, view: InvoicesView): Prom
     throw new Error(data.message || 'Unable to load invoices.');
   }
   const items = (data.invoices ?? []).map(toInvoice);
-  return { items, count: data.totalInvoices ?? items.length };
+  return { items, count: data.totalRecords ?? items.length };
 }

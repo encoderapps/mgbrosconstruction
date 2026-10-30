@@ -52,7 +52,6 @@ describe('fetchContacts', () => {
         middleName: 'Grace',
         lastName: 'williams',
         suffix: '',
-        contactOwner: '',
         address: '456 Industrial Area, Jaipur, Rajasthan',
         phone: '3125559876',
         email: 'robert.smith@example.com',

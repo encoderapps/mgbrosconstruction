@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
 import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
-import { ChangeOrderDetailsCard } from '../components/ChangeOrderDetailsCard';
+// CO Details is hidden for now; see renderBody.
+// import { ChangeOrderDetailsCard } from '../components/ChangeOrderDetailsCard';
 import { ChangeOrderHeaderCard } from '../components/ChangeOrderHeaderCard';
 import { ChangeOrderItemsCard } from '../components/ChangeOrderItemsCard';
 import { ChangeOrderSummaryCard } from '../components/ChangeOrderSummaryCard';
@@ -74,7 +75,7 @@ export function ChangeOrderDetailsScreen({ navigation, route }: Props): React.JS
     }
   };
 
-  const renderBody = ({ changeOrder, purchaseOrder, purchaseOrderLineItems }: ChangeOrderScreenData): React.JSX.Element => (
+  const renderBody = ({ changeOrder, purchaseOrder }: ChangeOrderScreenData): React.JSX.Element => (
     <>
       <ChangeOrderSummaryCard
         changeOrderName={changeOrder.name}
@@ -96,7 +97,8 @@ export function ChangeOrderDetailsScreen({ navigation, route }: Props): React.JS
             : undefined
         }
       />
-      <ChangeOrderDetailsCard purchaseOrderLineItems={purchaseOrderLineItems} notes={changeOrder.notes} />
+      {/* CO Details (the PO's line items and the change order's notes) is hidden for now, whatever the status. */}
+      {/* <ChangeOrderDetailsCard purchaseOrderLineItems={purchaseOrderLineItems} notes={changeOrder.notes} /> */}
       {renderAction(changeOrder)}
     </>
   );

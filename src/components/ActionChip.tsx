@@ -7,7 +7,8 @@ type IconComponent = (props: { size?: number; color?: string }) => React.JSX.Ele
 type ActionChipProps = {
   label: string;
   Icon: IconComponent;
-  onPress: () => void;
+  /** Left out while the action isn't available yet: the chip is shown dimmed and can't be tapped. */
+  onPress?: () => void;
   /** Read by screen readers instead of the label, e.g. to add which project it's for. */
   accessibilityLabel?: string;
 };
@@ -17,10 +18,12 @@ export function ActionChip({ label, Icon, onPress, accessibilityLabel }: ActionC
   return (
     <Pressable
       onPress={onPress}
+      disabled={!onPress}
       hitSlop={4}
-      style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.chip, pressed && styles.pressed, !onPress && styles.disabled]}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ disabled: !onPress }}
     >
       <Icon size={11} color={welcomeColors.accent} />
       <Text style={styles.label} numberOfLines={1}>
@@ -49,5 +52,8 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  disabled: {
+    opacity: 0.45,
   },
 });

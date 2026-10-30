@@ -13,7 +13,8 @@ type BidLineItemsCardProps = {
   editable: boolean;
   /** The line item being deleted, so its button can show it's busy. */
   deletingId: string | null;
-  onAddPress: () => void;
+  /** Shows the Add Line Item button (on an editable bid); left out, the button is hidden. */
+  onAddPress?: () => void;
   onDeletePress: (lineItem: BidLineItem) => void;
 };
 
@@ -32,7 +33,7 @@ export function BidLineItemsCard({
         <Text style={styles.title} accessibilityRole="header">
           Line Items
         </Text>
-        {editable && (
+        {editable && onAddPress && (
           <Pressable
             onPress={onAddPress}
             hitSlop={8}

@@ -4,7 +4,6 @@ import { TrashIcon } from '../assets/icons';
 import { fontFamily, portalColors, radius, welcomeColors } from '../theme';
 import { formatCurrency } from '../utils/formatCurrency';
 import { PaymentTermDraft } from '../utils/paymentTerms';
-import { SelectInput } from './SelectInput';
 
 type PaymentTermEditorRowProps = {
   draft: PaymentTermDraft;
@@ -12,7 +11,6 @@ type PaymentTermEditorRowProps = {
   position: number;
   /** Calculated from the PO total; not editable. */
   amount: number;
-  descriptionOptions: string[];
   canDelete: boolean;
   disabled: boolean;
   onDescriptionChange: (key: string, description: string) => void;
@@ -33,7 +31,6 @@ export const PaymentTermEditorRow = memo(function PaymentTermEditorRowView({
   draft,
   position,
   amount,
-  descriptionOptions,
   canDelete,
   disabled,
   onDescriptionChange,
@@ -45,14 +42,15 @@ export const PaymentTermEditorRow = memo(function PaymentTermEditorRowView({
     // ("the specified child already has a parent") when it changes whether the View is flattened.
     <View style={styles.row}>
       <Text style={[styles.text, styles.indexColumn]}>{position}</Text>
-      <SelectInput
-        compact
-        label={`Payment term ${position} description`}
-        placeholder="Select"
+      <TextInput
+        style={[styles.text, styles.descriptionInput]}
         value={draft.description}
-        options={descriptionOptions}
-        onSelect={(description) => onDescriptionChange(draft.key, description)}
-        disabled={disabled}
+        onChangeText={(description) => onDescriptionChange(draft.key, description)}
+        placeholder="Enter description"
+        placeholderTextColor={welcomeColors.inputPlaceholder}
+        autoCapitalize="sentences"
+        editable={!disabled}
+        accessibilityLabel={`Payment term ${position} description`}
       />
       <TextInput
         style={[styles.text, styles.percentageInput]}
@@ -96,6 +94,16 @@ const styles = StyleSheet.create({
   },
   indexColumn: {
     width: PAYMENT_TERM_COLUMN_WIDTHS.index,
+  },
+  descriptionInput: {
+    flex: 1,
+    height: 36,
+    paddingHorizontal: 8,
+    paddingVertical: 0,
+    borderWidth: 1,
+    borderColor: welcomeColors.inputBorder,
+    borderRadius: radius.sm,
+    backgroundColor: welcomeColors.inputBackground,
   },
   percentageInput: {
     width: PAYMENT_TERM_COLUMN_WIDTHS.percentage,
