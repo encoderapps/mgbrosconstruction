@@ -29,6 +29,23 @@ const NETWORK_ERROR_MESSAGE = 'Unable to reach the server. Check your connection
 const TIMEOUT_ERROR_MESSAGE = 'The server took too long to respond. Please try again.';
 
 /**
+ * The message in Salesforce's own error body, e.g. [{ "errorCode":
+ * "METHOD_NOT_ALLOWED", "message": "HTTP Method 'POST' not allowed. Allowed
+ * are PATCH" }] (sent for a wrong method, an unknown URL or an Apex exception,
+ * instead of the endpoint's { success, message }); null for any other body.
+ */
+export function toSalesforceErrorMessage(body: unknown): string | null {
+  const first: unknown = Array.isArray(body) ? body[0] : body;
+  if (first && typeof first === 'object' && 'message' in first) {
+    const { message } = first as { message: unknown };
+    if (typeof message === 'string' && message.trim()) {
+      return message.trim();
+    }
+  }
+  return null;
+}
+
+/**
  * Sends a write request (POST/PATCH) to an Apex REST endpoint and returns its
  * { success, … } body. Like the other endpoints on this org, a failure may come
  * back as a non-2xx status with a normal { success, message } body, which is
@@ -63,7 +80,10 @@ export async function salesforceSend<Response extends { success: boolean }>(
       if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
         throw new Error(TIMEOUT_ERROR_MESSAGE);
       }
-      throw new Error(error.response ? fallbackMessage : NETWORK_ERROR_MESSAGE);
+      if (!error.response) {
+        throw new Error(NETWORK_ERROR_MESSAGE);
+      }
+      throw new Error(toSalesforceErrorMessage(error.response.data) ?? fallbackMessage);
     }
   }
   // A 2xx with an unexpected body (e.g. an HTML error page) is a failure too.

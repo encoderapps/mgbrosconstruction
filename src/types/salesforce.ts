@@ -24,6 +24,8 @@ export interface SubcontractorLoginResponse {
   email?: string | null;
   phone?: string | null;
   homeAddress?: string | null;
+  /** The account's paperwork status; "Complete" means it's all in order, anything else (e.g. "Not MG Bros Sub") that it isn't (see isPaperworkComplete). */
+  subsPaperworkMG?: string | null;
   /**
    * The signature registered with (the same fields the registration API
    * takes). Not returned yet; when the API returns them they're used instead
@@ -648,9 +650,43 @@ export interface SubcontractorDocumentGroupApiRecord {
   allDocuments?: SubcontractorDocumentApiRecord[] | null;
 }
 
+/** The dates sent with an upload: a signed date for a W9 or MSA, effective and expiration dates for a COI. */
+export type SubcontractorDocumentUploadDates =
+  /** YYYY-MM-DD. */
+  | { signedDate: string }
+  /** YYYY-MM-DD each. */
+  | { effectiveDate: string; expirationDate: string };
+
+/** POST /subcontractordocumentupload: a new copy of one document, which becomes its current copy. */
+export type SubcontractorDocumentUploadApiPayload = {
+  accountId: string;
+  /** "W9", "COI - General Liability", "COI - Workers Comp" or "Master Subcontract Agreement". */
+  recordTypeName: string;
+  /** The PDF, base64-encoded. The server names the file itself. */
+  fileBase64: string;
+} & SubcontractorDocumentUploadDates;
+
+export interface SubcontractorDocumentUploadApiResponse {
+  success: boolean;
+  message?: string;
+  recordTypeName?: string | null;
+  /** YYYY-MM-DD; null except on a W9. */
+  signedDate?: string | null;
+  /** The name the server gave the file, e.g. "W9 - Foster Climate Works". */
+  fileName?: string | null;
+  effectiveDate?: string | null;
+  expirationDate?: string | null;
+  contentDocumentId?: string | null;
+  /** The new document record's id. */
+  bkFileId?: string | null;
+  accountId?: string | null;
+}
+
 export interface SubcontractorDocumentsApiResponse {
   success: boolean;
   message?: string;
+  /** The account's paperwork status as it stands now, e.g. "Complete" or "Not MG Bros Sub" (as at login). */
+  subsPaperworkMG?: string | null;
   documents: SubcontractorDocumentGroupApiRecord[] | null;
 }
 
@@ -741,6 +777,28 @@ export interface ContactsApiResponse {
 }
 
 /** One bid in GET /bids?projectId=…. Only the fields the app reads are typed. */
+/** One of a bid's line items (a MyBid_Item__c), in GET /bids. */
+export interface BidLineItemApiRecord {
+  id: string;
+  /** e.g. "BIDI-000010". */
+  itemNumber?: string | null;
+  bidId?: string | null;
+  itemId?: string | null;
+  itemDescription?: string | null;
+  /** In dollars, e.g. 25000.00. */
+  offerPrice?: number | string | null;
+  approximateOperatingTime?: number | null;
+  /** Picklist value: "Day_s", "Week_s" or "Month_s". */
+  approximateOperatingTimeType?: string | null;
+  /** The operating time converted to days, e.g. 10 weeks → 70. */
+  operatingTimeDays?: number | null;
+  /** e.g. "Draft". */
+  status?: string | null;
+  readyForBidding?: boolean | null;
+  isApproved?: boolean | null;
+  isActive?: boolean | null;
+}
+
 export interface BidApiRecord {
   id: string;
   /** e.g. "BID-00000001". */
@@ -748,9 +806,9 @@ export interface BidApiRecord {
   /** e.g. "New". */
   status: string | null;
   projectId: string | null;
-  /** e.g. "[TEST] 666 Post Street, San Francisco, CA, 94109". */
+  /** e.g. "[TEST] 666 Post Street, San Francisco, CA, 94109"; null when the bid has no project yet. */
   projectName: string | null;
-  notes: string | null;
+  notes?: string | null;
   /** Rich text. */
   description?: string | null;
   /** One line, e.g. "666 Post Street, San Francisco, California, 94109, United States". */
@@ -763,13 +821,100 @@ export interface BidApiRecord {
   approvedBidItems?: number | null;
   approvalPercentage?: number | null;
   signed?: boolean | null;
+  subcontractorId?: string | null;
+  subcontractorName?: string | null;
+  serviceItemId?: string | null;
+  contactId?: string | null;
+  request?: string | null;
+  response?: string | null;
+  lineItems?: BidLineItemApiRecord[] | null;
 }
 
-/** GET /bids?projectId=… response. */
+/** GET /bids?subcontractorId=… response. */
 export interface BidsApiResponse {
   success: boolean;
   /** e.g. "Bids fetched successfully." */
   message?: string | null;
   totalRecords?: number | null;
   bids: BidApiRecord[] | null;
+}
+
+/** POST /ach/v1/ body: the company's bank details for ACH payments. */
+export interface AchApiPayload {
+  accountId: string;
+  bankName: string;
+  accountNumber: string;
+  confirmAccountNumber: string;
+  routingNumber: string;
+}
+
+/** POST /ach/v1/ response. */
+export interface AchApiResponse {
+  success: boolean;
+  /** e.g. "ACH form created successfully". */
+  message?: string | null;
+  bankName?: string | null;
+  routingNumber?: string | null;
+  /** e.g. "****8335". */
+  maskedAccountNumber?: string | null;
+  /** e.g. "Bank Account". */
+  accountType?: string | null;
+  bookkeepingAccountId?: string | null;
+  bkFileId?: string | null;
+}
+
+/** PATCH /bids/update/ body: marks a bid as complete; Salesforce decides its new status (e.g. "Send Request"). */
+export interface BidStatusUpdateApiPayload {
+  bidId: string;
+}
+
+/** PATCH /bids/update/ response. */
+export interface BidStatusUpdateApiResponse {
+  success: boolean;
+  /** e.g. "Bid status updated successfully." */
+  message?: string | null;
+  bidId?: string | null;
+  bidNumber?: string | null;
+  previousStatus?: string | null;
+  updatedStatus?: string | null;
+}
+
+/** POST /bid-items/ body: a new line item on a bid. */
+export interface BidLineItemApiPayload {
+  bidId: string;
+  itemDescription: string;
+  approximateOperatingTime: number;
+  /** Picklist value: "Day_s", "Week_s" or "Month_s". */
+  approximateOperatingTimeType: string;
+  /** In dollars. */
+  offerPrice: number;
+}
+
+/** POST /bid-items/ response: the saved line item. */
+export interface BidLineItemCreateApiResponse {
+  success: boolean;
+  /** e.g. "Bid line item created successfully." */
+  message?: string | null;
+  bidItem?: BidLineItemApiRecord | null;
+}
+
+/** One of the account's saved ACH bank accounts, in GET /ach/subcontractor/v1/. */
+export interface AchFormApiRecord {
+  bankName?: string | null;
+  accountNumber?: string | null;
+  routingNumber?: string | null;
+  /** e.g. "Bank Account"; may be null. */
+  accountType?: string | null;
+}
+
+/** GET /ach/subcontractor/v1/?accountId=… response. */
+export interface SubcontractorAchApiResponse {
+  success: boolean;
+  /** e.g. "ACH details fetched successfully." */
+  message?: string | null;
+  accountId?: string | null;
+  /** The company's name: the name on the account. */
+  subcontractorName?: string | null;
+  totalRecords?: number | null;
+  achForms?: AchFormApiRecord[] | null;
 }

@@ -11,16 +11,25 @@ import { ArrowLeftIcon, FolderIcon } from '../assets/icons';
 import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { useComplianceDocuments } from '../hooks/useComplianceDocuments';
+import { useDocumentFileActions } from '../hooks/useDocumentFileActions';
+import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { ComplianceDocument } from '../types/document';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Documents'>;
 
-/** Home → Documents: the company's W9, General Liability and Workers' Comp, each opening its own screen. */
+/** Home → Documents: the company's W9, General Liability, Workers' Comp and MSA, each opening its own screen. */
 export function DocumentsScreen({ navigation }: Props): React.JSX.Element {
-  const { data: documents, status, reload } = useComplianceDocuments();
+  const { data: documents, status, reload, refresh } = useComplianceDocuments();
+  const { busyFileId, downloadFile } = useDocumentFileActions();
+  // Coming back from an upload shows the new copy.
+  useRefreshOnReturn(refresh);
 
   const openDocument = (document: ComplianceDocument): void => {
     navigation.navigate('DocumentDetails', { documentType: document.type });
+  };
+
+  const addDocument = (document: ComplianceDocument): void => {
+    navigation.navigate('AddComplianceDocument', { documentType: document.type });
   };
 
   const renderDocuments = (): React.JSX.Element => {
@@ -44,7 +53,9 @@ export function DocumentsScreen({ navigation }: Props): React.JSX.Element {
             document={document}
             showDivider={index > 0}
             onOpen={openDocument}
-            // No onAdd: adding a W9, General Liability or Workers' Comp isn't available yet, so its + is disabled.
+            onDownload={downloadFile}
+            busyFileId={busyFileId}
+            onAdd={addDocument}
           />
         ))}
       </AuthCard>

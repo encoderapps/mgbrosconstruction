@@ -1,9 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { DocumentIcon, PlusIcon, ShieldIcon } from '../assets/icons';
 import { fontFamily, portalColors, radius, welcomeColors } from '../theme';
 import { COMPLIANCE_DOCUMENT_INFO } from '../constants/complianceDocuments';
-import { ComplianceDocument } from '../types/document';
+import { ComplianceDocument, ComplianceDocumentFile } from '../types/document';
 import { getDocumentSummary, isInsuranceCertificate } from '../utils/complianceDocument';
 
 type ComplianceDocumentSectionProps = {
@@ -11,23 +11,32 @@ type ComplianceDocumentSectionProps = {
   /** Draws a divider above the section (all but the first). */
   showDivider: boolean;
   onOpen: (document: ComplianceDocument) => void;
+  /** Saves the latest file onto the device. */
+  onDownload: (file: ComplianceDocumentFile) => void;
+  /** The file being saved, if any (one at a time across the list). */
+  busyFileId: string | null;
   /** Left out while adding isn't available yet: the + is shown dimmed and can't be tapped. */
   onAdd?: (document: ComplianceDocument) => void;
 };
 
 /**
- * One document in the Documents list: its name, key facts and files. The
- * name, facts and file links all open the document's own screen.
+ * One document in the Documents list: its name, key facts and latest file.
+ * The name and facts open the document's own screen (to view or download any
+ * version); the file link downloads the latest file straight away.
  */
 export function ComplianceDocumentSection({
   document,
   showDivider,
   onOpen,
+  onDownload,
+  busyFileId,
   onAdd,
 }: ComplianceDocumentSectionProps): React.JSX.Element {
   const { label } = COMPLIANCE_DOCUMENT_INFO[document.type];
   const Icon = isInsuranceCertificate(document.type) ? ShieldIcon : DocumentIcon;
-  const files = document.current ? [document.current, ...document.previousVersions] : document.previousVersions;
+  // Only the latest: the current copy, else the newest previous version.
+  const latestFile = document.current ?? document.previousVersions[0] ?? null;
+  const isBusy = !!latestFile && busyFileId === latestFile.id;
   const summary = getDocumentSummary(document.type, document.current);
   const open = (): void => onOpen(document);
 
@@ -77,23 +86,25 @@ export function ComplianceDocumentSection({
         )}
       </Pressable>
 
-      {files.length > 0 && (
-        <View style={styles.files}>
-          {files.map((file) => (
-            <Pressable
-              key={file.id}
-              onPress={open}
-              hitSlop={4}
-              style={({ pressed }) => [styles.fileLink, pressed && styles.pressed]}
-              accessibilityRole="link"
-            >
-              <DocumentIcon size={14} color={welcomeColors.link} />
-              <Text style={styles.fileLinkText} numberOfLines={1}>
-                {file.fileName}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+      {latestFile && (
+        <Pressable
+          onPress={() => onDownload(latestFile)}
+          disabled={busyFileId !== null}
+          hitSlop={4}
+          style={({ pressed }) => [styles.fileLink, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={`Download ${latestFile.fileName}`}
+          accessibilityState={{ disabled: busyFileId !== null, busy: isBusy }}
+        >
+          {isBusy ? (
+            <ActivityIndicator size="small" color={welcomeColors.link} />
+          ) : (
+            <DocumentIcon size={14} color={welcomeColors.link} />
+          )}
+          <Text style={styles.fileLinkText} numberOfLines={1}>
+            {latestFile.fileName}
+          </Text>
+        </Pressable>
       )}
     </View>
   );
@@ -160,9 +171,6 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontFamily: fontFamily.semiBold,
     fontWeight: '600',
-  },
-  files: {
-    gap: 6,
   },
   fileLink: {
     flexDirection: 'row',

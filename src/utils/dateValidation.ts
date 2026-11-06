@@ -28,6 +28,13 @@ export function parseDateOnlyString(value: string): Date {
   return new Date(year, month - 1, day);
 }
 
+/** "2025-11-04" + 1 year → "2026-11-04"; a Feb 29 lands on Feb 28 in a non-leap year. */
+export function addYears(value: string, years: number): string {
+  const [year, month, day] = value.split('-').map(Number);
+  const lastDayOfMonth = new Date(year + years, month, 0).getDate();
+  return toDateOnlyString(new Date(year + years, month - 1, Math.min(day, lastDayOfMonth)));
+}
+
 /** Whether `value` has the "YYYY-MM-DD" shape the backend expects. */
 export function isDateOnlyString(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);

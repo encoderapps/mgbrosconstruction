@@ -41,7 +41,12 @@ export const SALESFORCE_CREATE_CHANGE_ORDER_URL = `${SALESFORCE_INSTANCE_URL}/se
 export const SALESFORCE_JOB_CHANGE_ORDER_LINE_ITEMS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/jobchangeorderlineitems/`;
 export const SALESFORCE_MY_JOB_CHANGE_ORDER_ITEMS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/myjobchangeorderitems/`;
 export const SALESFORCE_SUBCONTRACTOR_DOCUMENTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractordocuments`;
+export const SALESFORCE_SUBCONTRACTOR_DOCUMENT_UPLOAD_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractordocumentupload`;
+export const SALESFORCE_ACH_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/ach/v1/`;
+export const SALESFORCE_SUBCONTRACTOR_ACH_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/ach/subcontractor/v1/`;
 export const SALESFORCE_BIDS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/bids`;
+export const SALESFORCE_BID_ITEMS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/bid-items/`;
+export const SALESFORCE_BID_UPDATE_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/bids/update/`;
 export const SALESFORCE_SERVICE_ITEMS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/serviceitems`;
 // The trailing "*" is part of the Apex REST URL mapping (/projects/fetch/*).
 export const SALESFORCE_PROJECTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/projects/fetch/*`;

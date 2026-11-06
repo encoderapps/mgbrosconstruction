@@ -8,21 +8,18 @@ import { HomeHeader } from '../components/HomeHeader';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 import { LoginInput } from '../components/LoginInput';
 import { ScreenTitleBar } from '../components/ScreenTitleBar';
-import { SelectInput } from '../components/SelectInput';
 import { AlertCircleIcon, CardIcon, LockIcon } from '../assets/icons';
 import { fontFamily, radius, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
-import { ACH_ACCOUNT_TYPES } from '../constants/paymentSettings';
+import { ACH_ACCOUNT_TYPE } from '../constants/paymentSettings';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { useBlockBackWhile } from '../hooks/useBlockBackWhile';
 import { saveAchInfo } from '../services/paymentSettingsService';
-import { AchAccountType } from '../types/paymentSettings';
 import {
   ACCOUNT_NUMBER_MAX_LENGTH,
   ACCOUNT_NUMBER_MIN_LENGTH,
   digitsOnly,
   isValidAccountNumber,
-  isValidRoutingNumber,
   ROUTING_NUMBER_LENGTH,
 } from '../utils/bankAccount';
 
@@ -35,7 +32,6 @@ export function AchInformationScreen({ navigation, route }: Props): React.JSX.El
   const existing = route.params?.existing;
   const company = useSubcontractorSession().company;
   const [bankName, setBankName] = useState(existing?.bankName ?? '');
-  const [accountType, setAccountType] = useState<AchAccountType>(existing?.accountType ?? 'Checking');
   const [accountNumber, setAccountNumber] = useState(existing?.accountNumber ?? '');
   const [routingNumber, setRoutingNumber] = useState(existing?.routingNumber ?? '');
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
@@ -54,12 +50,12 @@ export function AchInformationScreen({ navigation, route }: Props): React.JSX.El
         `Please enter your account number: ${ACCOUNT_NUMBER_MIN_LENGTH}–${ACCOUNT_NUMBER_MAX_LENGTH} digits.`,
       ];
     }
-    // if (!isValidRoutingNumber(routingNumber)) {
-    //   return [
-    //     'Invalid routing number',
-    //     'Please check your routing number: it is the 9-digit number at the bottom left of your checks.',
-    //   ];
-    // }
+    if (routingNumber.length !== ROUTING_NUMBER_LENGTH) {
+      return [
+        'Invalid routing number',
+        'Please check your routing number: it is the 9-digit number at the bottom left of your checks.',
+      ];
+    }
     if (confirmAccountNumber !== accountNumber) {
       return ['Account numbers don’t match', 'Please re-enter your account number to confirm it.'];
     }
@@ -81,7 +77,6 @@ export function AchInformationScreen({ navigation, route }: Props): React.JSX.El
     try {
       const ach = await saveAchInfo(company.accountId, company.name, {
         bankName,
-        accountType,
         accountNumber,
         routingNumber,
       });
@@ -122,17 +117,14 @@ export function AchInformationScreen({ navigation, route }: Props): React.JSX.El
             maxLength={BANK_NAME_MAX_LENGTH}
             editable={!isSaving}
           />
-          {/* collapsable={false}: toggling pointerEvents mustn't flatten/unflatten this view (Fabric crash on Android). */}
-          <View pointerEvents={isSaving ? 'none' : 'auto'} collapsable={false}>
-            <SelectInput
-              label="Account Type"
-              required
-              placeholder="Select account type"
-              value={accountType}
-              options={[...ACH_ACCOUNT_TYPES]}
-              onSelect={(value) => setAccountType(value as AchAccountType)}
-            />
-          </View>
+          {/* Fixed: Salesforce saves every ACH account as a Bank Account. */}
+          <LoginInput
+            label="Account Type"
+            placeholder={ACH_ACCOUNT_TYPE}
+            value={ACH_ACCOUNT_TYPE}
+            onChangeText={() => {}}
+            editable={false}
+          />
           <LoginInput
             label="Account Number"
             required

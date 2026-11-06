@@ -29,10 +29,10 @@ export function CompleteBidScreen({ navigation, route }: Props): React.JSX.Eleme
     }
     setIsCompleting(true);
     try {
-      await completeBid(accountId, bidId);
-      // Bid Details reloads when it's shown again and shows the bid as completed.
+      const { status } = await completeBid(accountId, bidId);
+      // Bid Details reloads when it's shown again and shows the new status.
       navigation.goBack();
-      Alert.alert('Bid completed', `${bidNumber} has been marked as complete.`);
+      Alert.alert('Bid completed', `${bidNumber} has been marked as complete. Its status is now ${status}.`);
     } catch (error) {
       setIsCompleting(false);
       Alert.alert('Unable to complete bid', error instanceof Error ? error.message : 'Please try again.');

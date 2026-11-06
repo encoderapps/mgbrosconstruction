@@ -8,6 +8,7 @@ export * from './LockIcon';
 export * from './EyeIcon';
 export * from './CheckCircleIcon';
 export * from './AlertCircleIcon';
+export * from './CloseCircleIcon';
 export * from './DocumentIcon';
 export * from './UploadIcon';
 export * from './ShieldIcon';
