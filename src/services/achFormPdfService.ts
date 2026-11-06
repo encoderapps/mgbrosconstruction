@@ -141,7 +141,9 @@ export async function generateAchFormPdf({ company, ach }: AchFormContent): Prom
   writer.top += TEXT_SIZE + 44;
   writer.blankLine('Printed Name:', MARGIN, signatureWidth);
   writer.top += TEXT_SIZE + 44;
-  writer.text(`Generated on: ${formatDateTime(ach.generatedAt)}`, MARGIN, { size: 8, color: MUTED_COLOR });
+  if (ach.generatedAt) {
+    writer.text(`Generated on: ${formatDateTime(ach.generatedAt)}`, MARGIN, { size: 8, color: MUTED_COLOR });
+  }
 
   return doc.saveAsBase64();
 }

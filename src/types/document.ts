@@ -1,5 +1,5 @@
 /** The compliance documents a subcontractor keeps on file with MG Bros. */
-export type ComplianceDocumentType = 'w9' | 'generalLiability' | 'workersComp';
+export type ComplianceDocumentType = 'w9' | 'generalLiability' | 'workersComp' | 'masterSubcontractAgreement';
 
 /** One copy of a compliance document. Dates are YYYY-MM-DD. */
 export interface ComplianceDocumentFile {
@@ -28,9 +28,9 @@ export interface ComplianceDocumentFile {
   policyNumber: string | null;
   /** General Liability only: whether MG Bros is named as additional insured; null when unknown. */
   additionalInsured: boolean | null;
-  /** Insurance certificates only. */
+  /** Insurance certificates and the Master Subcontract Agreement. */
   effectiveDate: string | null;
-  /** Insurance certificates only. */
+  /** Insurance certificates and the Master Subcontract Agreement. */
   expirationDate: string | null;
 }
 

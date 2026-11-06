@@ -12,6 +12,8 @@ type ExpandableTableSectionProps = {
   isExpanded: boolean;
   onToggle: () => void;
   onViewAllPress: () => void;
+  /** Shown dimmed and can't be opened (e.g. while a document is expired). */
+  locked?: boolean;
   /** The preview table, shown when expanded. */
   children: React.ReactNode;
 };
@@ -27,16 +29,18 @@ export function ExpandableTableSection({
   isExpanded,
   onToggle,
   onViewAllPress,
+  locked = false,
   children,
 }: ExpandableTableSectionProps): React.JSX.Element {
   return (
-    <AuthCard style={[styles.card, isExpanded && styles.cardExpanded]}>
+    <AuthCard style={[styles.card, isExpanded && styles.cardExpanded, locked && styles.locked]}>
       <Pressable
         onPress={onToggle}
+        disabled={locked}
         hitSlop={4}
         style={styles.header}
         accessibilityRole="button"
-        accessibilityState={{ expanded: isExpanded }}
+        accessibilityState={{ expanded: isExpanded, disabled: locked }}
         accessibilityLabel={count === undefined ? title : `${title}, ${count}`}
       >
         <View style={styles.iconWrapper}>{icon}</View>
@@ -65,6 +69,9 @@ const styles = StyleSheet.create({
   // Matches the Home screen's menu cards when collapsed.
   card: {
     paddingVertical: 12,
+  },
+  locked: {
+    opacity: 0.5,
   },
   cardExpanded: {
     paddingBottom: 0,

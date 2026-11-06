@@ -169,6 +169,8 @@ export type AuthStackParamList = {
   Projects: undefined;
   Documents: undefined;
   DocumentDetails: { documentType: ComplianceDocumentType };
+  /** Upload a new copy of the document, which becomes its current copy. */
+  AddComplianceDocument: { documentType: ComplianceDocumentType };
   /** A document already written to the cache (path), so the viewer never handles the base64 itself. */
   DocumentViewer: { fileName: string; path: string };
   PaymentSettings: undefined;

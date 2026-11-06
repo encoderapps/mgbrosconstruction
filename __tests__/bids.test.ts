@@ -1,27 +1,59 @@
-import { SALESFORCE_BIDS_URL } from '../src/constants/config';
+import { SALESFORCE_BID_ITEMS_URL, SALESFORCE_BID_UPDATE_URL, SALESFORCE_BIDS_URL } from '../src/constants/config';
 import {
   addBidLineItem,
   completeBid,
-  deleteBidLineItem,
   fetchBidDetail,
   fetchBids,
   HOME_BIDS_LIMIT,
 } from '../src/services/bidService';
-import { salesforceGet } from '../src/services/salesforceClient';
+import { salesforceGet, salesforceSend } from '../src/services/salesforceClient';
 import {
   BidApiRecord,
+  BidLineItemApiPayload,
+  BidLineItemCreateApiResponse,
   BidsApiResponse,
-  SubcontractorProjectApiRecord,
-  SubcontractorProjectsApiResponse,
+  BidStatusUpdateApiResponse,
 } from '../src/types';
 import { bidStatusTone, isBidEditable, sumBidLineItems } from '../src/utils/bidStatus';
 import { parseCurrencyInput, sanitizeCurrencyInput } from '../src/utils/currencyInput';
 
 jest.mock('../src/services/salesforceClient', () => ({
   salesforceGet: jest.fn(),
+  salesforceSend: jest.fn(),
 }));
 
 const mockedGet = salesforceGet as jest.MockedFunction<typeof salesforceGet>;
+const mockedSend = salesforceSend as unknown as jest.MockedFunction<
+  (...args: Parameters<typeof salesforceSend>) => Promise<BidStatusUpdateApiResponse | BidLineItemCreateApiResponse>
+>;
+
+let nextItemNumber = 1;
+
+/** Salesforce saving each new line item and updating each status, as the sandbox does. */
+function saveRequestsLikeSalesforce(): void {
+  mockedSend.mockImplementation(async ({ url, data }) => {
+    if (url === SALESFORCE_BID_ITEMS_URL) {
+      const item = data as BidLineItemApiPayload;
+      return {
+        success: true,
+        message: 'Bid line item created successfully.',
+        bidItem: {
+          id: `a6P-${nextItemNumber}`,
+          itemNumber: `BIDI-${nextItemNumber++}`,
+          bidId: item.bidId,
+          itemId: 'a6VQL000003mn6L2AQ',
+          itemDescription: item.itemDescription,
+          offerPrice: item.offerPrice,
+          approximateOperatingTime: item.approximateOperatingTime,
+          approximateOperatingTimeType: item.approximateOperatingTimeType,
+          isActive: true,
+          isApproved: false,
+        },
+      };
+    }
+    return { success: true, message: 'Bid status updated successfully.', updatedStatus: 'Send Request' };
+  });
+}
 
 const ACCOUNT = '001QL00002caUn6YAE';
 const PROJECT_A = 'a6eQL000000LXH7YAO';
@@ -45,38 +77,56 @@ function bid(id: string, createdDate: string, overrides: Partial<BidApiRecord> =
   };
 }
 
-const BIDS_BY_PROJECT: Record<string, BidApiRecord[]> = {
-  [PROJECT_A]: [
-    bid('a6QQL000000njlZ2AQ', '2026-10-02T12:57:10.000Z', {
-      bidNumber: 'BID-00000001',
-      totalAmount: 1250.5,
-      projectAddress: ' 666 Post Street, San Francisco, California, 94109, United States ',
-      description: '<p><a href="https://example.com">100 Congress Avenue, Austin, TX, 78701</a></p>',
-    }),
-    bid('bid-notes', '2026-09-15T09:00:00.000Z', { notes: ' Rough-in only ', totalAmount: '0.00' }),
-    bid('bid-a2', '2026-10-05T09:00:00.000Z'),
-    bid('bid-won', '2026-09-01T09:00:00.000Z', { status: 'Won' }),
-  ],
-  [PROJECT_B]: [
-    bid('bid-b1', '2026-10-04T09:00:00.000Z', { projectId: PROJECT_B, projectName: 'Kitchen Remodel' }),
-    bid('bid-b2', '2026-10-03T09:00:00.000Z', { projectId: PROJECT_B }),
-    bid('bid-b3', '2026-10-01T09:00:00.000Z', { projectId: PROJECT_B }),
-    bid('bid-b4', '2026-09-30T09:00:00.000Z', { projectId: PROJECT_B }),
-  ],
-};
+const BIDS: BidApiRecord[] = [
+  bid('a6QQL000000njlZ2AQ', '2026-10-02T12:57:10.000Z', {
+    bidNumber: 'BID-00000001',
+    totalAmount: 1250.5,
+    projectAddress: ' 666 Post Street, San Francisco, California, 94109, United States ',
+    description: '<p><a href="https://example.com">100 Congress Avenue, Austin, TX, 78701</a></p>',
+  }),
+  bid('bid-notes', '2026-09-15T09:00:00.000Z', { notes: ' Rough-in only ', totalAmount: '0.00' }),
+  bid('bid-a2', '2026-10-05T09:00:00.000Z'),
+  bid('bid-won', '2026-09-01T09:00:00.000Z', { status: 'Won' }),
+  bid('bid-b1', '2026-10-04T09:00:00.000Z', { projectId: PROJECT_B, projectName: 'Kitchen Remodel' }),
+  bid('bid-b2', '2026-10-03T09:00:00.000Z', { projectId: PROJECT_B }),
+  bid('bid-b3', '2026-10-01T09:00:00.000Z', { projectId: PROJECT_B }),
+  // Not tied to a project yet, as the sandbox sends some bids.
+  bid('bid-b4', '2026-09-30T09:00:00.000Z', { projectId: null, projectName: null }),
+  // Trimmed from the sandbox response for BID-00000010.
+  bid('a6QQL000000rDK52AM', '2026-11-06T06:46:53.000Z', {
+    bidNumber: 'BID-00000010',
+    status: 'New',
+    totalAmount: 57000,
+    lineItems: [
+      {
+        id: 'a6PQL00000ANGEP2A5',
+        itemNumber: 'BIDI-000010',
+        itemId: 'a6VQL000003mn6L2AQ',
+        itemDescription: 'HVAC installation and maintenance',
+        offerPrice: 25000,
+        approximateOperatingTime: 5,
+        approximateOperatingTimeType: 'Day_s',
+        operatingTimeDays: 5,
+        status: 'Draft',
+        isActive: true,
+      },
+      {
+        id: 'a6PQL00000ANIeP2AX',
+        itemNumber: 'BIDI-000015',
+        itemDescription: 'Commercial HVAC repair and servicing',
+        offerPrice: 32000,
+        approximateOperatingTime: 10,
+        approximateOperatingTimeType: 'Week_s',
+        operatingTimeDays: 70,
+        isActive: true,
+      },
+      { id: 'inactive', itemDescription: 'Removed', offerPrice: 1, isActive: false },
+    ],
+  }),
+];
 
-function respondWith(bidsByProject: Record<string, BidApiRecord[]> = BIDS_BY_PROJECT, bidsResponse?: BidsApiResponse): void {
-  mockedGet.mockImplementation(async (url, params) => {
-    if (url === SALESFORCE_BIDS_URL) {
-      return bidsResponse ?? { success: true, bids: bidsByProject[params.projectId] ?? [] };
-    }
-    const projects: SubcontractorProjectsApiResponse = {
-      success: true,
-      count: 2,
-      projects: Object.keys(bidsByProject).map((id) => ({ id, name: id, jobAddress: null }) as SubcontractorProjectApiRecord),
-    };
-    return projects;
-  });
+function respondWith(bids: BidApiRecord[] = BIDS, response?: BidsApiResponse): void {
+  mockedGet.mockResolvedValue(response ?? { success: true, totalRecords: bids.length, bids });
 }
 
 beforeEach(() => {
@@ -85,16 +135,18 @@ beforeEach(() => {
 
 afterEach(() => {
   mockedGet.mockReset();
+  mockedSend.mockReset();
 });
 
 describe('fetchBids', () => {
-  it("loads each of the account's projects' bids, newest first, as list rows", async () => {
+  it("loads the account's bids by subcontractor, newest first, as list rows", async () => {
     const result = await fetchBids(ACCOUNT, 'all');
 
-    expect(mockedGet).toHaveBeenCalledWith(SALESFORCE_BIDS_URL, { projectId: PROJECT_A });
-    expect(mockedGet).toHaveBeenCalledWith(SALESFORCE_BIDS_URL, { projectId: PROJECT_B });
-    expect(result.count).toBe(8);
+    expect(mockedGet).toHaveBeenCalledTimes(1);
+    expect(mockedGet).toHaveBeenCalledWith(SALESFORCE_BIDS_URL, { subcontractorId: ACCOUNT });
+    expect(result.count).toBe(9);
     expect(result.items.map((row) => row.id)).toEqual([
+      'a6QQL000000rDK52AM',
       'bid-a2',
       'bid-b1',
       'bid-b2',
@@ -104,26 +156,28 @@ describe('fetchBids', () => {
       'bid-notes',
       'bid-won',
     ]);
-    expect(result.items[3]).toEqual({
+    expect(result.items[4]).toEqual({
       id: 'a6QQL000000njlZ2AQ',
       bidNumber: 'BID-00000001',
       projectName: '[TEST] 666 Post Street, San Francisco, CA, 94109',
       total: 1250.5,
       status: 'New',
     });
+    // A bid without a project has an empty project name.
+    expect(result.items[6]).toMatchObject({ id: 'bid-b4', projectName: '' });
   });
 
   it('previews the latest bids on Home, with the account total as the count', async () => {
     const result = await fetchBids(ACCOUNT, 'home');
 
     expect(result.items).toHaveLength(HOME_BIDS_LIMIT);
-    expect(result.count).toBe(8);
+    expect(result.count).toBe(9);
   });
 
-  it('throws the API message when a project fails to load', async () => {
-    respondWith(BIDS_BY_PROJECT, { success: false, message: 'Invalid projectId.', bids: null });
+  it('throws the API message when the bids fail to load', async () => {
+    respondWith(BIDS, { success: false, message: 'Invalid subcontractorId.', bids: null });
 
-    await expect(fetchBids(ACCOUNT, 'all')).rejects.toThrow('Invalid projectId.');
+    await expect(fetchBids(ACCOUNT, 'all')).rejects.toThrow('Invalid subcontractorId.');
   });
 });
 
@@ -132,7 +186,7 @@ describe('fetchBidDetail', () => {
     await fetchBids(ACCOUNT, 'all');
     const detail = await fetchBidDetail(ACCOUNT, 'bid-b4');
     detail.status = 'Lost';
-    detail.lineItems.push({ id: 'x', description: 'X', amount: 1 });
+    detail.lineItems.push({ id: 'x', description: 'X', amount: 1, operatingTime: 1, operatingTimeType: 'Day_s' });
 
     const again = await fetchBidDetail(ACCOUNT, 'bid-b4');
     expect(again.status).toBe('New');
@@ -164,12 +218,27 @@ describe('fetchBidDetail', () => {
     expect(detail).toMatchObject({ description: 'Rough-in only', total: 0, projectAddress: '' });
   });
 
-  it("adds the line items made in the app to Salesforce's total", async () => {
+  it('shows the line items saved in Salesforce, leaving out inactive ones, with its total', async () => {
     await fetchBids(ACCOUNT, 'all');
 
-    const updated = await addBidLineItem(ACCOUNT, 'a6QQL000000njlZ2AQ', { description: 'Permit fees', amount: 100.25 });
-
-    expect(updated.total).toBe(1350.75);
+    const detail = await fetchBidDetail(ACCOUNT, 'a6QQL000000rDK52AM');
+    expect(detail.total).toBe(57000);
+    expect(detail.lineItems).toEqual([
+      {
+        id: 'a6PQL00000ANGEP2A5',
+        description: 'HVAC installation and maintenance',
+        amount: 25000,
+        operatingTime: 5,
+        operatingTimeType: 'Day_s',
+      },
+      {
+        id: 'a6PQL00000ANIeP2AX',
+        description: 'Commercial HVAC repair and servicing',
+        amount: 32000,
+        operatingTime: 10,
+        operatingTimeType: 'Week_s',
+      },
+    ]);
   });
 
   it('rejects an unknown bid', async () => {
@@ -177,68 +246,133 @@ describe('fetchBidDetail', () => {
   });
 });
 
-describe('line items and completing (in the app until the API exists)', () => {
-  it('adds and removes items, updating the total, and keeps them when the bids reload', async () => {
+describe('addBidLineItem', () => {
+  beforeEach(saveRequestsLikeSalesforce);
+
+  it('saves the line item in Salesforce and shows it last, adding it to the total', async () => {
     await fetchBids(ACCOUNT, 'all');
 
-    const added = await addBidLineItem(ACCOUNT, 'bid-b1', { description: '  Permit fees  ', amount: 450.25 });
-    expect(added.lineItems).toEqual([expect.objectContaining({ description: 'Permit fees', amount: 450.25 })]);
-    expect(added.total).toBe(450.25);
+    const updated = await addBidLineItem(ACCOUNT, 'a6QQL000000rDK52AM', {
+      description: '  HVAC 222 installation and maintenance ',
+      amount: 25000,
+      operatingTime: 10,
+      operatingTimeType: 'Week_s',
+    });
 
-    const { items } = await fetchBids(ACCOUNT, 'all');
-    expect(items.find((row) => row.id === 'bid-b1')?.total).toBe(450.25);
-
-    const removed = await deleteBidLineItem(ACCOUNT, 'bid-b1', added.lineItems[0].id);
-    expect(removed.lineItems).toEqual([]);
-    // Back to Salesforce's total, which this bid doesn't have.
-    expect(removed.total).toBeNull();
+    expect(mockedSend).toHaveBeenCalledWith(
+      {
+        method: 'post',
+        url: SALESFORCE_BID_ITEMS_URL,
+        data: {
+          bidId: 'a6QQL000000rDK52AM',
+          itemDescription: 'HVAC 222 installation and maintenance',
+          approximateOperatingTime: 10,
+          approximateOperatingTimeType: 'Week_s',
+          offerPrice: 25000,
+        },
+      },
+      expect.any(String),
+    );
+    expect(updated.lineItems.map((item) => item.description)).toEqual([
+      'HVAC installation and maintenance',
+      'Commercial HVAC repair and servicing',
+      'HVAC 222 installation and maintenance',
+    ]);
+    expect(updated.lineItems[2]).toMatchObject({ amount: 25000, operatingTime: 10, operatingTimeType: 'Week_s' });
+    expect(updated.total).toBe(82000);
+    // Still there when Bid Details reloads, until the bids are fetched again.
+    await expect(fetchBidDetail(ACCOUNT, 'a6QQL000000rDK52AM')).resolves.toMatchObject({ total: 82000 });
   });
 
-  it("shows Salesforce's latest status on reload, keeping the line items added in the app", async () => {
+  it('starts the total from 0 on a bid that has none', async () => {
     await fetchBids(ACCOUNT, 'all');
-    await addBidLineItem(ACCOUNT, 'bid-a2', { description: 'Labor', amount: 100 });
 
-    respondWith({
-      ...BIDS_BY_PROJECT,
-      [PROJECT_A]: BIDS_BY_PROJECT[PROJECT_A].map((record) =>
-        record.id === 'bid-a2' ? { ...record, status: 'Won' } : record,
-      ),
+    const updated = await addBidLineItem(ACCOUNT, 'bid-b1', {
+      description: 'Permit fees',
+      amount: 450.25,
+      operatingTime: 2,
+      operatingTimeType: 'Day_s',
+    });
+
+    expect(updated.total).toBe(450.25);
+  });
+
+  it("throws Salesforce's message when it refuses the item, adding nothing", async () => {
+    mockedSend.mockResolvedValue({ success: false, message: 'Invalid bidId.' });
+    await fetchBids(ACCOUNT, 'all');
+
+    await expect(
+      addBidLineItem(ACCOUNT, 'bid-b2', { description: 'Labor', amount: 100, operatingTime: 5, operatingTimeType: 'Day_s' }),
+    ).rejects.toThrow('Invalid bidId.');
+    await expect(fetchBidDetail(ACCOUNT, 'bid-b2')).resolves.toMatchObject({ lineItems: [] });
+  });
+
+  it('checks the description and operating time, and refuses a closed bid, without calling Salesforce', async () => {
+    await fetchBids(ACCOUNT, 'all');
+    const item = { description: 'Labor', amount: 100, operatingTime: 5, operatingTimeType: 'Day_s' };
+
+    await expect(addBidLineItem(ACCOUNT, 'bid-b2', { ...item, description: ' ' })).rejects.toThrow('description');
+    await expect(addBidLineItem(ACCOUNT, 'bid-b2', { ...item, operatingTime: 0 })).rejects.toThrow('operating time');
+    await expect(addBidLineItem(ACCOUNT, 'bid-won', item)).rejects.toThrow('This bid is won and can no longer be changed.');
+    expect(mockedSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('completeBid', () => {
+  beforeEach(saveRequestsLikeSalesforce);
+
+  it('sends the bid to Salesforce, which changes it to "Send Request", after which it can no longer be changed', async () => {
+    mockedSend.mockResolvedValue({
+      success: true,
+      message: 'Bid status changed to Send Request successfully.',
+      bidId: 'a6QQL000000rDK52AM',
+      bidNumber: 'BID-00000010',
+      previousStatus: 'New',
+      updatedStatus: 'Send Request',
     });
     await fetchBids(ACCOUNT, 'all');
 
-    const detail = await fetchBidDetail(ACCOUNT, 'bid-a2');
-    expect(detail.status).toBe('Won');
-    expect(detail.lineItems).toEqual([expect.objectContaining({ description: 'Labor', amount: 100 })]);
-  });
+    const completed = await completeBid(ACCOUNT, 'a6QQL000000rDK52AM');
 
-  it('rejects an unknown line item', async () => {
-    await fetchBids(ACCOUNT, 'all');
-
-    await expect(deleteBidLineItem(ACCOUNT, 'bid-b2', 'missing')).rejects.toThrow('This line item could not be found.');
-  });
-
-  it('refuses to change a closed bid', async () => {
-    await fetchBids(ACCOUNT, 'all');
-
-    await expect(addBidLineItem(ACCOUNT, 'bid-won', { description: 'Extra', amount: 10 })).rejects.toThrow(
-      'This bid is won and can no longer be changed.',
+    expect(mockedSend).toHaveBeenCalledWith(
+      { method: 'patch', url: SALESFORCE_BID_UPDATE_URL, data: { bidId: 'a6QQL000000rDK52AM' } },
+      expect.any(String),
     );
+    expect(completed.status).toBe('Send Request');
+    expect(isBidEditable(completed.status)).toBe(false);
+    // Bid Details shows the new status when it reloads.
+    await expect(fetchBidDetail(ACCOUNT, 'a6QQL000000rDK52AM')).resolves.toMatchObject({ status: 'Send Request' });
+    await expect(
+      addBidLineItem(ACCOUNT, 'a6QQL000000rDK52AM', {
+        description: 'Late item',
+        amount: 5,
+        operatingTime: 5,
+        operatingTimeType: 'Day_s',
+      }),
+    ).rejects.toThrow('can no longer be changed');
   });
 
-  it('completes a bid with line items, after which it can no longer be changed', async () => {
+  it('needs at least one line item, without calling Salesforce', async () => {
     await fetchBids(ACCOUNT, 'all');
+
     await expect(completeBid(ACCOUNT, 'bid-b3')).rejects.toThrow('Add at least one line item');
+    expect(mockedSend).not.toHaveBeenCalled();
+  });
 
-    await addBidLineItem(ACCOUNT, 'bid-b3', { description: 'Labor', amount: 100 });
-    const completed = await completeBid(ACCOUNT, 'bid-b3');
+  it("throws Salesforce's message when it refuses, leaving the status as it was", async () => {
+    mockedSend.mockResolvedValue({ success: false, message: 'This bid is already completed.' });
+    await fetchBids(ACCOUNT, 'all');
 
-    expect(completed.status).toBe('Completed');
-    await expect(addBidLineItem(ACCOUNT, 'bid-b3', { description: 'Late item', amount: 5 })).rejects.toThrow(
-      'can no longer be changed',
-    );
-    // Stays completed when the bids reload.
-    const { items } = await fetchBids(ACCOUNT, 'all');
-    expect(items.find((row) => row.id === 'bid-b3')?.status).toBe('Completed');
+    await expect(completeBid(ACCOUNT, 'a6QQL000000rDK52AM')).rejects.toThrow('This bid is already completed.');
+    await expect(fetchBidDetail(ACCOUNT, 'a6QQL000000rDK52AM')).resolves.toMatchObject({ status: 'New' });
+  });
+
+  it("shows Salesforce's latest status when the bids reload", async () => {
+    await fetchBids(ACCOUNT, 'all');
+    respondWith(BIDS.map((record) => (record.id === 'bid-a2' ? { ...record, status: 'Won' } : record)));
+    await fetchBids(ACCOUNT, 'all');
+
+    await expect(fetchBidDetail(ACCOUNT, 'bid-a2')).resolves.toMatchObject({ status: 'Won' });
   });
 });
 
@@ -256,7 +390,7 @@ describe('bidStatusTone / isBidEditable', () => {
 
   it('closes a bid once it is completed, won or lost', () => {
     expect(['Draft', 'Submitted', 'Pending', 'Requested'].map(isBidEditable)).toEqual([true, true, true, true]);
-    expect(['Completed', 'won', 'LOST'].map(isBidEditable)).toEqual([false, false, false]);
+    expect(['Send Request', 'Completed', 'won', 'LOST'].map(isBidEditable)).toEqual([false, false, false, false]);
   });
 });
 

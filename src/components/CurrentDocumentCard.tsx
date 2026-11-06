@@ -32,7 +32,7 @@ function toShortDate(isoDate: string | null): string {
 /**
  * The copy of a document used for compliance: preview, upload details, its
  * dates and status. An insurance certificate gets a heading with its record
- * ID; a W9 has its title beside the preview instead.
+ * ID; a W9 or Master Subcontract Agreement has its title beside the preview instead.
  */
 export function CurrentDocumentCard({
   type,
@@ -79,17 +79,18 @@ export function CurrentDocumentCard({
             )}
           </View>
           {isCertificate ? (
-            <>
-              <Text style={styles.detail}>
-                Effective: <Text style={styles.value}>{toShortDate(file.effectiveDate)}</Text>
-              </Text>
-              <Text style={[styles.expires, { color: toneColors[status.tone].foreground }]}>
-                Expires: {toShortDate(file.expirationDate)}
-              </Text>
-            </>
+            <Text style={styles.detail}>
+              Effective: <Text style={styles.value}>{toShortDate(file.effectiveDate)}</Text>
+            </Text>
           ) : (
             <Text style={styles.detail}>
               Signed on: <Text style={styles.value}>{toShortDate(file.signedDate)}</Text>
+            </Text>
+          )}
+          {/* A W9 or MSA shows only its signed date; its status still says when it expires. */}
+          {isCertificate && (
+            <Text style={[styles.expires, { color: toneColors[status.tone].foreground }]}>
+              Expires: {toShortDate(file.expirationDate)}
             </Text>
           )}
           <Text style={styles.fileSize}>

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActionChip } from '../components/ActionChip';
@@ -14,11 +14,9 @@ import { CameraIcon, DocumentIcon } from '../assets/icons';
 import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { EMPTY_VALUE } from '../constants/display';
-import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { useBidDetail } from '../hooks/useBidDetail';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
-import { deleteBidLineItem } from '../services/bidService';
-import { BidDetail, BidLineItem } from '../types/bid';
+import { BidDetail } from '../types/bid';
 import { isBidEditable } from '../utils/bidStatus';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'BidDetails'>;
@@ -33,33 +31,9 @@ const PROJECT_FILE_ACTIONS = [
 /** Opened from a bid number in a Bids table: the bid, its project and line items, and Mark as Complete. */
 export function BidDetailsScreen({ navigation, route }: Props): React.JSX.Element {
   const { bidId } = route.params;
-  const accountId = useSubcontractorSession().company?.accountId;
-  const { data: bid, status, reload, refresh, setData } = useBidDetail(bidId);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { data: bid, status, reload, refresh } = useBidDetail(bidId);
   // Back from Add Line Item or Mark as Complete: show what changed.
   useRefreshOnReturn(refresh);
-
-  const deleteLineItem = async (lineItem: BidLineItem): Promise<void> => {
-    if (!accountId) {
-      Alert.alert('Unable to delete line item', 'Your account could not be found. Please log in again.');
-      return;
-    }
-    setDeletingId(lineItem.id);
-    try {
-      setData(await deleteBidLineItem(accountId, bidId, lineItem.id));
-    } catch (error) {
-      Alert.alert('Unable to delete line item', error instanceof Error ? error.message : 'Please try again.');
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const confirmDeleteLineItem = (lineItem: BidLineItem): void => {
-    Alert.alert('Delete line item?', `"${lineItem.description}" will be removed from this bid.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteLineItem(lineItem) },
-    ]);
-  };
 
   const renderBid = (detail: BidDetail): React.JSX.Element => {
     const editable = isBidEditable(detail.status);
@@ -91,24 +65,17 @@ export function BidDetailsScreen({ navigation, route }: Props): React.JSX.Elemen
           lineItems={detail.lineItems}
           total={detail.total ?? 0}
           editable={editable}
-          deletingId={deletingId}
-          // Add Line Item is hidden for now: without onAddPress the card shows no button.
-          // onAddPress={() => navigation.navigate('AddBidLineItem', { bidId, bidNumber: detail.bidNumber })}
-          onDeletePress={confirmDeleteLineItem}
+          onAddPress={() => navigation.navigate('AddBidLineItem', { bidId, bidNumber: detail.bidNumber })}
         />
 
-        {editable && (
-          <>
-            <AuthPrimaryButton
-              title="Mark Bid as Complete"
-              onPress={() => navigation.navigate('CompleteBid', { bidId, bidNumber: detail.bidNumber })}
-              disabled={detail.lineItems.length === 0 || deletingId !== null}
-            />
-            {detail.lineItems.length === 0 && (
-              <Text style={styles.hint}>Add at least one line item to complete this bid.</Text>
-            )}
-          </>
-        )}
+        {/*
+          Shown whatever the status: on Yes, Complete the bid's latest status is
+          checked, and only one waiting for a response is changed (else the user is told why).
+        */}
+        <AuthPrimaryButton
+          title="Mark Bid as Complete"
+          onPress={() => navigation.navigate('CompleteBid', { bidId, bidNumber: detail.bidNumber })}
+        />
       </>
     );
   };
@@ -176,12 +143,5 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 10,
-  },
-  hint: {
-    fontFamily: fontFamily.regular,
-    fontWeight: '400',
-    fontSize: 12,
-    color: welcomeColors.textSecondary,
-    textAlign: 'center',
   },
 });

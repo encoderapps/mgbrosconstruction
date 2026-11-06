@@ -1,53 +1,29 @@
-import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
-import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { HomeHeader } from '../components/HomeHeader';
-import { OutlineButton } from '../components/OutlineButton';
 import { ScreenTitleBar } from '../components/ScreenTitleBar';
-import { ArrowLeftIcon, CheckCircleIcon, DownloadIcon, EyeIcon } from '../assets/icons';
+import { ArrowLeftIcon, CheckCircleIcon } from '../assets/icons';
 import { fontFamily, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
-import { useAchFormFile } from '../hooks/useAchFormFile';
-import { showSaveResult } from '../hooks/useDocumentFileActions';
-import { saveCachedDocumentToDevice } from '../services/documentFileService';
+import { EMPTY_VALUE } from '../constants/display';
 import { maskBankNumber } from '../utils/bankAccount';
 import { formatDateTime } from '../utils/formatDate';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'AchFormGenerated'>;
 
-/** After Save & Generate ACH Form: what was saved (account numbers masked), with View and Download. */
+/** After Save & Generate ACH Form: what was saved (account numbers masked). */
 export function AchFormGeneratedScreen({ navigation, route }: Props): React.JSX.Element {
   const { ach } = route.params;
-  const { data: file, status: fileStatus, reload: retryFile } = useAchFormFile(ach);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleDownload = async (): Promise<void> => {
-    if (!file) {
-      // Building the PDF failed: try again rather than doing nothing.
-      if (fileStatus === 'error') {
-        retryFile();
-      }
-      return;
-    }
-    setIsSaving(true);
-    try {
-      showSaveResult(await saveCachedDocumentToDevice(file.path, file.fileName), file.fileName);
-    } catch (error) {
-      Alert.alert('Unable to save the ACH form', error instanceof Error ? error.message : 'Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const summary: [string, string][] = [
     ['Bank Name', ach.bankName],
     ['Account Type', ach.accountType],
     ['Account Number', maskBankNumber(ach.accountNumber)],
     ['Routing Number', maskBankNumber(ach.routingNumber)],
-    ['Generated On', formatDateTime(ach.generatedAt)],
+    ['Generated On', ach.generatedAt ? formatDateTime(ach.generatedAt) : EMPTY_VALUE],
   ];
 
   return (
@@ -75,17 +51,7 @@ export function AchFormGeneratedScreen({ navigation, route }: Props): React.JSX.
           ))}
         </AuthCard>
 
-        <AuthPrimaryButton
-          title="View ACH Form"
-          onPress={() => navigation.navigate('AchFormPreview', { ach })}
-          icon={<EyeIcon width={16} height={11} color={welcomeColors.cardBackground} visible />}
-        />
-        <OutlineButton
-          title="Download ACH Form"
-          onPress={handleDownload}
-          icon={<DownloadIcon size={16} color={welcomeColors.textPrimary} />}
-          isBusy={isSaving || fileStatus === 'loading'}
-        />
+        {/* View and Download ACH Form are hidden for now. */}
 
         <Pressable
           onPress={() => navigation.goBack()}

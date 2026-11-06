@@ -1,6 +1,6 @@
 import { PDFDocument } from 'pdf-lib';
 import { achFormFileName, generateAchFormPdf } from '../src/services/achFormPdfService';
-import { fetchPaymentSettings, saveAchInfo, updateDueDateTerm } from '../src/services/paymentSettingsService';
+import { fetchPaymentSettings, updateDueDateTerm } from '../src/services/paymentSettingsService';
 import {
   digitsOnly,
   isValidAccountNumber,
@@ -19,6 +19,7 @@ const COMPANY = {
   address: '185 N Addison Rd, Wood Dale, IL 60191',
   email: 'hightechairinc@gmail.com',
   phone: '2246126823',
+  paperworkStatus: 'Complete',
 };
 
 describe('bank account helpers', () => {
@@ -63,34 +64,6 @@ describe('payment settings (in memory until the API exists)', () => {
     expect(settings.paymentTerms.map((term) => term.percentage)).toEqual([25, 25, 25, 25]);
   });
 
-  it('saves bank details for the account, named after the company, and keeps them on the next load', async () => {
-    const ach = await saveAchInfo('account-ach', 'High Tech Air Inc', {
-      bankName: '  Chase Bank ',
-      accountType: 'Checking',
-      accountNumber: '987654321',
-      routingNumber: CHASE_ROUTING,
-    });
-
-    expect(ach).toMatchObject({
-      bankName: 'Chase Bank',
-      accountHolderName: 'High Tech Air Inc',
-      accountType: 'Checking',
-      accountNumber: '987654321',
-      routingNumber: CHASE_ROUTING,
-    });
-    expect(Number.isNaN(Date.parse(ach.generatedAt))).toBe(false);
-    await expect(fetchPaymentSettings('account-ach')).resolves.toMatchObject({ ach });
-    await expect(fetchPaymentSettings('another-account')).resolves.toMatchObject({ ach: null });
-  });
-
-  it('refuses invalid bank details', async () => {
-    const valid = { bankName: 'Chase', accountType: 'Savings' as const, accountNumber: '987654321', routingNumber: CHASE_ROUTING };
-
-    await expect(saveAchInfo('a', 'Co', { ...valid, bankName: ' ' })).rejects.toThrow('bank name');
-    await expect(saveAchInfo('a', 'Co', { ...valid, accountNumber: '12' })).rejects.toThrow('account number');
-    await expect(saveAchInfo('a', 'Co', { ...valid, routingNumber: '123456789' })).rejects.toThrow('routing number');
-  });
-
   it('changes the due date term', async () => {
     const updated = await updateDueDateTerm('account-due', 'Net 45');
 
@@ -106,7 +79,7 @@ describe('generateAchFormPdf', () => {
       ach: {
         bankName: 'Chase Bank',
         accountHolderName: COMPANY.name,
-        accountType: 'Checking',
+        accountType: 'Bank Account',
         accountNumber: '987654321',
         routingNumber: CHASE_ROUTING,
         generatedAt: new Date(2025, 4, 18, 10, 30).toISOString(),

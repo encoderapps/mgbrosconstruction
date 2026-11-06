@@ -19,6 +19,10 @@ export interface BidLineItem {
   description: string;
   /** In dollars, at most 2 decimal places. */
   amount: number;
+  /** How long the work takes, in operatingTimeType units, e.g. 5. */
+  operatingTime: number;
+  /** The Approximate Operating Time Type picklist value, e.g. "Day_s". */
+  operatingTimeType: string;
 }
 
 /** What the Add Line Item form sends. */

@@ -27,7 +27,8 @@ function getColumns(variant: BidsTableVariant, onBidPress: (bid: Bid) => void): 
       grow: true,
       // Long names (often a full address) wrap onto more lines.
       wrap: true,
-      getValue: (bid) => bid.projectName,
+      // A bid may not be tied to a project yet.
+      getValue: (bid) => bid.projectName || EMPTY_VALUE,
     },
     {
       key: 'total',

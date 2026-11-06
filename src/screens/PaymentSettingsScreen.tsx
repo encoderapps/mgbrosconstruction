@@ -14,7 +14,6 @@ import {
   CalendarIcon,
   CardIcon,
   ClipboardCheckIcon,
-  DocumentIcon,
   PlusIcon,
 } from '../assets/icons';
 import { fontFamily, portalColors, radius, welcomeColors } from '../theme';
@@ -96,7 +95,7 @@ export function PaymentSettingsScreen({ navigation }: Props): React.JSX.Element 
               ['Name of the Account', ach.accountHolderName],
               ['Type of Account', ach.accountType],
               ['Account Number', maskBankNumber(ach.accountNumber)],
-              ['Routing Number', ach.routingNumber],
+              ['Routing Number', maskBankNumber(ach.routingNumber)],
             ].map(([label, value]) => (
               <Text key={label} style={styles.detailText}>
                 <Text style={styles.detailLabel}>{label}: </Text>
@@ -104,15 +103,7 @@ export function PaymentSettingsScreen({ navigation }: Props): React.JSX.Element 
               </Text>
             ))}
           </View>
-          <Pressable
-            onPress={() => navigation.navigate('AchFormPreview', { ach })}
-            hitSlop={6}
-            style={({ pressed }) => [styles.fileLink, pressed && styles.pressed]}
-            accessibilityRole="link"
-          >
-            <DocumentIcon size={14} color={welcomeColors.link} />
-            <Text style={styles.fileLinkText}>ACH Form</Text>
-          </Pressable>
+          {/* The ACH Form link (to the ACH Form Preview screen) is hidden for now. */}
         </>
       )}
     </View>
@@ -315,18 +306,6 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontFamily: fontFamily.semiBold,
     fontWeight: '600',
-  },
-  fileLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  fileLinkText: {
-    fontFamily: fontFamily.regular,
-    fontWeight: '400',
-    fontSize: 12,
-    color: welcomeColors.link,
   },
   tableBox: {
     borderWidth: 1,

@@ -1,16 +1,22 @@
-import { fetchComplianceDocuments } from '../src/services/complianceDocumentService';
-import { salesforceGet } from '../src/services/salesforceClient';
-import { SubcontractorDocumentApiRecord } from '../src/types';
+import { fetchComplianceDocuments, uploadComplianceDocument } from '../src/services/complianceDocumentService';
+import { salesforceGet, salesforceSend } from '../src/services/salesforceClient';
+import { SubcontractorDocumentApiRecord, SubcontractorDocumentUploadApiResponse } from '../src/types';
 import { toDateOnlyString } from '../src/utils/dateValidation';
 
 jest.mock('../src/services/salesforceClient', () => ({
   salesforceGet: jest.fn(),
+  salesforceSend: jest.fn(),
 }));
 
 const mockedGet = salesforceGet as jest.MockedFunction<typeof salesforceGet>;
+// Typed to the upload's response, so mocked results can include its fields.
+const mockedSend = salesforceSend as unknown as jest.MockedFunction<
+  (...args: Parameters<typeof salesforceSend>) => Promise<SubcontractorDocumentUploadApiResponse>
+>;
 
 afterEach(() => {
   mockedGet.mockReset();
+  mockedSend.mockReset();
 });
 
 function record(overrides: Partial<SubcontractorDocumentApiRecord>): SubcontractorDocumentApiRecord {
@@ -94,14 +100,22 @@ describe('fetchComplianceDocuments', () => {
         { documentType: 'COI - General Liability', currentDocument: GL_CURRENT, previousVersions: [GL_PREVIOUS] },
         { documentType: 'W9', currentDocument: W9_RECORD, previousVersions: [] },
       ],
+      subsPaperworkMG: 'Complete',
     });
 
-    const documents = await fetchComplianceDocuments('001QL00002WQD8ZYAX');
+    const { documents, paperworkStatus } = await fetchComplianceDocuments('001QL00002WQD8ZYAX');
 
     expect(mockedGet).toHaveBeenCalledWith(expect.stringMatching(/\/subcontractordocuments$/), {
       accountId: '001QL00002WQD8ZYAX',
     });
-    expect(documents.map((document) => document.type)).toEqual(['w9', 'generalLiability', 'workersComp']);
+    // The account's paperwork status now, for the header's Documents pill.
+    expect(paperworkStatus).toBe('Complete');
+    expect(documents.map((document) => document.type)).toEqual([
+      'w9',
+      'generalLiability',
+      'workersComp',
+      'masterSubcontractAgreement',
+    ]);
 
     expect(documents[0]).toEqual({
       type: 'w9',
@@ -122,7 +136,8 @@ describe('fetchComplianceDocuments', () => {
         policyNumber: null,
         additionalInsured: false,
         effectiveDate: null,
-        expirationDate: null,
+        // A year after it was signed.
+        expirationDate: '2027-09-18',
       },
       previousVersions: [],
     });
@@ -136,7 +151,7 @@ describe('fetchComplianceDocuments', () => {
       ],
     });
 
-    const [, generalLiability] = await fetchComplianceDocuments('001ACCOUNT');
+    const [, generalLiability] = (await fetchComplianceDocuments('001ACCOUNT')).documents;
 
     expect(generalLiability.current).toMatchObject({
       recordName: 'Ext-File-0000000371',
@@ -162,15 +177,38 @@ describe('fetchComplianceDocuments', () => {
     });
   });
 
+  it('expires a W9 and an MSA one year after they were signed', async () => {
+    mockedGet.mockResolvedValue({
+      success: true,
+      documents: [
+        { documentType: 'W9', currentDocument: { ...W9_RECORD, signedDate: '2025-11-04' }, previousVersions: [] },
+        {
+          documentType: 'Master Subcontract Agreement',
+          // The signed date wins over any expiration date the API sends.
+          currentDocument: { ...W9_RECORD, signedDate: '2025-11-10', expirationDate: '2030-01-01' },
+          previousVersions: [],
+        },
+      ],
+    });
+
+    const [w9, , , msa] = (await fetchComplianceDocuments('001ACCOUNT')).documents;
+
+    expect(w9.current).toMatchObject({ signedDate: '2025-11-04', expirationDate: '2026-11-04' });
+    expect(msa.current).toMatchObject({ signedDate: '2025-11-10', expirationDate: '2026-11-10' });
+  });
+
   it('returns every type, with nothing on file for those the API leaves out', async () => {
     mockedGet.mockResolvedValue({ success: true, documents: [] });
 
-    const documents = await fetchComplianceDocuments('001ACCOUNT');
+    const { documents, paperworkStatus } = await fetchComplianceDocuments('001ACCOUNT');
+
+    expect(paperworkStatus).toBeNull();
 
     expect(documents).toEqual([
       { type: 'w9', current: null, previousVersions: [] },
       { type: 'generalLiability', current: null, previousVersions: [] },
       { type: 'workersComp', current: null, previousVersions: [] },
+      { type: 'masterSubcontractAgreement', current: null, previousVersions: [] },
     ]);
   });
 
@@ -182,7 +220,7 @@ describe('fetchComplianceDocuments', () => {
       documents: [{ documentType: 'COI - Workers Comp', currentDocument: W9_RECORD, previousVersions: [older, W9_RECORD, newer] }],
     });
 
-    const [, , workersComp] = await fetchComplianceDocuments('001ACCOUNT');
+    const [, , workersComp] = (await fetchComplianceDocuments('001ACCOUNT')).documents;
 
     expect(workersComp.previousVersions.map((version) => version.id)).toEqual(['new', 'old']);
   });
@@ -200,7 +238,7 @@ describe('fetchComplianceDocuments', () => {
       ],
     });
 
-    const [w9, generalLiability] = await fetchComplianceDocuments('001ACCOUNT');
+    const [w9, generalLiability] = (await fetchComplianceDocuments('001ACCOUNT')).documents;
 
     expect(w9.current).toMatchObject({ fileName: 'Ext-File-0000000350', fileSizeBytes: 2048 });
     expect(generalLiability.current).toBeNull();
@@ -210,5 +248,62 @@ describe('fetchComplianceDocuments', () => {
     mockedGet.mockResolvedValue({ success: false, message: 'Account not found.', documents: null });
 
     await expect(fetchComplianceDocuments('001ACCOUNT')).rejects.toThrow('Account not found.');
+  });
+});
+
+describe('uploadComplianceDocument', () => {
+  const UPLOAD = {
+    accountId: '001QL00002ffLe9YAE',
+    type: 'generalLiability' as const,
+    fileBase64: 'JVBERi0xLjQK',
+    dates: { effectiveDate: '2026-11-05', expirationDate: '2027-11-05' },
+  };
+
+  it('posts a certificate with its effective and expiration dates', async () => {
+    mockedSend.mockResolvedValue({ success: true, message: 'Document uploaded successfully.' });
+
+    await expect(uploadComplianceDocument(UPLOAD)).resolves.toBe('Document uploaded successfully.');
+    expect(mockedSend).toHaveBeenCalledWith(
+      {
+        method: 'post',
+        url: expect.stringMatching(/\/subcontractordocumentupload$/),
+        data: {
+          accountId: '001QL00002ffLe9YAE',
+          recordTypeName: 'COI - General Liability',
+          effectiveDate: '2026-11-05',
+          expirationDate: '2027-11-05',
+          fileBase64: 'JVBERi0xLjQK',
+        },
+      },
+      expect.any(String),
+    );
+  });
+
+  it('posts a W9 or MSA with only its signed date', async () => {
+    mockedSend.mockResolvedValue({ success: true });
+
+    await uploadComplianceDocument({ ...UPLOAD, type: 'w9', dates: { signedDate: '2026-11-07' } });
+    await uploadComplianceDocument({ ...UPLOAD, type: 'masterSubcontractAgreement', dates: { signedDate: '2026-11-05' } });
+
+    expect(mockedSend.mock.calls.map(([config]) => config.data)).toEqual([
+      { accountId: '001QL00002ffLe9YAE', recordTypeName: 'W9', signedDate: '2026-11-07', fileBase64: 'JVBERi0xLjQK' },
+      {
+        accountId: '001QL00002ffLe9YAE',
+        recordTypeName: 'Master Subcontract Agreement',
+        signedDate: '2026-11-05',
+        fileBase64: 'JVBERi0xLjQK',
+      },
+    ]);
+  });
+
+  it('sends Workers’ Comp under its record type', async () => {
+    mockedSend.mockResolvedValue({ success: true });
+    await uploadComplianceDocument({ ...UPLOAD, type: 'workersComp' });
+    expect(mockedSend.mock.calls[0][0].data).toMatchObject({ recordTypeName: 'COI - Workers Comp' });
+  });
+
+  it('throws the API message when the upload fails', async () => {
+    mockedSend.mockResolvedValue({ success: false, message: 'Invalid file.' });
+    await expect(uploadComplianceDocument(UPLOAD)).rejects.toThrow('Invalid file.');
   });
 });

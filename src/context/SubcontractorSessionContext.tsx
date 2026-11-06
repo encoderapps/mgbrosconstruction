@@ -7,6 +7,8 @@ interface SubcontractorSessionContextValue {
   company: SubcontractorCompanyProfile | null;
   /** Setting null ends the session (logout), which also forgets the signature. */
   setCompany: (company: SubcontractorCompanyProfile | null) => void;
+  /** Updates the company's paperwork status (the header's Documents pill), e.g. after the documents reload. */
+  setPaperworkStatus: (paperworkStatus: string) => void;
   /** The signature made when registering (name, initials and their images), or null if there's none. */
   signature: UserSignature | null;
   setSignature: (signature: UserSignature | null) => void;
@@ -26,9 +28,16 @@ export function SubcontractorSessionProvider({ children }: { children: React.Rea
     }
   }, []);
 
+  const setPaperworkStatus = useCallback((paperworkStatus: string) => {
+    // Unchanged (or logged out) keeps the same object, so nothing re-renders.
+    setCompanyState((current) =>
+      current && current.paperworkStatus !== paperworkStatus ? { ...current, paperworkStatus } : current,
+    );
+  }, []);
+
   const value = useMemo(
-    () => ({ company, setCompany, signature, setSignature }),
-    [company, setCompany, signature],
+    () => ({ company, setCompany, setPaperworkStatus, signature, setSignature }),
+    [company, setCompany, setPaperworkStatus, signature],
   );
   return <SubcontractorSessionContext.Provider value={value}>{children}</SubcontractorSessionContext.Provider>;
 }

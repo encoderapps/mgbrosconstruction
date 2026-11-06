@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { BackHandler, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { AuthCard } from '../components/AuthCard';
 import { BidsTable } from '../components/BidsTable';
 import { CompanyCard } from '../components/CompanyCard';
 import { ContactsSection } from '../components/ContactsSection';
+import { DocumentStatusMessage } from '../components/DocumentStatusMessage';
 import { HomeHeader } from '../components/HomeHeader';
 import { ExpandableTableSection } from '../components/ExpandableTableSection';
 import { InvoicesTable } from '../components/InvoicesTable';
@@ -25,6 +26,7 @@ import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { useContacts } from '../context/ContactsContext';
 import { useAccountList } from '../hooks/useAccountList';
+import { useComplianceDocuments } from '../hooks/useComplianceDocuments';
 import { useLogout } from '../hooks/useLogout';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { fetchBids } from '../services/bidService';
@@ -32,6 +34,7 @@ import { Bid } from '../types/bid';
 import { fetchInvoices } from '../services/invoiceService';
 import { fetchPurchaseOrders } from '../services/purchaseOrderService';
 import { fetchSubcontractorProjects } from '../services/subcontractorProjectService';
+import { describeDocumentsToUpload, getDocumentsToUpload } from '../utils/complianceDocument';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Home'>;
 
@@ -41,6 +44,8 @@ type MenuItem = {
   icon: React.ReactNode;
   /** The screen the row opens; rows without one aren't built yet. */
   screen?: 'Documents' | 'PaymentSettings';
+  /** Can't be opened while a document is expired. */
+  lockable?: boolean;
 };
 
 // Contacts, Purchase Orders, Bids, Projects and Invoices are rendered
@@ -57,21 +62,36 @@ const MENU_ITEMS_AFTER_INVOICES: MenuItem[] = [
     label: 'Payment Settings',
     icon: <CardIcon size={18} color={welcomeColors.accent} />,
     screen: 'PaymentSettings',
+    lockable: true,
   },
 ];
 
 type ExpandableSection = 'contacts' | 'purchaseOrders' | 'bids' | 'projects' | 'invoices';
+
+const LOCKED_SECTIONS = 'Purchase Orders, Bids, Projects, Invoices and Payment Settings';
 
 export function HomeScreen({ navigation }: Props): React.JSX.Element {
   const contactList = useContacts();
   // Each section expands independently, so several can be open at once.
   const [expandedSections, setExpandedSections] = useState<ReadonlySet<ExpandableSection>>(new Set());
 
+  // While a W9, GL, Workers' Comp or MSA is past its expiration date or not on file at all, everything but
+  // Contacts and Documents is locked until it's uploaded. Nothing is locked while the documents load, or if
+  // they fail to.
+  const documents = useComplianceDocuments();
+  // Coming back from Documents picks up a newly uploaded copy.
+  useRefreshOnReturn(documents.refresh);
+  const toUpload = useMemo(() => (documents.data ? getDocumentsToUpload(documents.data) : null), [documents.data]);
+  const isLocked = !!toUpload && (toUpload.expired.length > 0 || toUpload.missing.length > 0);
+  const lockedMessage = toUpload ? describeDocumentsToUpload(toUpload, LOCKED_SECTIONS) : '';
+  const isOpen = (section: ExpandableSection): boolean =>
+    expandedSections.has(section) && (section === 'contacts' || !isLocked);
+
   // Each card loads its latest 5 when it's expanded (the APIs' home/recent views; Projects trims the full list).
-  const recentPurchaseOrders = useAccountList(fetchPurchaseOrders, 'home', expandedSections.has('purchaseOrders'));
-  const recentBids = useAccountList(fetchBids, 'home', expandedSections.has('bids'));
-  const recentProjects = useAccountList(fetchSubcontractorProjects, 'home', expandedSections.has('projects'));
-  const recentInvoices = useAccountList(fetchInvoices, 'recent', expandedSections.has('invoices'));
+  const recentPurchaseOrders = useAccountList(fetchPurchaseOrders, 'home', isOpen('purchaseOrders'));
+  const recentBids = useAccountList(fetchBids, 'home', isOpen('bids'));
+  const recentProjects = useAccountList(fetchSubcontractorProjects, 'home', isOpen('projects'));
+  const recentInvoices = useAccountList(fetchInvoices, 'recent', isOpen('invoices'));
   // A PO opened from here may have been signed or changed since; a bid may have a new total or be completed.
   useRefreshOnReturn(recentPurchaseOrders.refresh);
   useRefreshOnReturn(recentBids.refresh);
@@ -101,20 +121,25 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
     });
   };
 
-  const renderMenuItem = ({ key, label, icon, screen }: MenuItem): React.JSX.Element => (
-    <Pressable
-      key={key}
-      hitSlop={4}
-      onPress={screen && (() => navigation.navigate(screen))}
-      accessibilityRole="button"
-    >
-      <AuthCard style={styles.menuCard}>
-        <View style={styles.menuIconWrapper}>{icon}</View>
-        <Text style={styles.menuLabel}>{label}</Text>
-        <ChevronRightIcon size={16} color={welcomeColors.chevron} />
-      </AuthCard>
-    </Pressable>
-  );
+  const renderMenuItem = ({ key, label, icon, screen, lockable }: MenuItem): React.JSX.Element => {
+    const locked = isLocked && !!lockable;
+    return (
+      <Pressable
+        key={key}
+        hitSlop={4}
+        onPress={screen && (() => navigation.navigate(screen))}
+        disabled={locked}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: locked }}
+      >
+        <AuthCard style={[styles.menuCard, locked && styles.locked]}>
+          <View style={styles.menuIconWrapper}>{icon}</View>
+          <Text style={styles.menuLabel}>{label}</Text>
+          <ChevronRightIcon size={16} color={welcomeColors.chevron} />
+        </AuthCard>
+      </Pressable>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -122,11 +147,13 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <CompanyCard />
 
+        {isLocked && <DocumentStatusMessage status={{ tone: 'danger', message: lockedMessage }} />}
+
         <ContactsSection
           contacts={contactList.contacts}
           status={contactList.status}
           onRetry={contactList.reload}
-          isExpanded={expandedSections.has('contacts')}
+          isExpanded={isOpen('contacts')}
           onToggle={() => {
             // Opening the card picks up contacts added or changed elsewhere since they were loaded.
             if (!expandedSections.has('contacts')) {
@@ -142,8 +169,9 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
           title="Purchase Orders"
           icon={<BagIcon size={18} color={welcomeColors.accent} />}
           count={recentPurchaseOrders.count ?? undefined}
-          isExpanded={expandedSections.has('purchaseOrders')}
+          isExpanded={isOpen('purchaseOrders')}
           onToggle={() => toggleSection('purchaseOrders')}
+          locked={isLocked}
           onViewAllPress={() => navigation.navigate('PurchaseOrders')}
         >
           <PurchaseOrdersTable
@@ -158,8 +186,9 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
           title="Bids"
           icon={<ClipboardCheckIcon size={18} color={welcomeColors.accent} />}
           count={recentBids.count ?? undefined}
-          isExpanded={expandedSections.has('bids')}
+          isExpanded={isOpen('bids')}
           onToggle={() => toggleSection('bids')}
+          locked={isLocked}
           onViewAllPress={() => navigation.navigate('Bids')}
         >
           <BidsTable
@@ -175,8 +204,9 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
           title="Projects"
           icon={<BriefcaseIcon size={18} color={welcomeColors.accent} />}
           count={recentProjects.count ?? undefined}
-          isExpanded={expandedSections.has('projects')}
+          isExpanded={isOpen('projects')}
           onToggle={() => toggleSection('projects')}
+          locked={isLocked}
           onViewAllPress={() => navigation.navigate('Projects')}
         >
           <ProjectsTable
@@ -191,8 +221,9 @@ export function HomeScreen({ navigation }: Props): React.JSX.Element {
           title="Invoices"
           icon={<DocumentIcon size={18} color={welcomeColors.accent} />}
           count={recentInvoices.count ?? undefined}
-          isExpanded={expandedSections.has('invoices')}
+          isExpanded={isOpen('invoices')}
           onToggle={() => toggleSection('invoices')}
+          locked={isLocked}
           onViewAllPress={() => navigation.navigate('Invoices')}
         >
           <InvoicesTable
@@ -233,6 +264,9 @@ const styles = StyleSheet.create({
     backgroundColor: welcomeColors.iconWrapperBackground,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  locked: {
+    opacity: 0.5,
   },
   menuLabel: {
     flex: 1,

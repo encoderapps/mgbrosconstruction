@@ -46,6 +46,7 @@ import { CompleteBidScreen } from '../screens/CompleteBidScreen';
 import { ProjectsScreen } from '../screens/ProjectsScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { DocumentDetailsScreen } from '../screens/DocumentDetailsScreen';
+import { AddComplianceDocumentScreen } from '../screens/AddComplianceDocumentScreen';
 import { DocumentViewerScreen } from '../screens/DocumentViewerScreen';
 import { PaymentSettingsScreen } from '../screens/PaymentSettingsScreen';
 import { AchInformationScreen } from '../screens/AchInformationScreen';
@@ -108,6 +109,7 @@ export function AuthNavigator(): React.JSX.Element {
       <Stack.Screen name="Projects" component={ProjectsScreen} />
       <Stack.Screen name="Documents" component={DocumentsScreen} />
       <Stack.Screen name="DocumentDetails" component={DocumentDetailsScreen} />
+      <Stack.Screen name="AddComplianceDocument" component={AddComplianceDocumentScreen} />
       <Stack.Screen name="DocumentViewer" component={DocumentViewerScreen} />
       <Stack.Screen name="PaymentSettings" component={PaymentSettingsScreen} />
       <Stack.Screen name="AchInformation" component={AchInformationScreen} />

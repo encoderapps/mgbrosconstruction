@@ -5,4 +5,6 @@ export interface SubcontractorCompanyProfile {
   address: string;
   email: string;
   phone: string;
+  /** subsPaperworkMG from the login response, e.g. "Complete"; empty when not returned. */
+  paperworkStatus: string;
 }

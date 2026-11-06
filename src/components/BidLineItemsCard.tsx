@@ -1,7 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { PlusIcon, TrashIcon } from '../assets/icons';
+import { PlusIcon } from '../assets/icons';
 import { fontFamily, welcomeColors } from '../theme';
+import { formatOperatingTimeType } from '../constants/bidLineItems';
 import { BidLineItem } from '../types/bid';
 import { formatCurrency } from '../utils/formatCurrency';
 import { AuthCard } from './AuthCard';
@@ -9,24 +10,14 @@ import { AuthCard } from './AuthCard';
 type BidLineItemsCardProps = {
   lineItems: BidLineItem[];
   total: number;
-  /** False once the bid is closed: no adding or deleting. */
+  /** False once the bid is closed: no adding. */
   editable: boolean;
-  /** The line item being deleted, so its button can show it's busy. */
-  deletingId: string | null;
   /** Shows the Add Line Item button (on an editable bid); left out, the button is hidden. */
   onAddPress?: () => void;
-  onDeletePress: (lineItem: BidLineItem) => void;
 };
 
-/** Bid Details' line items: # · description · amount · delete, with the bid total underneath. */
-export function BidLineItemsCard({
-  lineItems,
-  total,
-  editable,
-  deletingId,
-  onAddPress,
-  onDeletePress,
-}: BidLineItemsCardProps): React.JSX.Element {
+/** Bid Details' line items: # · description (with operating time) · amount, with the bid total underneath. */
+export function BidLineItemsCard({ lineItems, total, editable, onAddPress }: BidLineItemsCardProps): React.JSX.Element {
   return (
     <AuthCard style={styles.card}>
       <View style={styles.titleRow}>
@@ -50,36 +41,26 @@ export function BidLineItemsCard({
         <Text style={[styles.headerText, styles.indexColumn]}>#</Text>
         <Text style={[styles.headerText, styles.descriptionColumn]}>Description</Text>
         <Text style={[styles.headerText, styles.amountColumn]}>Amount</Text>
-        {editable && <Text style={[styles.headerText, styles.actionColumn]}>Action</Text>}
       </View>
 
       {lineItems.length === 0 ? (
         <Text style={styles.emptyText}>No line items yet.</Text>
       ) : (
         lineItems.map((item, index) => {
-          const isDeleting = deletingId === item.id;
           return (
-            <View key={item.id} style={[styles.row, styles.itemRow, isDeleting && styles.deleting]}>
+            <View key={item.id} style={[styles.row, styles.itemRow]}>
               <Text style={[styles.cellText, styles.indexColumn]}>{index + 1}</Text>
-              <Text style={[styles.cellText, styles.descriptionColumn]} numberOfLines={2}>
-                {item.description}
-              </Text>
+              <View style={styles.descriptionColumn}>
+                <Text style={styles.cellText} numberOfLines={2}>
+                  {item.description}
+                </Text>
+                <Text style={styles.operatingTime} numberOfLines={1}>
+                  {item.operatingTime} {formatOperatingTimeType(item.operatingTimeType)}
+                </Text>
+              </View>
               <Text style={[styles.cellText, styles.amountColumn]} numberOfLines={1}>
                 {formatCurrency(item.amount, true)}
               </Text>
-              {editable && (
-                <Pressable
-                  onPress={() => onDeletePress(item)}
-                  disabled={deletingId !== null}
-                  hitSlop={10}
-                  style={styles.actionColumn}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Delete ${item.description}`}
-                  accessibilityState={{ disabled: deletingId !== null, busy: isDeleting }}
-                >
-                  <TrashIcon size={15} color={welcomeColors.chevron} />
-                </Pressable>
-              )}
             </View>
           );
         })
@@ -91,7 +72,6 @@ export function BidLineItemsCard({
         <Text style={[styles.totalValue, styles.amountColumn]} numberOfLines={1} adjustsFontSizeToFit>
           {formatCurrency(total, true)}
         </Text>
-        {editable && <View style={styles.actionColumn} />}
       </View>
     </AuthCard>
   );
@@ -139,9 +119,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: welcomeColors.cardBorder,
   },
-  deleting: {
-    opacity: 0.4,
-  },
   totalRow: {
     paddingTop: 12,
   },
@@ -154,10 +131,6 @@ const styles = StyleSheet.create({
   amountColumn: {
     width: 92,
   },
-  actionColumn: {
-    width: 40,
-    alignItems: 'center',
-  },
   headerText: {
     fontFamily: fontFamily.medium,
     fontWeight: '500',
@@ -169,6 +142,13 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     fontSize: 12,
     color: welcomeColors.textPrimary,
+  },
+  operatingTime: {
+    fontFamily: fontFamily.regular,
+    fontWeight: '400',
+    fontSize: 11,
+    color: welcomeColors.textSecondary,
+    marginTop: 2,
   },
   emptyText: {
     fontFamily: fontFamily.regular,

@@ -3,9 +3,11 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-na
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MgBrosSubcontractorLogo from '../assets/images/mg-bros-subcontractor-logo.svg';
-import { BellIcon, ChatIcon, CheckCircleIcon, UserIcon } from '../assets/icons';
+import { BellIcon, ChatIcon, CheckCircleIcon, CloseCircleIcon, UserIcon } from '../assets/icons';
 import { fontFamily, portalColors, radius, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
+import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
+import { isPaperworkComplete } from '../utils/complianceDocument';
 
 // The logo artwork's viewBox is 311 × 116.
 const LOGO_ASPECT_RATIO = 116 / 311;
@@ -26,12 +28,17 @@ type HomeHeaderProps = {
   active?: 'notifications' | 'profile';
 };
 
-/** Top bar of the signed-in screens: logo, Documents status, notifications, chat and profile. */
+/**
+ * Top bar of the signed-in screens: logo, Documents status, notifications, chat and profile.
+ * The Documents pill is green when the account's paperwork is in order, red otherwise.
+ */
 export function HomeHeader({ active }: HomeHeaderProps): React.JSX.Element {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
   const { width, fontScale } = useWindowDimensions();
   const compact = width < COMPACT_MAX_WIDTH || fontScale > COMPACT_MIN_FONT_SCALE;
   const sizes = compact ? SIZES.compact : SIZES.regular;
+  const paperworkComplete = isPaperworkComplete(useSubcontractorSession().company?.paperworkStatus);
+  const pillTone = toneColors[paperworkComplete ? 'success' : 'danger'];
 
   const openScreen = (screen: 'Notifications' | 'Profile'): void => {
     // Already there: don't stack a second copy of the same screen.
@@ -46,15 +53,26 @@ export function HomeHeader({ active }: HomeHeaderProps): React.JSX.Element {
       <MgBrosSubcontractorLogo width={sizes.logoWidth} height={Math.round(sizes.logoWidth * LOGO_ASPECT_RATIO)} />
 
       {!active && (
-        <View style={[styles.documentsPill, compact && styles.documentsPillCompact]}>
+        <View
+          style={[
+            styles.documentsPill,
+            compact && styles.documentsPillCompact,
+            { backgroundColor: pillTone.background, borderColor: pillTone.border },
+          ]}
+          accessibilityLabel={`Documents: ${paperworkComplete ? 'complete' : 'incomplete'}`}
+        >
           <Text
-            style={[styles.documentsPillText, compact && styles.documentsPillTextCompact]}
+            style={[styles.documentsPillText, compact && styles.documentsPillTextCompact, { color: pillTone.foreground }]}
             numberOfLines={1}
             maxFontSizeMultiplier={PILL_MAX_FONT_SCALE}
           >
             Documents:
           </Text>
-          <CheckCircleIcon size={sizes.checkIcon} />
+          {paperworkComplete ? (
+            <CheckCircleIcon size={sizes.checkIcon} />
+          ) : (
+            <CloseCircleIcon size={sizes.checkIcon} color={pillTone.foreground} />
+          )}
         </View>
       )}
 
@@ -119,9 +137,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: toneColors.success.background,
     borderWidth: 1,
-    borderColor: toneColors.success.border,
     borderRadius: radius.pill,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -137,7 +153,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     letterSpacing: 0,
-    color: toneColors.success.foreground,
     flexShrink: 1,
   },
   documentsPillTextCompact: {

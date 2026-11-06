@@ -1,5 +1,14 @@
 import { ComplianceDocumentFile } from '../src/types/document';
-import { getDocumentStatus, getDocumentSummary, isInsuranceCertificate } from '../src/utils/complianceDocument';
+import {
+  getDocumentStatus,
+  getDocumentSummary,
+  describeDocumentsToUpload,
+  getDocumentsToUpload,
+  getExpiredDocumentTypes,
+  isInsuranceCertificate,
+  isPaperworkComplete,
+  joinDocumentLabels,
+} from '../src/utils/complianceDocument';
 import { daysUntil, formatShortDate } from '../src/utils/formatDate';
 import { formatFileSize } from '../src/utils/formatFileSize';
 import { maskTaxId } from '../src/utils/taxId';
@@ -74,11 +83,19 @@ describe('getDocumentStatus', () => {
     });
   });
 
-  it('reports a W9 as on file', () => {
-    expect(getDocumentStatus('w9', file({ expirationDate: null }), TODAY)).toEqual({
+  it('gives a W9 and an MSA an expiry status', () => {
+    expect(getDocumentStatus('w9', file({ expirationDate: '2027-05-18' }), TODAY)).toEqual({
       tone: 'success',
-      message: 'This is the current W9 on file.',
+      message: 'This W9 is active.',
     });
+    expect(getDocumentStatus('w9', file({ expirationDate: '2026-10-06' }), TODAY).tone).toBe('danger');
+    expect(getDocumentStatus('masterSubcontractAgreement', file({ expirationDate: '2027-05-18' }), TODAY)).toEqual({
+      tone: 'success',
+      message: 'This agreement is active.',
+    });
+    expect(getDocumentStatus('masterSubcontractAgreement', file({ expirationDate: '2026-10-02' }), TODAY).tone).toBe(
+      'danger',
+    );
   });
 
   it('reports a certificate far from expiry as active', () => {
@@ -123,7 +140,12 @@ describe('getDocumentStatus', () => {
 
 describe('getDocumentSummary', () => {
   it('shows a W9 tax details, with the Tax ID masked', () => {
-    const w9 = file({ taxClassification: 'LLC', taxId: '15-5468978', signedDate: '2026-09-18' });
+    const w9 = file({
+      taxClassification: 'LLC',
+      taxId: '15-5468978',
+      signedDate: '2026-09-18',
+      expirationDate: '2027-09-18',
+    });
     expect(getDocumentSummary('w9', w9)).toEqual([
       { label: 'Federal Tax Classification', value: 'LLC' },
       { label: 'Tax Identification Number', value: 'XX-XXXXX78' },
@@ -132,7 +154,11 @@ describe('getDocumentSummary', () => {
   });
 
   it('shows a dash for W9 details the API leaves out', () => {
-    expect(getDocumentSummary('w9', file()).map((row) => row.value)).toEqual(['—', '—', '—']);
+    expect(getDocumentSummary('w9', file({ expirationDate: null })).map((row) => row.value)).toEqual([
+      '—',
+      '—',
+      '—',
+    ]);
   });
 
   it('shows a General Liability certificate details, including Additional Insured', () => {
@@ -169,6 +195,14 @@ describe('getDocumentSummary', () => {
     expect(getDocumentSummary('generalLiability', blank).map((row) => row.value)).toEqual(['—', '—', '—', '—', '—']);
   });
 
+  it('shows only the signed date of a Master Subcontract Agreement, not its expiration', () => {
+    expect(
+      getDocumentSummary('masterSubcontractAgreement', file({ signedDate: '2025-11-10', expirationDate: '2026-11-10' })),
+    ).toEqual([
+      { label: 'Signed Date', value: '11/10/2025' },
+    ]);
+  });
+
   it('is empty when nothing is on file', () => {
     expect(getDocumentSummary('workersComp', null)).toEqual([]);
   });
@@ -190,5 +224,87 @@ describe('isInsuranceCertificate', () => {
     expect(isInsuranceCertificate('w9')).toBe(false);
     expect(isInsuranceCertificate('generalLiability')).toBe(true);
     expect(isInsuranceCertificate('workersComp')).toBe(true);
+    expect(isInsuranceCertificate('masterSubcontractAgreement')).toBe(false);
+  });
+});
+
+describe('getExpiredDocumentTypes', () => {
+  it('lists documents whose expiration date has passed, but not today or later', () => {
+    const documents = [
+      { type: 'w9' as const, current: file({ expirationDate: '2026-10-06' }), previousVersions: [] },
+      { type: 'generalLiability' as const, current: file({ expirationDate: '2026-10-07' }), previousVersions: [] },
+      { type: 'workersComp' as const, current: file({ expirationDate: '2027-01-01' }), previousVersions: [] },
+      { type: 'masterSubcontractAgreement' as const, current: file({ expirationDate: '2025-01-01' }), previousVersions: [] },
+    ];
+    expect(getExpiredDocumentTypes(documents, TODAY)).toEqual(['w9', 'masterSubcontractAgreement']);
+  });
+
+  it('ignores documents with no expiration date or nothing on file', () => {
+    const documents = [
+      { type: 'w9' as const, current: file({ expirationDate: null }), previousVersions: [] },
+      { type: 'workersComp' as const, current: null, previousVersions: [] },
+    ];
+    expect(getExpiredDocumentTypes(documents, TODAY)).toEqual([]);
+  });
+});
+
+describe('getDocumentsToUpload', () => {
+  it('lists expired documents and those with nothing on file', () => {
+    const documents = [
+      { type: 'w9' as const, current: file({ expirationDate: null }), previousVersions: [] },
+      { type: 'generalLiability' as const, current: file({ expirationDate: '2026-10-06' }), previousVersions: [] },
+      { type: 'workersComp' as const, current: file({ expirationDate: '2027-01-01' }), previousVersions: [] },
+      { type: 'masterSubcontractAgreement' as const, current: null, previousVersions: [] },
+    ];
+    expect(getDocumentsToUpload(documents, TODAY)).toEqual({
+      expired: ['generalLiability'],
+      missing: ['masterSubcontractAgreement'],
+    });
+  });
+});
+
+describe('describeDocumentsToUpload', () => {
+  const SECTIONS = 'Bids';
+
+  it('says what has expired', () => {
+    expect(describeDocumentsToUpload({ expired: ['generalLiability', 'workersComp'], missing: [] }, SECTIONS)).toBe(
+      "Your General Liability and Workers' Comp have expired. Upload General Liability and Workers' Comp to open Bids.",
+    );
+  });
+
+  it('says what is missing', () => {
+    expect(describeDocumentsToUpload({ expired: [], missing: ['masterSubcontractAgreement'] }, SECTIONS)).toBe(
+      'Your Master Subcontract Agreement is missing. Upload Master Subcontract Agreement to open Bids.',
+    );
+  });
+
+  it('lists both, uploading in display order', () => {
+    expect(
+      describeDocumentsToUpload({ expired: ['workersComp'], missing: ['w9', 'masterSubcontractAgreement'] }, SECTIONS),
+    ).toBe(
+      "Your Workers' Comp has expired and your W9 and Master Subcontract Agreement are missing. " +
+        "Upload W9, Workers' Comp and Master Subcontract Agreement to open Bids.",
+    );
+  });
+});
+
+describe('joinDocumentLabels', () => {
+  it('joins the labels into a sentence', () => {
+    expect(joinDocumentLabels(['w9'])).toBe('W9');
+    expect(joinDocumentLabels(['w9', 'workersComp'])).toBe("W9 and Workers' Comp");
+    expect(joinDocumentLabels(['w9', 'generalLiability', 'workersComp'])).toBe(
+      "W9, General Liability and Workers' Comp",
+    );
+  });
+});
+
+describe('isPaperworkComplete', () => {
+  it('is true only for "Complete"', () => {
+    expect(isPaperworkComplete('Complete')).toBe(true);
+    expect(isPaperworkComplete(' complete ')).toBe(true);
+    expect(isPaperworkComplete('Not MG Bros Sub')).toBe(false);
+    expect(isPaperworkComplete('')).toBe(false);
+    expect(isPaperworkComplete(null)).toBe(false);
+    expect(isPaperworkComplete(undefined)).toBe(false);
   });
 });

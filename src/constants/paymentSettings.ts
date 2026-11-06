@@ -1,6 +1,7 @@
 import { AchAccountType, DueDateTerm } from '../types/paymentSettings';
 
-export const ACH_ACCOUNT_TYPES: readonly AchAccountType[] = ['Checking', 'Savings'];
+/** The only account type: what Salesforce saves every ACH account as. */
+export const ACH_ACCOUNT_TYPE: AchAccountType = 'Bank Account';
 
 /** Days after the invoice date that payment is due, for each term. */
 export const DUE_DATE_TERM_DAYS: Record<DueDateTerm, number> = {

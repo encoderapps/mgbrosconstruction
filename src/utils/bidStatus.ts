@@ -2,6 +2,9 @@ import { Tone } from '../theme';
 
 const TONES_BY_STATUS: Record<string, Tone> = {
   submitted: 'info',
+  'waiting for response': 'warning',
+  // Marked as complete in the app: sent to MG Bros for review.
+  'send request': 'info',
   requested: 'warning',
   pending: 'warning',
   won: 'success',
@@ -10,8 +13,8 @@ const TONES_BY_STATUS: Record<string, Tone> = {
   lost: 'danger',
 };
 
-/** Statuses after which a bid can no longer be changed. */
-const CLOSED_STATUSES = new Set(['completed', 'won', 'lost']);
+/** Statuses after which a bid can no longer be changed ("Send Request" = marked as complete). */
+const CLOSED_STATUSES = new Set(['send request', 'completed', 'won', 'lost']);
 
 function normalise(status: string): string {
   return status.trim().toLowerCase();
@@ -22,7 +25,7 @@ export function bidStatusTone(status: string): Tone {
   return TONES_BY_STATUS[normalise(status)] ?? 'neutral';
 }
 
-/** Whether the bid's line items can still be changed and the bid marked as complete. */
+/** Whether line items can still be added to the bid. */
 export function isBidEditable(status: string): boolean {
   return !CLOSED_STATUSES.has(normalise(status));
 }
