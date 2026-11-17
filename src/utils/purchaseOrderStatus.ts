@@ -43,8 +43,14 @@ function normaliseStatus(status: string): string {
   return status.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-/** The PO statuses that get their own table on the Purchase Orders screen, in display order. */
-const STATUS_GROUP_ORDER = ['ready for signature', 'signed', 'signed by both sides'];
+/** The statuses whose tables come first on the Purchase Orders screen, in display order. */
+const STATUS_GROUP_ORDER = ['ready for signature', 'signed', 'draft', 'signed by both sides'];
+
+/**
+ * Statuses the backend uses internally (e.g. a freshly created "New" PO) that
+ * get no table on the Purchase Orders screen; their POs are left out.
+ */
+const HIDDEN_STATUSES = new Set(['new']);
 
 /** Shown for a PO whose status is blank. */
 export const NO_STATUS_LABEL = 'No Status';
@@ -58,11 +64,12 @@ export interface PurchaseOrderStatusGroup<Order> {
 }
 
 /**
- * Splits POs into one group per status: Ready for Signature, Signed and Signed
- * by both sides first (in that order), then any other status in the order it
+ * Splits POs (and change orders) into one group per status: Ready for
+ * Signature, Signed, Draft and Signed by both sides first (in that order), then any other status in the order it
  * first appears, then POs with no status. Statuses match ignoring case and
  * spacing, but exactly, so "Signed" and "Signed by both sides" stay apart.
- * Each group keeps the POs' original order; statuses with no POs are left out.
+ * Each group keeps the POs' original order; statuses with no POs are left out,
+ * as are POs with a hidden status ("New").
  */
 export function groupPurchaseOrdersByStatus<Order extends { status: string }>(
   orders: readonly Order[],
@@ -70,6 +77,9 @@ export function groupPurchaseOrdersByStatus<Order extends { status: string }>(
   const groups = new Map<string, PurchaseOrderStatusGroup<Order>>();
   for (const order of orders) {
     const key = normaliseStatus(order.status);
+    if (HIDDEN_STATUSES.has(key)) {
+      continue;
+    }
     const group = groups.get(key);
     if (group) {
       group.orders.push(order);

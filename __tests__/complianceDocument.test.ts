@@ -1,5 +1,6 @@
 import { ComplianceDocumentFile } from '../src/types/document';
 import {
+  canAddDocument,
   getDocumentStatus,
   getDocumentSummary,
   describeDocumentsToUpload,
@@ -83,19 +84,18 @@ describe('getDocumentStatus', () => {
     });
   });
 
-  it('gives a W9 and an MSA an expiry status', () => {
-    expect(getDocumentStatus('w9', file({ expirationDate: '2027-05-18' }), TODAY)).toEqual({
-      tone: 'success',
-      message: 'This W9 is active.',
-    });
-    expect(getDocumentStatus('w9', file({ expirationDate: '2026-10-06' }), TODAY).tone).toBe('danger');
-    expect(getDocumentStatus('masterSubcontractAgreement', file({ expirationDate: '2027-05-18' }), TODAY)).toEqual({
-      tone: 'success',
-      message: 'This agreement is active.',
-    });
-    expect(getDocumentStatus('masterSubcontractAgreement', file({ expirationDate: '2026-10-02' }), TODAY).tone).toBe(
-      'danger',
-    );
+  it('reports a W9 or MSA on file as active however long ago it was signed', () => {
+    for (const signedDate of ['2026-09-18', '2024-01-05', '2019-03-12']) {
+      expect(getDocumentStatus('w9', file({ signedDate, expirationDate: null }), TODAY)).toEqual({
+        tone: 'success',
+        message: 'This W9 is active.',
+      });
+      expect(getDocumentStatus('masterSubcontractAgreement', file({ signedDate, expirationDate: null }), TODAY)).toEqual(
+        { tone: 'success', message: 'This agreement is active.' },
+      );
+    }
+    // Even an expiration date from the backend doesn't expire it.
+    expect(getDocumentStatus('w9', file({ expirationDate: '2026-10-06' }), TODAY).tone).toBe('success');
   });
 
   it('reports a certificate far from expiry as active', () => {
@@ -229,14 +229,14 @@ describe('isInsuranceCertificate', () => {
 });
 
 describe('getExpiredDocumentTypes', () => {
-  it('lists documents whose expiration date has passed, but not today or later', () => {
+  it('lists certificates whose expiration date has passed, but not today or later, nor a W9 or MSA', () => {
     const documents = [
       { type: 'w9' as const, current: file({ expirationDate: '2026-10-06' }), previousVersions: [] },
-      { type: 'generalLiability' as const, current: file({ expirationDate: '2026-10-07' }), previousVersions: [] },
-      { type: 'workersComp' as const, current: file({ expirationDate: '2027-01-01' }), previousVersions: [] },
+      { type: 'generalLiability' as const, current: file({ expirationDate: '2026-10-06' }), previousVersions: [] },
+      { type: 'workersComp' as const, current: file({ expirationDate: '2026-10-07' }), previousVersions: [] },
       { type: 'masterSubcontractAgreement' as const, current: file({ expirationDate: '2025-01-01' }), previousVersions: [] },
     ];
-    expect(getExpiredDocumentTypes(documents, TODAY)).toEqual(['w9', 'masterSubcontractAgreement']);
+    expect(getExpiredDocumentTypes(documents, TODAY)).toEqual(['generalLiability']);
   });
 
   it('ignores documents with no expiration date or nothing on file', () => {
@@ -245,6 +245,20 @@ describe('getExpiredDocumentTypes', () => {
       { type: 'workersComp' as const, current: null, previousVersions: [] },
     ];
     expect(getExpiredDocumentTypes(documents, TODAY)).toEqual([]);
+  });
+});
+
+describe('canAddDocument', () => {
+  it('always lets a new General Liability or Workers’ Comp certificate be added', () => {
+    expect(canAddDocument({ type: 'generalLiability', current: file(), previousVersions: [] })).toBe(true);
+    expect(canAddDocument({ type: 'workersComp', current: file(), previousVersions: [] })).toBe(true);
+  });
+
+  it('locks a W9 or MSA once one is on file (it never expires)', () => {
+    for (const type of ['w9', 'masterSubcontractAgreement'] as const) {
+      expect(canAddDocument({ type, current: null, previousVersions: [] })).toBe(true);
+      expect(canAddDocument({ type, current: file({ signedDate: '2019-03-12' }), previousVersions: [] })).toBe(false);
+    }
   });
 });
 

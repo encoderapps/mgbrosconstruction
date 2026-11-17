@@ -1,7 +1,11 @@
-import { SALESFORCE_ACH_URL, SALESFORCE_SUBCONTRACTOR_ACH_URL } from '../constants/config';
+import { SALESFORCE_ACH_URL, SALESFORCE_INSTANCE_URL, SALESFORCE_SUBCONTRACTOR_ACH_URL } from '../constants/config';
 import { ACH_ACCOUNT_TYPE } from '../constants/paymentSettings';
-import { AchApiPayload, AchApiResponse, SubcontractorAchApiResponse } from '../types';
-import { AchInfo, DueDateTerm, NewAchInfo, PaymentSettings } from '../types/paymentSettings';
+import { AchApiPayload, AchApiResponse, AchPdfApiRecord, SubcontractorAchApiResponse } from '../types';
+import { AchFormPdf, AchInfo, DueDateTerm, NewAchInfo, PaymentSettings } from '../types/paymentSettings';
+import { downloadSalesforceFileToCache } from './documentFileService';
+
+/** The REST API version used for file downloads, as in SALESFORCE_QUERY_URL. */
+const SALESFORCE_API_VERSION = 'v60.0';
 import { isValidAccountNumber, ROUTING_NUMBER_LENGTH } from '../utils/bankAccount';
 import { salesforceGet, salesforceSend } from './salesforceClient';
 
@@ -22,7 +26,7 @@ const settingsByAccount = new Map<string, PaymentSettings>();
 
 function copySettings(settings: PaymentSettings): PaymentSettings {
   return {
-    ach: settings.ach && { ...settings.ach },
+    ach: settings.ach && { ...settings.ach, pdf: settings.ach.pdf && { ...settings.ach.pdf } },
     paymentTerms: settings.paymentTerms.map((term) => ({ ...term })),
     dueDateTerm: settings.dueDateTerm,
   };
@@ -39,9 +43,36 @@ function getStoredSettings(accountId: string): PaymentSettings {
 
 const ACH_LOAD_ERROR_MESSAGE = 'Unable to load your bank details.';
 
+/** The newest available ACH form PDF (by its created date), or null when there's none. */
+export function latestAchPdf(records: readonly (AchPdfApiRecord | null | undefined)[]): AchFormPdf | null {
+  let latest: AchFormPdf | null = null;
+  let latestTime = -Infinity;
+  for (const record of records) {
+    const downloadUrl = record?.pdfDownloadUrl?.trim();
+    if (!record || !downloadUrl || record.pdfAvailable === false) {
+      continue;
+    }
+    const createdDate = record.pdfCreatedDate?.trim() || null;
+    const time = createdDate ? Date.parse(createdDate) : NaN;
+    // Undated ones only win when nothing is dated; ties keep the API's (newest-first) order.
+    const rank = Number.isNaN(time) ? -Number.MAX_VALUE : time;
+    if (!latest || rank > latestTime) {
+      latest = {
+        fileName: record.pdfFileName?.trim() || 'ACH Form.pdf',
+        downloadUrl,
+        versionId: record.pdfVersionId?.trim() || null,
+        createdDate,
+      };
+      latestTime = rank;
+    }
+  }
+  return latest;
+}
+
 /**
- * The account's saved bank details (GET /ach/subcontractor/v1/), or null when
- * there are none. When there are several, the first is used.
+ * The account's latest bank details (GET /ach/subcontractor/v1/), or null when
+ * there are none, with the latest ACH form PDF. Salesforce lists the records
+ * newest first, so the first one is the latest.
  */
 async function fetchAchInfo(accountId: string): Promise<AchInfo | null> {
   const data = await salesforceGet<SubcontractorAchApiResponse>(SALESFORCE_SUBCONTRACTOR_ACH_URL, { accountId });
@@ -52,6 +83,7 @@ async function fetchAchInfo(accountId: string): Promise<AchInfo | null> {
   if (!form) {
     return null;
   }
+  const pdf = latestAchPdf(data.achPdfs ?? []);
   return {
     bankName: form.bankName?.trim() ?? '',
     accountHolderName: data.subcontractorName?.trim() ?? '',
@@ -59,8 +91,23 @@ async function fetchAchInfo(accountId: string): Promise<AchInfo | null> {
     accountType: ACH_ACCOUNT_TYPE,
     accountNumber: form.accountNumber?.trim() ?? '',
     routingNumber: form.routingNumber?.trim() ?? '',
-    generatedAt: null,
+    generatedAt: pdf?.createdDate ?? null,
+    pdf,
   };
+}
+
+/**
+ * Downloads an ACH form PDF from Salesforce into the app's cache and returns
+ * its path, for the document viewer. It's fetched through the REST API's
+ * ContentVersion VersionData, which takes the API token: the
+ * /sfc/servlet.shepherd/… link needs a browser session and sends back a login
+ * page instead.
+ */
+export function downloadAchPdf(pdf: AchFormPdf): Promise<string> {
+  const url = pdf.versionId
+    ? `${SALESFORCE_INSTANCE_URL}/services/data/${SALESFORCE_API_VERSION}/sobjects/ContentVersion/${encodeURIComponent(pdf.versionId)}/VersionData`
+    : `${SALESFORCE_INSTANCE_URL}${pdf.downloadUrl}`;
+  return downloadSalesforceFileToCache(url, pdf.fileName);
 }
 
 /** The account's ACH details (from Salesforce), default payment terms and due date term. */

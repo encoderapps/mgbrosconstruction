@@ -10,9 +10,12 @@ function toInvoice(record: InvoiceApiRecord, index: number): Invoice {
   return {
     id: record.id || record.invoiceId || `invoice-${index}`,
     invoiceNumber: record.invoiceNumber?.trim() ?? '',
-    vendorInvoiceNumber: record.vendorInvoiceNumber?.trim() ?? '',
+    // Sent as vendorNumber (vendorInvoiceNumber in older responses).
+    vendorInvoiceNumber: record.vendorNumber?.trim() || record.vendorInvoiceNumber?.trim() || '',
     amount: toNumber(record.totalAmount),
     status: record.status?.trim() ?? '',
+    // `project` is usually null; the job it's related to names the project then.
+    projectName: (typeof record.project === 'string' && record.project.trim()) || record.relatedToJobName?.trim() || '',
   };
 }
 

@@ -4,7 +4,7 @@ import type { SignatureFontId } from '../constants/signatureFonts';
 import type { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
 import type { ChangeOrderSummary } from '../types/changeOrder';
 import type { AchInfo } from '../types/paymentSettings';
-import type { ComplianceDocumentType } from '../types/document';
+import type { ComplianceDocumentFile, ComplianceDocumentType } from '../types/document';
 
 export interface SubcontractorIdentityData {
   firstName: string;
@@ -170,7 +170,13 @@ export type AuthStackParamList = {
   Documents: undefined;
   DocumentDetails: { documentType: ComplianceDocumentType };
   /** Upload a new copy of the document, which becomes its current copy. */
-  AddComplianceDocument: { documentType: ComplianceDocumentType };
+  AddComplianceDocument: {
+    documentType: ComplianceDocumentType;
+    /** The details on file now, to start the form from (each may be null). */
+    current?: Pick<ComplianceDocumentFile, 'taxClassification' | 'taxId' | 'insuranceCompanyName' | 'policyNumber'>;
+  };
+  /** Documents → + on the MSA: read and sign the agreement, uploaded as the new MSA. */
+  SignMasterSubcontractAgreement: undefined;
   /** A document already written to the cache (path), so the viewer never handles the base64 itself. */
   DocumentViewer: { fileName: string; path: string };
   PaymentSettings: undefined;

@@ -9,17 +9,19 @@ function summary(groups: ReturnType<typeof groupPurchaseOrdersByStatus<{ id: str
 }
 
 describe('groupPurchaseOrdersByStatus', () => {
-  it('puts Ready for Signature, Signed and Signed by both sides first, in that order', () => {
+  it('puts Ready for Signature, Signed, Draft and Signed by both sides first, in that order', () => {
     const groups = groupPurchaseOrdersByStatus([
       po('a', 'Signed by both sides'),
       po('b', 'Signed'),
       po('c', 'Ready for Signature'),
       po('d', 'Signed by both sides'),
+      po('e', 'Draft'),
     ]);
 
     expect(summary(groups)).toEqual([
       ['Ready for Signature', ['c']],
       ['Signed', ['b']],
+      ['Draft', ['e']],
       ['Signed by both sides', ['a', 'd']],
     ]);
   });
@@ -48,8 +50,8 @@ describe('groupPurchaseOrdersByStatus', () => {
 
     expect(summary(groups)).toEqual([
       ['Signed', ['c']],
-      ['Cancelled', ['b', 'e']],
       ['Draft', ['d']],
+      ['Cancelled', ['b', 'e']],
       [NO_STATUS_LABEL, ['a']],
     ]);
   });
@@ -60,5 +62,19 @@ describe('groupPurchaseOrdersByStatus', () => {
     expect(groups.map((group) => group.status)).toEqual(['No Status', NO_STATUS_LABEL]);
     expect(new Set(groups.map((group) => group.key)).size).toBe(2);
     expect(groupPurchaseOrdersByStatus([])).toEqual([]);
+  });
+
+  it('leaves out POs with the "New" status, ignoring case and spacing', () => {
+    const groups = groupPurchaseOrdersByStatus([
+      po('a', 'New'),
+      po('b', 'Draft'),
+      po('c', ' NEW '),
+      po('d', 'Ready for Signature'),
+    ]);
+
+    expect(summary(groups)).toEqual([
+      ['Ready for Signature', ['d']],
+      ['Draft', ['b']],
+    ]);
   });
 });

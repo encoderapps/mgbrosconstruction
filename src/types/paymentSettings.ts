@@ -16,6 +16,19 @@ export interface AchInfo {
   /** Salesforce's ids for the saved bank details and the ACH form's file; null when not sent. */
   bookkeepingAccountId?: string | null;
   bkFileId?: string | null;
+  /** The latest ACH form PDF Salesforce generated; null or absent when it has none. */
+  pdf?: AchFormPdf | null;
+}
+
+/** A generated ACH form PDF stored in Salesforce. */
+export interface AchFormPdf {
+  fileName: string;
+  /** Relative to the Salesforce instance, e.g. "/sfc/servlet.shepherd/document/download/069…". */
+  downloadUrl: string;
+  /** The ContentVersion Id ("068…"): its REST VersionData is what the app downloads. Null when not sent. */
+  versionId: string | null;
+  /** ISO timestamp; null when not sent. */
+  createdDate: string | null;
 }
 
 /** What the ACH Information form sends. */

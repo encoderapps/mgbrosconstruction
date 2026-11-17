@@ -1,10 +1,11 @@
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PDFFont, PDFImage, PDFPage, StandardFonts, rgb } from 'pdf-lib';
 import { EMPTY_VALUE } from '../constants/display';
 import { GENERAL_CONTRACTOR } from '../constants/purchaseOrderDocument';
 import { SubcontractorCompanyProfile } from '../types/company';
 import { AchInfo } from '../types/paymentSettings';
-import { formatDateTime } from '../utils/formatDate';
-import { formatPhoneNumber } from '../utils/formatPhoneNumber';
+import { UserSignature } from '../types/signature';
+import { toDateOnlyString } from '../utils/dateValidation';
+import { formatDateTime, formatLongDate } from '../utils/formatDate';
 import { wrapText } from './purchaseOrderPdfService';
 
 // US Letter, in points.
@@ -18,6 +19,8 @@ const LINE_GAP = 6;
 const TEXT_COLOR = rgb(0.13, 0.11, 0.1);
 const MUTED_COLOR = rgb(0.42, 0.38, 0.36);
 const RULE_COLOR = rgb(0.8, 0.77, 0.73);
+/** Room above the signature line for the signature. */
+const SIGNATURE_HEIGHT = 34;
 
 /** Draws top-down: `top` is the distance from the top of the page. */
 class AchPageWriter {
@@ -79,11 +82,17 @@ class AchPageWriter {
     });
   }
 
-  /** A labelled blank line to sign or write on by hand. */
-  blankLine(label: string, x: number, width: number): void {
+  /** A labelled line, with `value` written on it (or left blank to fill in by hand). */
+  signedLine(label: string, x: number, width: number, value?: string | PDFImage): void {
     this.text(label, x, { font: this.bold });
-    const lineTop = this.top + TEXT_SIZE + 26;
-    const y = PAGE_HEIGHT - lineTop;
+    const y = PAGE_HEIGHT - (this.top + TEXT_SIZE + SIGNATURE_HEIGHT + 6);
+    if (typeof value === 'string') {
+      this.page.drawText(value, { x, y: y + 4, size: 11, font: this.regular, color: TEXT_COLOR });
+    } else if (value) {
+      // Fit the signature in the space above the line, keeping its shape.
+      const scale = Math.min(SIGNATURE_HEIGHT / value.height, width / value.width);
+      this.page.drawImage(value, { x, y: y + 2, width: value.width * scale, height: value.height * scale });
+    }
     this.page.drawLine({ start: { x, y }, end: { x: x + width, y }, thickness: 0.75, color: TEXT_COLOR });
   }
 }
@@ -91,14 +100,16 @@ class AchPageWriter {
 export interface AchFormContent {
   company: SubcontractorCompanyProfile;
   ach: AchInfo;
+  /** The user's signature (from registration or login), signed on the form; left blank without one. */
+  signature?: UserSignature | null;
 }
 
 /**
  * The ACH authorization form for the company's bank account, as a one-page
- * PDF (base64). Signature, printed name and date are left blank to fill in by
- * hand after printing: the app doesn't know who signs for the company.
+ * PDF (base64): company and bank details, the authorization, and the user's
+ * signature dated the day the form was generated.
  */
-export async function generateAchFormPdf({ company, ach }: AchFormContent): Promise<string> {
+export async function generateAchFormPdf({ company, ach, signature }: AchFormContent): Promise<string> {
   const doc = await PDFDocument.create();
   doc.setTitle(`ACH Authorization Form - ${company.name}`);
   doc.setAuthor(GENERAL_CONTRACTOR.name);
@@ -115,13 +126,9 @@ export async function generateAchFormPdf({ company, ach }: AchFormContent): Prom
   writer.section('COMPANY INFORMATION');
   writer.row('Company Name', company.name);
   writer.row('Address', company.address);
-  writer.row('Contact Name', '');
-  writer.row('Phone', company.phone ? formatPhoneNumber(company.phone) : '');
-  writer.row('Email', company.email);
 
   writer.section('BANK ACCOUNT INFORMATION');
   writer.row('Bank Name', ach.bankName);
-  writer.row('Name on Account', ach.accountHolderName);
   writer.row('Account Type', ach.accountType);
   writer.row('Account Number', ach.accountNumber);
   writer.row('Routing Number', ach.routingNumber);
@@ -136,11 +143,15 @@ export async function generateAchFormPdf({ company, ach }: AchFormContent): Prom
   writer.top += 24;
   const columnGap = 36;
   const signatureWidth = CONTENT_WIDTH * 0.6;
-  writer.blankLine('Authorized Signature:', MARGIN, signatureWidth);
-  writer.blankLine('Date:', MARGIN + signatureWidth + columnGap, CONTENT_WIDTH - signatureWidth - columnGap);
-  writer.top += TEXT_SIZE + 44;
-  writer.blankLine('Printed Name:', MARGIN, signatureWidth);
-  writer.top += TEXT_SIZE + 44;
+  const signatureImage = signature?.imageBase64 ? await doc.embedPng(signature.imageBase64) : undefined;
+  writer.signedLine('Authorized Signature:', MARGIN, signatureWidth, signatureImage);
+  writer.signedLine(
+    'Date:',
+    MARGIN + signatureWidth + columnGap,
+    CONTENT_WIDTH - signatureWidth - columnGap,
+    ach.generatedAt ? formatLongDate(toDateOnlyString(new Date(ach.generatedAt))) : undefined,
+  );
+  writer.top += TEXT_SIZE + SIGNATURE_HEIGHT + 22;
   if (ach.generatedAt) {
     writer.text(`Generated on: ${formatDateTime(ach.generatedAt)}`, MARGIN, { size: 8, color: MUTED_COLOR });
   }

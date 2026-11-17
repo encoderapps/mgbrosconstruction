@@ -32,7 +32,7 @@ import { usePurchaseOrderDetail } from '../hooks/usePurchaseOrderDetail';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { createBlankChangeOrder } from '../services/changeOrderService';
 import { PurchaseOrderPaymentTerm } from '../types/purchaseOrder';
-import { changeOrderStage, isAwaitingApproval } from '../utils/changeOrder';
+import { changeOrderStage } from '../utils/changeOrder';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatUsDate } from '../utils/formatDate';
 import { isAwaitingSignature, isSigned } from '../utils/purchaseOrderStatus';
@@ -88,7 +88,8 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
     }
   }, [updatedStatus, signedDate, setData]);
 
-  // The +: creates a blank Draft change order right away and adds it to the table, without a form.
+  // The +: creates a blank Draft change order right away, adds it to the table and opens it (its Draft
+  // screen); back from there, the PO re-loads and the Draft is still listed.
   const addChangeOrder = async (): Promise<void> => {
     if (isAddingChangeOrder || !detail) {
       return;
@@ -109,8 +110,8 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
         ...(created.source && { source: created.source }),
       };
       setData((current) => current && { ...current, changeOrders: [...(current.changeOrders ?? []), row] });
-      // Picks up anything the API filled in (e.g. its number) that the create response left out.
-      refresh();
+      // Coming back re-loads the PO (useRefreshOnReturn), picking up anything the create response left out.
+      navigation.navigate('ChangeOrderDetails', { poId, changeOrder: row });
     } catch (error) {
       Alert.alert('Unable to create change order', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -213,8 +214,8 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
                   description: description ?? '',
                   ...(source && { source }),
                 };
-                // One waiting on approval (a Draft included) opens its approval status; any other its details.
-                if (isAwaitingApproval(changeOrderStage(changeOrder))) {
+                // Pending Approval opens its approval status; any other (a Draft included, to show its items) its details.
+                if (changeOrderStage(changeOrder) === 'pendingApproval') {
                   navigation.navigate('ChangeOrderApproval', { poId, changeOrder });
                 } else {
                   navigation.navigate('ChangeOrderDetails', { poId, changeOrder });

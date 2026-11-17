@@ -125,12 +125,20 @@ export interface InvoiceApiRecord {
   invoiceId?: string | null;
   /** e.g. "BR-000027379". */
   invoiceNumber?: string | null;
-  /** The subcontractor's own invoice number. */
+  /** The subcontractor's own invoice number (the Vendor Invoice Number column). */
+  vendorNumber?: string | null;
+  /** The older name for vendorNumber. */
   vendorInvoiceNumber?: string | null;
   /** Salesforce may send amounts as text, e.g. "1000.00". */
   totalAmount?: number | string | null;
   /** e.g. "Created". */
   status?: string | null;
+  /** The project's name; often null. */
+  project?: string | null;
+  projectId?: string | null;
+  /** The job (opportunity) the invoice is for, e.g. "ABC Construction opportunity". */
+  relatedToJobName?: string | null;
+  relatedToJobId?: string | null;
 }
 
 export interface InvoicesApiResponse {
@@ -366,10 +374,12 @@ export interface CreateChangeOrderApiResponse {
   changeOrderId?: string | null;
   /** e.g. "Job Change Order". */
   source?: string | null;
-  /** The number shown in the PO's change-order table, e.g. "CO#08". */
-  changeOrderNo?: string | null;
-  /** The record name, e.g. "Job-CO#0000568". */
+  /** The change order number the app shows, e.g. "J-CO#0000026". */
   changeOrderNumber?: string | null;
+  /** The record's name, which is also the change order number; used if changeOrderNumber is left out. */
+  name?: string | null;
+  /** The number typed in, e.g. "87827388"; not shown. */
+  changeOrderNo?: string | null;
   /** e.g. "Draft". */
   status?: string | null;
   /** e.g. "Pending": creating a change order submits it for approval. */
@@ -479,7 +489,10 @@ export interface ChangeOrderDetailItemApiRecord {
 /** The change order asked for with changeOrderId. */
 export interface ChangeOrderDetailApiRecord {
   id: string;
-  changeOrderNo: string | null;
+  /** The change order number the app shows, e.g. "J-CO#0000026". */
+  name: string | null;
+  /** The number typed in, e.g. "87827388"; not shown. */
+  changeOrderNo?: string | null;
   status: string | null;
   /** See ChangeOrderApiRecord.source. */
   source?: string | null;
@@ -493,8 +506,10 @@ export interface ChangeOrderDetailApiRecord {
 
 export interface ChangeOrderApiRecord {
   id: string;
-  /** e.g. "CO#01". */
-  changeOrderNo: string | null;
+  /** The change order number the app shows, e.g. "J-CO#0000026". */
+  name: string | null;
+  /** The number typed in, e.g. "87827388"; not shown. */
+  changeOrderNo?: string | null;
   /** e.g. "Signed by Both Parties", "Draft". */
   status: string | null;
   description: string | null;
@@ -561,6 +576,10 @@ export interface PurchaseOrderInvoiceApiRecord {
   totalAmount?: number | string | null;
   amount?: number | string | null;
   balanceDue?: number | string | null;
+  /** The project's name, as on GET /bookkeeping/fetch; often null or absent. */
+  project?: string | null;
+  /** The job it's related to, which names the project when `project` is null. */
+  relatedToJobName?: string | null;
 }
 
 export interface PurchaseOrderChangeOrdersApiResponse {
@@ -657,14 +676,30 @@ export type SubcontractorDocumentUploadDates =
   /** YYYY-MM-DD each. */
   | { effectiveDate: string; expirationDate: string };
 
+/**
+ * The document's details sent with it, under the same names as the
+ * registration API: a W9's tax details, General Liability's or Workers' Comp's
+ * insurer and policy; none for an MSA.
+ */
+export interface SubcontractorDocumentUploadDetails {
+  taxClassification?: string;
+  /** e.g. "12-3456789". */
+  taxId?: string;
+  glInsuranceCompanyName?: string;
+  glPolicyNumber?: string;
+  wcInsuranceCompanyName?: string;
+  wcPolicyNumber?: string;
+}
+
 /** POST /subcontractordocumentupload: a new copy of one document, which becomes its current copy. */
 export type SubcontractorDocumentUploadApiPayload = {
   accountId: string;
   /** "W9", "COI - General Liability", "COI - Workers Comp" or "Master Subcontract Agreement". */
   recordTypeName: string;
-  /** The PDF, base64-encoded. The server names the file itself. */
+  /** The PDF or JPG, base64-encoded. The server names the file itself. */
   fileBase64: string;
-} & SubcontractorDocumentUploadDates;
+} & SubcontractorDocumentUploadDates &
+  SubcontractorDocumentUploadDetails;
 
 export interface SubcontractorDocumentUploadApiResponse {
   success: boolean;
@@ -883,9 +918,6 @@ export interface BidStatusUpdateApiResponse {
 export interface BidLineItemApiPayload {
   bidId: string;
   itemDescription: string;
-  approximateOperatingTime: number;
-  /** Picklist value: "Day_s", "Week_s" or "Month_s". */
-  approximateOperatingTimeType: string;
   /** In dollars. */
   offerPrice: number;
 }
@@ -907,9 +939,23 @@ export interface AchFormApiRecord {
   accountType?: string | null;
 }
 
+/** One of the account's generated ACH form PDFs, in GET /ach/subcontractor/v1/. */
+export interface AchPdfApiRecord {
+  /** e.g. "2026-11-12T10:55:28.000Z". */
+  pdfCreatedDate?: string | null;
+  /** Relative to the Salesforce instance, e.g. "/sfc/servlet.shepherd/document/download/069…". */
+  pdfDownloadUrl?: string | null;
+  pdfVersionId?: string | null;
+  pdfContentDocumentId?: string | null;
+  pdfAvailable?: boolean | null;
+  /** e.g. "ACH Form - Anderson Builders LLC.pdf". */
+  pdfFileName?: string | null;
+}
+
 /** GET /ach/subcontractor/v1/?accountId=… response. */
 export interface SubcontractorAchApiResponse {
   success: boolean;
+  achPdfs?: AchPdfApiRecord[] | null;
   /** e.g. "ACH details fetched successfully." */
   message?: string | null;
   accountId?: string | null;

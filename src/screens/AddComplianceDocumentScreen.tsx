@@ -8,32 +8,43 @@ import { AuthCardHeader } from '../components/AuthCardHeader';
 import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
 import { DateInput } from '../components/DateInput';
 import { HomeHeader } from '../components/HomeHeader';
+import { LoginInput } from '../components/LoginInput';
+import { SelectInput } from '../components/SelectInput';
 import { ArrowLeftIcon, DocumentIcon, ShieldIcon, UploadIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
 import { AuthStackParamList, RegistrationFile } from '../navigation/types';
 import { COMPLIANCE_DOCUMENT_INFO } from '../constants/complianceDocuments';
+import { TAX_CLASSIFICATION_OPTIONS } from '../constants/taxClassificationOptions';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { useBlockBackWhile } from '../hooks/useBlockBackWhile';
-import { uploadComplianceDocument } from '../services/complianceDocumentService';
+import { ComplianceDocumentDetails, uploadComplianceDocument } from '../services/complianceDocumentService';
 import { isInsuranceCertificate } from '../utils/complianceDocument';
 import { findMissingRequiredField } from '../utils/formValidation';
 import { startOfToday, validateInsuranceDates } from '../utils/dateValidation';
-import { isPdfFile } from '../utils/fileValidation';
+import { isJpegFile, isPdfFile } from '../utils/fileValidation';
 import { fileToBase64 } from '../utils/fileToBase64';
+import { formatTaxIdInput, isValidTaxId } from '../utils/taxId';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'AddComplianceDocument'>;
 
 /**
  * Home → Documents → + on a W9, General Liability, Workers' Comp or Master
- * Subcontract Agreement: upload a new copy (PDF only), which becomes the
- * current copy. A W9 or MSA takes the date it was signed (today or earlier); a
- * certificate takes effective and expiration dates, with the same rules as the
- * registration's insurance dates.
+ * Subcontract Agreement: upload a new copy (a PDF or a JPG, sent as it is),
+ * which becomes the current copy. A W9 also takes its tax classification and
+ * Tax ID, and a certificate its insurer and policy number — each started from
+ * what's on file, to keep or change. A W9 or MSA takes the date it was signed
+ * (today or earlier); a certificate takes effective and expiration dates, with
+ * the same rules as the registration's insurance dates.
  */
 export function AddComplianceDocumentScreen({ navigation, route }: Props): React.JSX.Element {
-  const { documentType } = route.params;
+  const { documentType, current } = route.params;
   const { label } = COMPLIANCE_DOCUMENT_INFO[documentType];
   const isCertificate = isInsuranceCertificate(documentType);
+  const isW9 = documentType === 'w9';
+  const [taxClassification, setTaxClassification] = useState(current?.taxClassification ?? '');
+  const [taxId, setTaxId] = useState(formatTaxIdInput(current?.taxId ?? ''));
+  const [insuranceCompanyName, setInsuranceCompanyName] = useState(current?.insuranceCompanyName ?? '');
+  const [policyNumber, setPolicyNumber] = useState(current?.policyNumber ?? '');
   const accountId = useSubcontractorSession().company?.accountId;
   const [signedDate, setSignedDate] = useState('');
   const [effectiveDate, setEffectiveDate] = useState('');
@@ -48,13 +59,15 @@ export function AddComplianceDocumentScreen({ navigation, route }: Props): React
   const handleUploadPress = async (): Promise<void> => {
     try {
       const [result] = await pick({
-        type: [types.pdf],
+        // Images is the narrowest picker filter that includes JPGs; other images are refused below.
+        type: [types.pdf, types.images],
       });
-      if (!isPdfFile(result)) {
-        Alert.alert('Invalid file', 'Please select a PDF file only.');
+      if (!isPdfFile(result) && !isJpegFile(result)) {
+        Alert.alert('Invalid file', 'Please select a PDF or JPG file.');
         return;
       }
       setIsPicking(true);
+      // The file's own bytes, PDF or JPG, unchanged.
       const base64 = await fileToBase64(result.uri);
       setPickedFile({
         uri: result.uri,
@@ -74,19 +87,39 @@ export function AddComplianceDocumentScreen({ navigation, route }: Props): React
 
   const handleSubmit = async (): Promise<void> => {
     if (!pickedFile) {
-      Alert.alert('File required', `Please upload your ${label} as a PDF.`);
+      Alert.alert('File required', `Please upload your ${label} as a PDF or JPG.`);
       return;
     }
-    const missingField = findMissingRequiredField(
-      isCertificate
+    const missingField = findMissingRequiredField([
+      ...(isW9
         ? [
+            {
+              value: taxClassification,
+              title: 'Missing tax classification',
+              message: 'Please select the federal tax classification.',
+            },
+            { value: taxId, title: 'Missing Tax ID', message: 'Please enter the tax identification number.' },
+          ]
+        : []),
+      ...(isCertificate
+        ? [
+            {
+              value: insuranceCompanyName.trim(),
+              title: 'Missing insurance company',
+              message: 'Please enter the insurance company name.',
+            },
+            { value: policyNumber.trim(), title: 'Missing policy number', message: 'Please enter the policy number.' },
             { value: effectiveDate, title: 'Missing effective date', message: 'Please enter the effective date.' },
             { value: expirationDate, title: 'Missing expiration date', message: 'Please enter the expiration date.' },
           ]
-        : [{ value: signedDate, title: 'Missing signed date', message: 'Please enter the signed date.' }],
-    );
+        : [{ value: signedDate, title: 'Missing signed date', message: 'Please enter the signed date.' }]),
+    ]);
     if (missingField) {
       Alert.alert(missingField.title, missingField.message);
+      return;
+    }
+    if (isW9 && !isValidTaxId(taxId)) {
+      Alert.alert('Invalid Tax ID', 'Please enter the tax identification number as 9 digits, e.g. 12-3456789.');
       return;
     }
     const dateError = isCertificate ? validateInsuranceDates(effectiveDate, expirationDate) : null;
@@ -99,6 +132,13 @@ export function AddComplianceDocumentScreen({ navigation, route }: Props): React
       return;
     }
 
+    let details: ComplianceDocumentDetails | undefined;
+    if (isW9) {
+      details = { taxClassification, taxId };
+    } else if (isCertificate) {
+      details = { insuranceCompanyName: insuranceCompanyName.trim(), policyNumber: policyNumber.trim() };
+    }
+
     setIsSaving(true);
     try {
       const message = await uploadComplianceDocument({
@@ -106,6 +146,7 @@ export function AddComplianceDocumentScreen({ navigation, route }: Props): React
         type: documentType,
         fileBase64: pickedFile.base64,
         dates: isCertificate ? { effectiveDate, expirationDate } : { signedDate },
+        details,
       });
       // Documents reloads when it's shown again, picking up the new copy.
       Alert.alert(`${label} uploaded`, message, [{ text: 'OK', onPress: () => navigation.goBack() }]);
@@ -138,15 +179,64 @@ export function AddComplianceDocumentScreen({ navigation, route }: Props): React
           <AuthCardHeader
             icon={<Icon size={18} color={welcomeColors.accent} />}
             title={label}
-            subtitle={`Upload your new ${label} and enter ${isCertificate ? 'its dates' : 'the date it was signed'}`}
+            subtitle={`Upload your new ${label} and enter ${isCertificate ? 'its details and dates' : 'its details'}`}
           />
 
+          {isW9 && (
+            <>
+              {/* collapsable={false}: toggling pointerEvents mustn't flatten/unflatten this view (Fabric crash on Android). */}
+              <View pointerEvents={isSaving ? 'none' : 'auto'} collapsable={false}>
+                <SelectInput
+                  label="Federal Tax Classification"
+                  required
+                  placeholder="Select federal tax classification"
+                  value={taxClassification}
+                  options={TAX_CLASSIFICATION_OPTIONS}
+                  onSelect={setTaxClassification}
+                  disabled={isSaving}
+                />
+              </View>
+              <LoginInput
+                label="Tax Identification Number"
+                required
+                placeholder="XX-XXXXXXX"
+                value={taxId}
+                onChangeText={(text) => setTaxId(formatTaxIdInput(text))}
+                keyboardType="number-pad"
+                maxLength={10}
+                editable={!isSaving}
+              />
+            </>
+          )}
+
+          {isCertificate && (
+            <>
+              <LoginInput
+                label="Insurance Company Name"
+                required
+                placeholder="Enter insurance company name"
+                value={insuranceCompanyName}
+                onChangeText={setInsuranceCompanyName}
+                autoCapitalize="words"
+                editable={!isSaving}
+              />
+              <LoginInput
+                label="Policy Number"
+                required
+                placeholder="Enter policy number"
+                value={policyNumber}
+                onChangeText={setPolicyNumber}
+                editable={!isSaving}
+              />
+            </>
+          )}
+
           <View style={styles.uploadSection}>
-            <Text style={styles.uploadLabel}>Upload {label} (PDF)</Text>
+            <Text style={styles.uploadLabel}>Upload {label} (PDF or JPG)</Text>
             <View style={styles.uploadRow}>
               <Pressable style={styles.uploadButton} onPress={handleUploadPress} disabled={isBusy}>
                 <UploadIcon size={14} color={welcomeColors.accent} />
-                <Text style={styles.uploadButtonText}>{isPicking ? 'Uploading...' : 'Upload PDF'}</Text>
+                <Text style={styles.uploadButtonText}>{isPicking ? 'Uploading...' : 'Upload File'}</Text>
               </Pressable>
             </View>
             {!!pickedFile && <Text style={styles.selectedFileText}>{pickedFile.name}</Text>}

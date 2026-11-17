@@ -17,7 +17,7 @@ export const API_TIMEOUT_MS = 15000;
 // anyone who decompiles the APK. Fine for a sandbox org; before pointing this
 // at production Salesforce, move the client_credentials exchange to a backend
 // endpoint the app calls instead, so the secret never ships on-device.
-const SALESFORCE_INSTANCE_URL = 'https://newluxa--vikassbx.sandbox.my.salesforce.com';
+export const SALESFORCE_INSTANCE_URL ='https://newluxa--vikassbx.sandbox.my.salesforce.com';
 export const SALESFORCE_TOKEN_URL = `${SALESFORCE_INSTANCE_URL}/services/oauth2/token`;
 export const SALESFORCE_SUBCONTRACTOR_REGISTRATION_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorregistration`;
 export const SALESFORCE_CHECK_EXISTING_EMAIL_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/checkExistingEmail`;

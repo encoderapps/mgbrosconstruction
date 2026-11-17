@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Pdf from 'react-native-pdf';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,11 +19,8 @@ import { fontFamily, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { SIGNATURE_FONTS, SignatureFontId } from '../constants/signatureFonts';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
-import {
-  buildMasterSubcontractAgreementBase64,
-  deleteMasterSubcontractAgreement,
-  generateMasterSubcontractAgreement,
-} from '../services/masterSubcontractAgreementService';
+import { useMasterAgreementPdf } from '../hooks/useMasterAgreementPdf';
+import { buildMasterSubcontractAgreementBase64 } from '../services/masterSubcontractAgreementService';
 import { getInitials } from '../utils/signature';
 import { todayDateString } from '../utils/dateValidation';
 
@@ -32,7 +29,6 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'MasterSubcontractorAgre
 const TOTAL_STEPS = 6;
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
-const SIGNATURE_DEBOUNCE_MS = 600;
 
 /** "Mitchell Air Systems" → "MSA_Mitchell_Air_Systems.pdf", as the registration API's samples. */
 function agreementFileName(companyName: string): string {
@@ -43,87 +39,22 @@ function agreementFileName(companyName: string): string {
 export function MasterSubcontractorAgreementScreen({ navigation, route }: Props): React.JSX.Element {
   const companyName = route.params.company.company;
   const insets = useSafeAreaInsets();
-  // The PDF and the page to open it at change together, only when a new PDF is
-  // generated. react-native-pdf reloads the whole document on any prop change,
-  // so the page shown while scrolling is tracked in a ref, not passed back as a
-  // prop — reloading mid-scroll crashes its native renderer.
-  const [pdf, setPdf] = useState<{ path: string; page: number } | null>(null);
-  const currentPageRef = useRef(1);
-  const [hasError, setHasError] = useState(false);
   const [hasReadAgreement, setHasReadAgreement] = useState(false);
   const [fullName, setFullName] = useState('');
   const [signatureFont, setSignatureFont] = useState<SignatureFontId | null>(null);
   const [isCreatingSignature, setIsCreatingSignature] = useState(false);
   const signatureCaptureRef = useRef<SignatureImageCaptureHandle>(null);
   const keyboardHeight = useKeyboardHeight();
-  const hasPdfRef = useRef(false);
 
   const signatureName = fullName.trim().replace(/\s+/g, ' ');
   const initials = getInitials(signatureName);
   const hasName = signatureName.length > 0;
 
-  // The signature on the "By:" line changes with every keystroke, so wait for
-  // the user to pause typing before regenerating the PDF with it.
-  const [debouncedName, setDebouncedName] = useState(signatureName);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedName(signatureName), SIGNATURE_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [signatureName]);
-
-  // The PDF only carries a signature once there's both a name and a style, so
-  // typing a name before choosing a style (or vice versa) doesn't regenerate it.
-  const signedName = signatureFont ? debouncedName : '';
-  const signedFont = debouncedName ? signatureFont : null;
-
-  // (Re)generate the agreement: the company name always, plus — once the user
-  // has entered a name and chosen a style — their initials on every page and
-  // their signature and today's date on page 10.
-  useEffect(() => {
-    let isCancelled = false;
-    const signature =
-      signedName && signedFont
-        ? { name: signedName, initials: getInitials(signedName), fontId: signedFont, date: todayDateString() }
-        : undefined;
-    generateMasterSubcontractAgreement(companyName, signature)
-      .then((path) => {
-        if (isCancelled) {
-          // Superseded by a newer request, or the screen has closed.
-          deleteMasterSubcontractAgreement(path);
-          return;
-        }
-        // Keep the user's place when the PDF is regenerated with new initials.
-        hasPdfRef.current = true;
-        setHasError(false);
-        setPdf({ path, page: currentPageRef.current });
-      })
-      .catch((error) => {
-        console.error('Failed to prepare Master Subcontract Agreement:', error);
-        if (isCancelled) {
-          return;
-        }
-        if (hasPdfRef.current) {
-          // Only re-signing failed: keep showing the agreement already loaded.
-          Alert.alert('Unable to add signature', 'Your signature could not be added to the agreement preview.');
-        } else {
-          setHasError(true);
-        }
-      });
-    return () => {
-      isCancelled = true;
-    };
-  }, [companyName, signedName, signedFont]);
-
-  // Delete each generated file once the viewer has moved on to a newer one (or the screen closes).
-  const pdfPath = pdf?.path;
-  useEffect(() => {
-    return () => {
-      if (pdfPath) {
-        deleteMasterSubcontractAgreement(pdfPath);
-      }
-    };
-  }, [pdfPath]);
-
-  const pdfSource = useMemo(() => (pdfPath ? { uri: `file://${pdfPath}` } : null), [pdfPath]);
+  const { pdf, pdfSource, hasError, setHasError, currentPageRef } = useMasterAgreementPdf(
+    companyName,
+    signatureName,
+    signatureFont,
+  );
 
   const handleContinue = async (): Promise<void> => {
     if (!hasReadAgreement || isCreatingSignature) {

@@ -136,7 +136,8 @@ describe('createChangeOrder', () => {
     );
     expect(created).toEqual({
       id: 'a1uQL00000Jr93pYAB',
-      changeOrderNumber: 'CO#08',
+      // changeOrderNumber, not the changeOrderNo typed in.
+      changeOrderNumber: 'Job-CO#0000568',
       status: 'Draft',
       approvalStatus: 'Pending',
       amount: 3799,

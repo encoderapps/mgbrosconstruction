@@ -57,8 +57,6 @@ function toBidLineItem(record: BidLineItemApiRecord): BidLineItem {
     id: record.id,
     description: record.itemDescription?.trim() ?? '',
     amount: toNumber(record.offerPrice) ?? 0,
-    operatingTime: record.approximateOperatingTime ?? 0,
-    operatingTimeType: record.approximateOperatingTimeType?.trim() ?? '',
   };
 }
 
@@ -125,15 +123,10 @@ export async function addBidLineItem(_accountId: string, bidId: string, item: Ne
   if (!description) {
     throw new Error('Please enter a description for this line item.');
   }
-  if (!(item.operatingTime > 0)) {
-    throw new Error('Please enter the approximate operating time.');
-  }
 
   const payload: BidLineItemApiPayload = {
     bidId,
     itemDescription: description,
-    approximateOperatingTime: item.operatingTime,
-    approximateOperatingTimeType: item.operatingTimeType,
     offerPrice: item.amount,
   };
   const data = await salesforceSend<BidLineItemCreateApiResponse>(
@@ -146,11 +139,7 @@ export async function addBidLineItem(_accountId: string, bidId: string, item: Ne
 
   // Until the bids reload, show the saved item and add it to Salesforce's total.
   const saved = toBidLineItem(data.bidItem);
-  const lineItem: BidLineItem = {
-    ...saved,
-    description: saved.description || description,
-    operatingTimeType: saved.operatingTimeType || item.operatingTimeType,
-  };
+  const lineItem: BidLineItem = { ...saved, description: saved.description || description };
   const loaded = loadedBidsById.get(bidId);
   if (loaded) {
     loadedBidsById.set(bidId, {

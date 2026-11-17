@@ -189,16 +189,47 @@ describe('fetchInvoices', () => {
       success: true,
       totalRecords: 2,
       invoices: [
-        { id: 'a1k1', invoiceNumber: 'BR-000027379', vendorInvoiceNumber: 'V-77', totalAmount: '1000.00', status: 'Created' },
+        {
+          id: 'a1k1',
+          invoiceNumber: 'BR-000027379',
+          vendorNumber: 'V-77',
+          totalAmount: '1000.00',
+          status: 'Created',
+          project: null,
+          relatedToJobName: 'ABC Construction opportunity',
+        },
         { invoiceId: 'a0n2', invoiceNumber: null, vendorInvoiceNumber: null, totalAmount: null, status: null },
+        {
+          id: 'a1k3',
+          invoiceNumber: 'BR-3',
+          vendorInvoiceNumber: 'V-OLD',
+          project: 'Main St Remodel',
+          relatedToJobName: 'Main St job',
+        },
       ],
     });
 
     const { items } = await fetchInvoices('001ACCOUNT', 'all');
 
     expect(items).toEqual([
-      { id: 'a1k1', invoiceNumber: 'BR-000027379', vendorInvoiceNumber: 'V-77', amount: 1000, status: 'Created' },
-      { id: 'a0n2', invoiceNumber: '', vendorInvoiceNumber: '', amount: null, status: '' },
+      {
+        id: 'a1k1',
+        invoiceNumber: 'BR-000027379',
+        vendorInvoiceNumber: 'V-77',
+        amount: 1000,
+        status: 'Created',
+        projectName: 'ABC Construction opportunity',
+      },
+      { id: 'a0n2', invoiceNumber: '', vendorInvoiceNumber: '', amount: null, status: '', projectName: '' },
+      // The project's own name wins over the job's; the older vendorInvoiceNumber still reads.
+      {
+        id: 'a1k3',
+        invoiceNumber: 'BR-3',
+        vendorInvoiceNumber: 'V-OLD',
+        amount: null,
+        status: '',
+        projectName: 'Main St Remodel',
+      },
     ]);
   });
 });

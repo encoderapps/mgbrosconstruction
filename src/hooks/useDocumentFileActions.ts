@@ -22,7 +22,7 @@ export function showSaveResult(result: DocumentSaveResult, fileName: string): vo
 export interface DocumentFileActions {
   /** The file being opened or saved, so its buttons can show they're busy (one at a time). */
   busyFileId: string | null;
-  /** Opens the file in the in-app PDF viewer. */
+  /** Opens the file in the in-app viewer (a PDF, or a JPG or PNG photo). */
   openFile: (file: ComplianceDocumentFile) => void;
   /** Saves the file onto the device (Downloads on Android, the share sheet on iOS). */
   downloadFile: (file: ComplianceDocumentFile) => void;

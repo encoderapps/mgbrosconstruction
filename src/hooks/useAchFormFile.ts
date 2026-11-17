@@ -11,19 +11,19 @@ export interface AchFormFile {
   fileName: string;
 }
 
-/** Builds the company's ACH form PDF for `ach` and writes it to the cache (again whenever `ach` changes). */
+/** Builds the company's ACH form PDF for `ach`, signed by the user, and writes it to the cache (again whenever `ach` changes). */
 export function useAchFormFile(ach: AchInfo): AsyncResource<AchFormFile> {
-  const company = useSubcontractorSession().company;
+  const { company, signature } = useSubcontractorSession();
   const load = useMemo(
     () =>
       company
         ? async (): Promise<AchFormFile> => {
             const fileName = achFormFileName(company.name);
-            const contentBase64 = await generateAchFormPdf({ company, ach });
+            const contentBase64 = await generateAchFormPdf({ company, ach, signature });
             return { fileName, path: await writeDocumentToCache({ fileName, contentBase64 }) };
           }
         : null,
-    [company, ach],
+    [company, ach, signature],
   );
   return useAsyncResource(load);
 }

@@ -87,6 +87,8 @@ export interface PurchaseOrderLedgerEntry {
   source?: string;
   /** Invoices only: the subcontractor's own invoice number; empty when there's none. */
   vendorInvoiceNumber?: string;
+  /** Invoices only: the project's name, when the API sends one (the ledger falls back to the PO's project). */
+  projectName?: string;
 }
 
 export interface PurchaseOrderDetail {

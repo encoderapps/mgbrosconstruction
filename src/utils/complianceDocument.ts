@@ -47,7 +47,6 @@ export function getDocumentSummary(
     return [];
   }
   if (type === 'masterSubcontractAgreement') {
-    // Its expiration (a year after signing) isn't shown, only its status.
     return [{ label: 'Signed Date', value: toUsDate(current.signedDate) }];
   }
   if (!isInsuranceCertificate(type)) {
@@ -70,9 +69,10 @@ export function getDocumentSummary(
 }
 
 /**
- * Where the document stands: nothing on file; or active, expiring soon (within
- * EXPIRY_WARNING_DAYS), expired, or missing its expiration date. (A W9 or MSA
- * expires a year after it was signed; see complianceDocumentService.)
+ * Where the document stands: nothing on file; a W9 or MSA on file is active
+ * (it never expires, however long ago it was signed); a certificate is active,
+ * expiring soon (within EXPIRY_WARNING_DAYS), expired, or missing its
+ * expiration date.
  */
 export function getDocumentStatus(
   type: ComplianceDocumentType,
@@ -83,7 +83,10 @@ export function getDocumentStatus(
   if (!current) {
     return { tone: 'danger', message: `No ${label} on file.` };
   }
-  const noun = isInsuranceCertificate(type) ? 'certificate' : type === 'w9' ? label : 'agreement';
+  if (!isInsuranceCertificate(type)) {
+    return { tone: 'success', message: `This ${type === 'w9' ? label : 'agreement'} is active.` };
+  }
+  const noun = 'certificate';
   if (!current.expirationDate) {
     return { tone: 'warning', message: `This ${noun} has no expiration date.` };
   }
@@ -102,14 +105,30 @@ export function getDocumentStatus(
   return { tone: 'success', message: `This ${noun} is active.` };
 }
 
-/** The documents whose current copy's expiration date has passed (today itself is still valid), in display order. */
+/**
+ * The certificates whose current copy's expiration date has passed (today itself
+ * is still valid), in display order. A W9 or MSA never expires.
+ */
 export function getExpiredDocumentTypes(
   documents: readonly ComplianceDocument[],
   today: Date = new Date(),
 ): ComplianceDocumentType[] {
   return documents
-    .filter(({ current }) => !!current?.expirationDate && daysUntil(current.expirationDate, today) < 0)
+    .filter(
+      ({ type, current }) =>
+        isInsuranceCertificate(type) && !!current?.expirationDate && daysUntil(current.expirationDate, today) < 0,
+    )
     .map(({ type }) => type);
+}
+
+/**
+ * Whether a new copy can be added (the + on Documents): General Liability and
+ * Workers' Comp always (a new certificate each policy term); a W9 or MSA only
+ * while none is on file — it never expires, so once one is on file it can't be
+ * replaced.
+ */
+export function canAddDocument({ type, current }: ComplianceDocument): boolean {
+  return isInsuranceCertificate(type) || !current;
 }
 
 /** The documents with nothing on file (no current copy), in display order. */

@@ -37,11 +37,13 @@ function statusColor(entry: LedgerRow): string | undefined {
 function ledgerColumns(nameLabel: string, onOpen: (entry: PurchaseOrderLedgerEntry) => void): DataTableColumn<LedgerRow>[] {
   return [
     { key: 'index', label: '#', width: 18, getValue: (entry) => String(entry.index) },
-    { key: 'name', label: nameLabel, width: 90, isLink: true, getValue: (entry) => entry.name, onPress: onOpen },
+    // Wide enough for a full number (e.g. "CO-000012345") with room before Status.
+    { key: 'name', label: nameLabel, width: 124, isLink: true, getValue: (entry) => entry.name, onPress: onOpen },
     {
       key: 'status',
       label: 'Status',
-      width: 120,
+      // Grows into any spare room; this is its minimum, so the wider name column still fits a phone.
+      width: 96,
       grow: true,
       getValue: (entry) => entry.status || EMPTY_VALUE,
       getColor: statusColor,
@@ -56,8 +58,14 @@ function ledgerColumns(nameLabel: string, onOpen: (entry: PurchaseOrderLedgerEnt
   ];
 }
 
-/** The invoice table: invoice number (opens it, when onOpen is given), vendor invoice number, amount and status. */
-function invoiceColumns(onOpen?: (invoice: PurchaseOrderLedgerEntry) => void): DataTableColumn<LedgerRow>[] {
+/**
+ * The invoice table: invoice number (opens it, when onOpen is given), vendor
+ * invoice number, amount, status and project (the invoice's own, else the PO's).
+ */
+function invoiceColumns(
+  poProject: string,
+  onOpen?: (invoice: PurchaseOrderLedgerEntry) => void,
+): DataTableColumn<LedgerRow>[] {
   return [
     {
       key: 'name',
@@ -82,6 +90,12 @@ function invoiceColumns(onOpen?: (invoice: PurchaseOrderLedgerEntry) => void): D
       getValue: (invoice) => formatCurrency(invoice.amount, true),
     },
     { key: 'status', label: 'Status', width: 80, getValue: (invoice) => invoice.status, getColor: statusColor },
+    {
+      key: 'projectName',
+      label: 'Project',
+      width: 160,
+      getValue: (invoice) => invoice.projectName || poProject || EMPTY_VALUE,
+    },
   ];
 }
 
@@ -128,7 +142,7 @@ export function PurchaseOrderLedger({
 
       <AmountRow label="Total Amount" amount={totals.totalAmount} actionLabel="Add Invoice" onAction={onAddInvoice} />
       <DataTable
-        columns={invoiceColumns(onOpenInvoice)}
+        columns={invoiceColumns(purchaseOrder.project, onOpenInvoice)}
         rows={withIndex(purchaseOrder.invoices ?? [])}
         getRowKey={(entry) => entry.id}
         emptyText="No invoices for this purchase order."
