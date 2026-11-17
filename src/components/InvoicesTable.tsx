@@ -27,6 +27,7 @@ const COLUMNS: DataTableColumn<Invoice>[] = [
     getValue: (invoice) => (invoice.amount === null ? '' : formatCurrency(invoice.amount, true)),
   },
   { key: 'status', label: 'Status', width: 88, align: 'left', getValue: (invoice) => invoice.status },
+  { key: 'projectName', label: 'Project', width: 180, align: 'left', getValue: (invoice) => invoice.projectName },
 ];
 
 type InvoicesTableProps = {

@@ -14,7 +14,7 @@ import {
   BidsApiResponse,
   BidStatusUpdateApiResponse,
 } from '../src/types';
-import { bidStatusTone, isBidEditable, sumBidLineItems } from '../src/utils/bidStatus';
+import { bidStatusTone, isBidEditable, splitBidsByCompletion, sumBidLineItems } from '../src/utils/bidStatus';
 import { parseCurrencyInput, sanitizeCurrencyInput } from '../src/utils/currencyInput';
 
 jest.mock('../src/services/salesforceClient', () => ({
@@ -44,8 +44,6 @@ function saveRequestsLikeSalesforce(): void {
           itemId: 'a6VQL000003mn6L2AQ',
           itemDescription: item.itemDescription,
           offerPrice: item.offerPrice,
-          approximateOperatingTime: item.approximateOperatingTime,
-          approximateOperatingTimeType: item.approximateOperatingTimeType,
           isActive: true,
           isApproved: false,
         },
@@ -186,7 +184,7 @@ describe('fetchBidDetail', () => {
     await fetchBids(ACCOUNT, 'all');
     const detail = await fetchBidDetail(ACCOUNT, 'bid-b4');
     detail.status = 'Lost';
-    detail.lineItems.push({ id: 'x', description: 'X', amount: 1, operatingTime: 1, operatingTimeType: 'Day_s' });
+    detail.lineItems.push({ id: 'x', description: 'X', amount: 1 });
 
     const again = await fetchBidDetail(ACCOUNT, 'bid-b4');
     expect(again.status).toBe('New');
@@ -228,15 +226,11 @@ describe('fetchBidDetail', () => {
         id: 'a6PQL00000ANGEP2A5',
         description: 'HVAC installation and maintenance',
         amount: 25000,
-        operatingTime: 5,
-        operatingTimeType: 'Day_s',
       },
       {
         id: 'a6PQL00000ANIeP2AX',
         description: 'Commercial HVAC repair and servicing',
         amount: 32000,
-        operatingTime: 10,
-        operatingTimeType: 'Week_s',
       },
     ]);
   });
@@ -255,8 +249,6 @@ describe('addBidLineItem', () => {
     const updated = await addBidLineItem(ACCOUNT, 'a6QQL000000rDK52AM', {
       description: '  HVAC 222 installation and maintenance ',
       amount: 25000,
-      operatingTime: 10,
-      operatingTimeType: 'Week_s',
     });
 
     expect(mockedSend).toHaveBeenCalledWith(
@@ -266,8 +258,6 @@ describe('addBidLineItem', () => {
         data: {
           bidId: 'a6QQL000000rDK52AM',
           itemDescription: 'HVAC 222 installation and maintenance',
-          approximateOperatingTime: 10,
-          approximateOperatingTimeType: 'Week_s',
           offerPrice: 25000,
         },
       },
@@ -278,7 +268,7 @@ describe('addBidLineItem', () => {
       'Commercial HVAC repair and servicing',
       'HVAC 222 installation and maintenance',
     ]);
-    expect(updated.lineItems[2]).toMatchObject({ amount: 25000, operatingTime: 10, operatingTimeType: 'Week_s' });
+    expect(updated.lineItems[2]).toMatchObject({ amount: 25000 });
     expect(updated.total).toBe(82000);
     // Still there when Bid Details reloads, until the bids are fetched again.
     await expect(fetchBidDetail(ACCOUNT, 'a6QQL000000rDK52AM')).resolves.toMatchObject({ total: 82000 });
@@ -290,8 +280,6 @@ describe('addBidLineItem', () => {
     const updated = await addBidLineItem(ACCOUNT, 'bid-b1', {
       description: 'Permit fees',
       amount: 450.25,
-      operatingTime: 2,
-      operatingTimeType: 'Day_s',
     });
 
     expect(updated.total).toBe(450.25);
@@ -302,17 +290,16 @@ describe('addBidLineItem', () => {
     await fetchBids(ACCOUNT, 'all');
 
     await expect(
-      addBidLineItem(ACCOUNT, 'bid-b2', { description: 'Labor', amount: 100, operatingTime: 5, operatingTimeType: 'Day_s' }),
+      addBidLineItem(ACCOUNT, 'bid-b2', { description: 'Labor', amount: 100 }),
     ).rejects.toThrow('Invalid bidId.');
     await expect(fetchBidDetail(ACCOUNT, 'bid-b2')).resolves.toMatchObject({ lineItems: [] });
   });
 
-  it('checks the description and operating time, and refuses a closed bid, without calling Salesforce', async () => {
+  it('checks the description, and refuses a closed bid, without calling Salesforce', async () => {
     await fetchBids(ACCOUNT, 'all');
-    const item = { description: 'Labor', amount: 100, operatingTime: 5, operatingTimeType: 'Day_s' };
+    const item = { description: 'Labor', amount: 100 };
 
     await expect(addBidLineItem(ACCOUNT, 'bid-b2', { ...item, description: ' ' })).rejects.toThrow('description');
-    await expect(addBidLineItem(ACCOUNT, 'bid-b2', { ...item, operatingTime: 0 })).rejects.toThrow('operating time');
     await expect(addBidLineItem(ACCOUNT, 'bid-won', item)).rejects.toThrow('This bid is won and can no longer be changed.');
     expect(mockedSend).not.toHaveBeenCalled();
   });
@@ -346,8 +333,6 @@ describe('completeBid', () => {
       addBidLineItem(ACCOUNT, 'a6QQL000000rDK52AM', {
         description: 'Late item',
         amount: 5,
-        operatingTime: 5,
-        operatingTimeType: 'Day_s',
       }),
     ).rejects.toThrow('can no longer be changed');
   });
@@ -391,6 +376,22 @@ describe('bidStatusTone / isBidEditable', () => {
   it('closes a bid once it is completed, won or lost', () => {
     expect(['Draft', 'Submitted', 'Pending', 'Requested'].map(isBidEditable)).toEqual([true, true, true, true]);
     expect(['Send Request', 'Completed', 'won', 'LOST'].map(isBidEditable)).toEqual([false, false, false, false]);
+  });
+});
+
+describe('splitBidsByCompletion', () => {
+  it('puts marked-complete and decided bids in Completed, the rest in New, keeping their order', () => {
+    const bids = [
+      { id: 'a', status: 'Waiting for Response' },
+      { id: 'b', status: 'Send Request' },
+      { id: 'c', status: 'Submitted' },
+      { id: 'd', status: ' won ' },
+      { id: 'e', status: '' },
+      { id: 'f', status: 'Lost' },
+    ];
+    const { newBids, completedBids } = splitBidsByCompletion(bids);
+    expect(newBids.map(({ id }) => id)).toEqual(['a', 'c', 'e']);
+    expect(completedBids.map(({ id }) => id)).toEqual(['b', 'd', 'f']);
   });
 });
 

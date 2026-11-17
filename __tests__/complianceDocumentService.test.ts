@@ -136,8 +136,8 @@ describe('fetchComplianceDocuments', () => {
         policyNumber: null,
         additionalInsured: false,
         effectiveDate: null,
-        // A year after it was signed.
-        expirationDate: '2027-09-18',
+        // A W9 never expires.
+        expirationDate: null,
       },
       previousVersions: [],
     });
@@ -177,15 +177,15 @@ describe('fetchComplianceDocuments', () => {
     });
   });
 
-  it('expires a W9 and an MSA one year after they were signed', async () => {
+  it('never gives a W9 or an MSA an expiration date, however old', async () => {
     mockedGet.mockResolvedValue({
       success: true,
       documents: [
-        { documentType: 'W9', currentDocument: { ...W9_RECORD, signedDate: '2025-11-04' }, previousVersions: [] },
+        { documentType: 'W9', currentDocument: { ...W9_RECORD, signedDate: '2021-11-04' }, previousVersions: [] },
         {
           documentType: 'Master Subcontract Agreement',
-          // The signed date wins over any expiration date the API sends.
-          currentDocument: { ...W9_RECORD, signedDate: '2025-11-10', expirationDate: '2030-01-01' },
+          // Even one the API sends is ignored.
+          currentDocument: { ...W9_RECORD, signedDate: '2024-11-10', expirationDate: '2025-01-01' },
           previousVersions: [],
         },
       ],
@@ -193,8 +193,8 @@ describe('fetchComplianceDocuments', () => {
 
     const [w9, , , msa] = (await fetchComplianceDocuments('001ACCOUNT')).documents;
 
-    expect(w9.current).toMatchObject({ signedDate: '2025-11-04', expirationDate: '2026-11-04' });
-    expect(msa.current).toMatchObject({ signedDate: '2025-11-10', expirationDate: '2026-11-10' });
+    expect(w9.current).toMatchObject({ signedDate: '2021-11-04', expirationDate: null });
+    expect(msa.current).toMatchObject({ signedDate: '2024-11-10', expirationDate: null });
   });
 
   it('returns every type, with nothing on file for those the API leaves out', async () => {
@@ -300,6 +300,68 @@ describe('uploadComplianceDocument', () => {
     mockedSend.mockResolvedValue({ success: true });
     await uploadComplianceDocument({ ...UPLOAD, type: 'workersComp' });
     expect(mockedSend.mock.calls[0][0].data).toMatchObject({ recordTypeName: 'COI - Workers Comp' });
+  });
+
+  it("sends a certificate's insurer and policy under its own names, as the sandbox takes them", async () => {
+    mockedSend.mockResolvedValue({ success: true });
+    const details = { insuranceCompanyName: 'pqr Insurance Company', policyNumber: 'WC-8897654' };
+
+    await uploadComplianceDocument({
+      ...UPLOAD,
+      accountId: '001QL00002caUn6YAE',
+      type: 'workersComp',
+      dates: { effectiveDate: '2030-12-11', expirationDate: '2031-12-11' },
+      details,
+    });
+    await uploadComplianceDocument({ ...UPLOAD, details });
+
+    expect(mockedSend.mock.calls.map(([config]) => config.data)).toEqual([
+      {
+        accountId: '001QL00002caUn6YAE',
+        recordTypeName: 'COI - Workers Comp',
+        effectiveDate: '2030-12-11',
+        expirationDate: '2031-12-11',
+        wcInsuranceCompanyName: 'pqr Insurance Company',
+        wcPolicyNumber: 'WC-8897654',
+        fileBase64: 'JVBERi0xLjQK',
+      },
+      {
+        accountId: '001QL00002ffLe9YAE',
+        recordTypeName: 'COI - General Liability',
+        effectiveDate: '2026-11-05',
+        expirationDate: '2027-11-05',
+        glInsuranceCompanyName: 'pqr Insurance Company',
+        glPolicyNumber: 'WC-8897654',
+        fileBase64: 'JVBERi0xLjQK',
+      },
+    ]);
+  });
+
+  it("sends a W9's tax classification and Tax ID, and no details for an MSA", async () => {
+    mockedSend.mockResolvedValue({ success: true });
+
+    await uploadComplianceDocument({
+      ...UPLOAD,
+      type: 'w9',
+      dates: { signedDate: '2026-11-12' },
+      details: { taxClassification: 'LLC', taxId: '15-5468978' },
+    });
+    await uploadComplianceDocument({ ...UPLOAD, type: 'masterSubcontractAgreement', dates: { signedDate: '2026-11-12' } });
+
+    expect(mockedSend.mock.calls[0][0].data).toEqual({
+      accountId: '001QL00002ffLe9YAE',
+      recordTypeName: 'W9',
+      signedDate: '2026-11-12',
+      taxClassification: 'LLC',
+      taxId: '15-5468978',
+      fileBase64: 'JVBERi0xLjQK',
+    });
+    expect(mockedSend.mock.calls[1][0].data).toEqual({
+      accountId: '001QL00002ffLe9YAE',
+      recordTypeName: 'Master Subcontract Agreement',
+      signedDate: '2026-11-12',
+      fileBase64: 'JVBERi0xLjQK',
+    });
   });
 
   it('throws the API message when the upload fails', async () => {

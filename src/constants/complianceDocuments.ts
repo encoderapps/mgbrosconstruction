@@ -35,8 +35,5 @@ export const COMPLIANCE_DOCUMENT_ORDER: readonly ComplianceDocumentType[] = [
 /** The login's subsPaperworkMG when the account's paperwork is all in order; any other value means it isn't. */
 export const PAPERWORK_COMPLETE_STATUS = 'Complete';
 
-/** A W9 or Master Subcontract Agreement is valid for this many years from the date it was signed. */
-export const SIGNED_DOCUMENT_VALID_YEARS = 1;
-
 /** An insurance certificate this many days (or fewer) from expiring gets a warning. */
 export const EXPIRY_WARNING_DAYS = 60;

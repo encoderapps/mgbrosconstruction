@@ -2,7 +2,6 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { PlusIcon } from '../assets/icons';
 import { fontFamily, welcomeColors } from '../theme';
-import { formatOperatingTimeType } from '../constants/bidLineItems';
 import { BidLineItem } from '../types/bid';
 import { formatCurrency } from '../utils/formatCurrency';
 import { AuthCard } from './AuthCard';
@@ -16,7 +15,7 @@ type BidLineItemsCardProps = {
   onAddPress?: () => void;
 };
 
-/** Bid Details' line items: # · description (with operating time) · amount, with the bid total underneath. */
+/** Bid Details' line items: # · description · amount, with the bid total underneath. */
 export function BidLineItemsCard({ lineItems, total, editable, onAddPress }: BidLineItemsCardProps): React.JSX.Element {
   return (
     <AuthCard style={styles.card}>
@@ -50,14 +49,9 @@ export function BidLineItemsCard({ lineItems, total, editable, onAddPress }: Bid
           return (
             <View key={item.id} style={[styles.row, styles.itemRow]}>
               <Text style={[styles.cellText, styles.indexColumn]}>{index + 1}</Text>
-              <View style={styles.descriptionColumn}>
-                <Text style={styles.cellText} numberOfLines={2}>
-                  {item.description}
-                </Text>
-                <Text style={styles.operatingTime} numberOfLines={1}>
-                  {item.operatingTime} {formatOperatingTimeType(item.operatingTimeType)}
-                </Text>
-              </View>
+              <Text style={[styles.cellText, styles.descriptionColumn]} numberOfLines={2}>
+                {item.description}
+              </Text>
               <Text style={[styles.cellText, styles.amountColumn]} numberOfLines={1}>
                 {formatCurrency(item.amount, true)}
               </Text>
@@ -142,13 +136,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     fontSize: 12,
     color: welcomeColors.textPrimary,
-  },
-  operatingTime: {
-    fontFamily: fontFamily.regular,
-    fontWeight: '400',
-    fontSize: 11,
-    color: welcomeColors.textSecondary,
-    marginTop: 2,
   },
   emptyText: {
     fontFamily: fontFamily.regular,

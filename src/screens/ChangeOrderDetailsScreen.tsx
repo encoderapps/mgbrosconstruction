@@ -45,7 +45,7 @@ export function ChangeOrderDetailsScreen({ navigation, route }: Props): React.JS
           <>
             <Text style={styles.hintText}>This change order is waiting for approval.</Text>
             <OutlineButton
-              title="View Approval Status"
+              title="Submit for Approval"
               // Swaps screens (rather than stacking them) when moving between details and approval.
               onPress={() => navigation.replace('ChangeOrderApproval', { poId, changeOrder: latestSummary })}
             />

@@ -40,7 +40,7 @@ function summary(id: string, overrides: Partial<ChangeOrderSummary> = {}): Chang
 function detail(id: string, overrides: Partial<ChangeOrderDetailApiRecord> = {}): ChangeOrderDetailApiRecord {
   return {
     id,
-    changeOrderNo: 'CO#01',
+    name: 'CO#01',
     status: 'Signed by Both Parties',
     description: null,
     amount: 200,
@@ -146,7 +146,7 @@ describe('fetchChangeOrderDetail', () => {
   it('falls back to the PO list for missing fields, and to the product for a missing description', async () => {
     respondWith(
       detail('co-2', {
-        changeOrderNo: null,
+        name: null,
         status: null,
         amount: null,
         description: null,

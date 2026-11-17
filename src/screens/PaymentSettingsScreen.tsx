@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthCard } from '../components/AuthCard';
@@ -14,6 +14,7 @@ import {
   CalendarIcon,
   CardIcon,
   ClipboardCheckIcon,
+  DocumentIcon,
   PlusIcon,
 } from '../assets/icons';
 import { fontFamily, portalColors, radius, welcomeColors } from '../theme';
@@ -22,7 +23,7 @@ import { DUE_DATE_TERM_DAYS, DUE_DATE_TERMS } from '../constants/paymentSettings
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { usePaymentSettings } from '../hooks/usePaymentSettings';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
-import { updateDueDateTerm } from '../services/paymentSettingsService';
+import { downloadAchPdf, updateDueDateTerm } from '../services/paymentSettingsService';
 import { AccountPaymentTerm, AchInfo, DueDateTerm, PaymentSettings } from '../types/paymentSettings';
 import { maskBankNumber } from '../utils/bankAccount';
 import { toDateOnlyString } from '../utils/dateValidation';
@@ -51,6 +52,7 @@ export function PaymentSettingsScreen({ navigation }: Props): React.JSX.Element 
   const accountId = useSubcontractorSession().company?.accountId;
   const { data: settings, status, reload, refresh, setData } = usePaymentSettings();
   const [isSavingDueDate, setIsSavingDueDate] = useState(false);
+  const [isOpeningPdf, setIsOpeningPdf] = useState(false);
   // Back from the ACH screens: show the bank details just saved.
   useRefreshOnReturn(refresh);
 
@@ -65,6 +67,22 @@ export function PaymentSettingsScreen({ navigation }: Props): React.JSX.Element 
       Alert.alert('Unable to change the due date', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setIsSavingDueDate(false);
+    }
+  };
+
+  const openAchForm = async (ach: AchInfo): Promise<void> => {
+    if (!ach.pdf) {
+      navigation.navigate('AchFormPreview', { ach });
+      return;
+    }
+    setIsOpeningPdf(true);
+    try {
+      const path = await downloadAchPdf(ach.pdf);
+      navigation.navigate('DocumentViewer', { fileName: ach.pdf.fileName, path });
+    } catch (error) {
+      Alert.alert('Unable to open the ACH form', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setIsOpeningPdf(false);
     }
   };
 
@@ -103,7 +121,21 @@ export function PaymentSettingsScreen({ navigation }: Props): React.JSX.Element 
               </Text>
             ))}
           </View>
-          {/* The ACH Form link (to the ACH Form Preview screen) is hidden for now. */}
+          {/* The latest ACH form PDF from Salesforce (or, when it has none, one generated from these details). */}
+          <Pressable
+            onPress={() => openAchForm(ach)}
+            disabled={isOpeningPdf}
+            hitSlop={6}
+            style={({ pressed }) => [styles.fileLink, (pressed || isOpeningPdf) && styles.pressed]}
+            accessibilityRole="link"
+            accessibilityLabel="Open the ACH form"
+          >
+            <DocumentIcon size={14} color={welcomeColors.link} />
+            <Text style={styles.fileLinkText} numberOfLines={1}>
+              {ach.pdf?.fileName ?? 'ACH Form'}
+            </Text>
+            {isOpeningPdf && <ActivityIndicator size="small" color={welcomeColors.link} />}
+          </Pressable>
         </>
       )}
     </View>
@@ -306,6 +338,19 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontFamily: fontFamily.semiBold,
     fontWeight: '600',
+  },
+  fileLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+  },
+  fileLinkText: {
+    flexShrink: 1,
+    fontFamily: fontFamily.regular,
+    fontWeight: '400',
+    fontSize: 12,
+    color: welcomeColors.link,
   },
   tableBox: {
     borderWidth: 1,

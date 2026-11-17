@@ -85,7 +85,7 @@ function toChangeOrderDetail(record: ChangeOrderDetailApiRecord, summary: Change
   const source = changeOrderSource(summary.id, record.source) || summary.source;
   return {
     id: record.id || summary.id,
-    name: record.changeOrderNo?.trim() || summary.name,
+    name: record.name?.trim() || summary.name,
     status: record.status?.trim() || summary.status,
     amount: toNumber(record.amount) ?? summary.amount,
     description,
@@ -353,7 +353,7 @@ async function postChangeOrder(
   rememberChangeOrderSource(id, data.source);
   return {
     id,
-    changeOrderNumber: data.changeOrderNo?.trim() || data.changeOrderNumber?.trim() || '',
+    changeOrderNumber: data.changeOrderNumber?.trim() || data.name?.trim() || '',
     status: data.status?.trim() || NEW_CHANGE_ORDER_STATUS,
     approvalStatus: data.approvalStatus?.trim() ?? '',
     amount: data.changeOrderAmount ?? ('changeOrderAmount' in payload ? payload.changeOrderAmount : 0),

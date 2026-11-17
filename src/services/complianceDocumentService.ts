@@ -1,9 +1,5 @@
 import { SALESFORCE_SUBCONTRACTOR_DOCUMENT_UPLOAD_URL, SALESFORCE_SUBCONTRACTOR_DOCUMENTS_URL } from '../constants/config';
-import {
-  COMPLIANCE_DOCUMENT_INFO,
-  COMPLIANCE_DOCUMENT_ORDER,
-  SIGNED_DOCUMENT_VALID_YEARS,
-} from '../constants/complianceDocuments';
+import { COMPLIANCE_DOCUMENT_INFO, COMPLIANCE_DOCUMENT_ORDER } from '../constants/complianceDocuments';
 import { EMPTY_VALUE } from '../constants/display';
 import {
   SubcontractorDocumentApiRecord,
@@ -12,10 +8,11 @@ import {
   SubcontractorDocumentUploadApiPayload,
   SubcontractorDocumentUploadApiResponse,
   SubcontractorDocumentUploadDates,
+  SubcontractorDocumentUploadDetails,
 } from '../types';
 import { ComplianceDocument, ComplianceDocumentFile, ComplianceDocumentType } from '../types/document';
 import { isInsuranceCertificate } from '../utils/complianceDocument';
-import { addYears, timestampToLocalDate } from '../utils/dateValidation';
+import { timestampToLocalDate } from '../utils/dateValidation';
 import { salesforceGet, salesforceSend } from './salesforceClient';
 
 /** The API's documentType (also each record's recordTypeName), lower-cased, → the app's document type. */
@@ -73,12 +70,9 @@ function toComplianceDocumentFile(
   };
 }
 
-/** A certificate's own expiration date; a W9 or MSA expires SIGNED_DOCUMENT_VALID_YEARS after it was signed. */
+/** A certificate's own expiration date; a W9 or MSA never expires, whenever it was signed. */
 function toExpirationDate(type: ComplianceDocumentType, record: SubcontractorDocumentApiRecord): string | null {
-  if (!isInsuranceCertificate(type) && record.signedDate) {
-    return addYears(record.signedDate, SIGNED_DOCUMENT_VALID_YEARS);
-  }
-  return record.expirationDate || null;
+  return isInsuranceCertificate(type) ? record.expirationDate || null : null;
 }
 
 /** Newest first, by when the record was created (ISO timestamps sort as strings). */
@@ -134,13 +128,40 @@ export async function fetchComplianceDocuments(accountId: string): Promise<Compl
   };
 }
 
+/** A W9's tax details, or a certificate's insurer and policy. */
+export type ComplianceDocumentDetails =
+  | { taxClassification: string; taxId: string }
+  | { insuranceCompanyName: string; policyNumber: string };
+
 export interface ComplianceDocumentUpload {
   accountId: string;
   type: ComplianceDocumentType;
-  /** The picked PDF, base64-encoded. */
+  /** The picked PDF or JPG, base64-encoded. */
   fileBase64: string;
   /** A signed date for a W9 or MSA; effective and expiration dates for General Liability or Workers' Comp. */
   dates: SubcontractorDocumentUploadDates;
+  /** A W9's tax details; a certificate's insurer and policy; none for an MSA. */
+  details?: ComplianceDocumentDetails;
+}
+
+/** The details under the API's names for this document, e.g. wcPolicyNumber for Workers' Comp. */
+function toUploadDetails(
+  type: ComplianceDocumentType,
+  details: ComplianceDocumentDetails | undefined,
+): SubcontractorDocumentUploadDetails {
+  if (!details) {
+    return {};
+  }
+  if ('taxId' in details) {
+    return type === 'w9' ? { taxClassification: details.taxClassification, taxId: details.taxId } : {};
+  }
+  if (type === 'generalLiability') {
+    return { glInsuranceCompanyName: details.insuranceCompanyName, glPolicyNumber: details.policyNumber };
+  }
+  if (type === 'workersComp') {
+    return { wcInsuranceCompanyName: details.insuranceCompanyName, wcPolicyNumber: details.policyNumber };
+  }
+  return {};
 }
 
 const UPLOAD_ERROR_MESSAGE = 'Unable to upload the document. Please try again.';
@@ -156,6 +177,7 @@ export async function uploadComplianceDocument(upload: ComplianceDocumentUpload)
     accountId: upload.accountId,
     recordTypeName: COMPLIANCE_DOCUMENT_INFO[upload.type].recordTypeName,
     ...upload.dates,
+    ...toUploadDetails(upload.type, upload.details),
     fileBase64: upload.fileBase64,
   };
   const data = await salesforceSend<SubcontractorDocumentUploadApiResponse>(

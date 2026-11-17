@@ -6,4 +6,6 @@ export interface Invoice {
   /** In dollars; null when the API didn't send one (not 0, which would read as a real amount). */
   amount: number | null;
   status: string;
+  /** The project's name, or else the job it's related to. */
+  projectName: string;
 }

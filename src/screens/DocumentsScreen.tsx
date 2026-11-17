@@ -14,13 +14,14 @@ import { useComplianceDocuments } from '../hooks/useComplianceDocuments';
 import { useDocumentFileActions } from '../hooks/useDocumentFileActions';
 import { useRefreshOnReturn } from '../hooks/useRefreshOnReturn';
 import { ComplianceDocument } from '../types/document';
+import { canAddDocument } from '../utils/complianceDocument';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Documents'>;
 
 /** Home → Documents: the company's W9, General Liability, Workers' Comp and MSA, each opening its own screen. */
 export function DocumentsScreen({ navigation }: Props): React.JSX.Element {
   const { data: documents, status, reload, refresh } = useComplianceDocuments();
-  const { busyFileId, downloadFile } = useDocumentFileActions();
+  const { busyFileId, openFile } = useDocumentFileActions();
   // Coming back from an upload shows the new copy.
   useRefreshOnReturn(refresh);
 
@@ -29,7 +30,23 @@ export function DocumentsScreen({ navigation }: Props): React.JSX.Element {
   };
 
   const addDocument = (document: ComplianceDocument): void => {
-    navigation.navigate('AddComplianceDocument', { documentType: document.type });
+    // The MSA is signed in the app (no file or date to enter); the others are uploaded.
+    if (document.type === 'masterSubcontractAgreement') {
+      navigation.navigate('SignMasterSubcontractAgreement');
+      return;
+    }
+    const { current } = document;
+    navigation.navigate('AddComplianceDocument', {
+      documentType: document.type,
+      current: current
+        ? {
+            taxClassification: current.taxClassification,
+            taxId: current.taxId,
+            insuranceCompanyName: current.insuranceCompanyName,
+            policyNumber: current.policyNumber,
+          }
+        : undefined,
+    });
   };
 
   const renderDocuments = (): React.JSX.Element => {
@@ -53,9 +70,9 @@ export function DocumentsScreen({ navigation }: Props): React.JSX.Element {
             document={document}
             showDivider={index > 0}
             onOpen={openDocument}
-            onDownload={downloadFile}
+            onOpenFile={openFile}
             busyFileId={busyFileId}
-            onAdd={addDocument}
+            onAdd={canAddDocument(document) ? addDocument : undefined}
           />
         ))}
       </AuthCard>

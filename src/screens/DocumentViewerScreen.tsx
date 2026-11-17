@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeHeader } from '../components/HomeHeader';
@@ -9,12 +9,17 @@ import { fontFamily, radius, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { showSaveResult } from '../hooks/useDocumentFileActions';
 import { saveCachedDocumentToDevice } from '../services/documentFileService';
+import { documentFileTypeFromPath } from '../utils/documentFileType';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'DocumentViewer'>;
 
-/** A compliance document's PDF, full screen (pinch or double-tap to zoom), with a download button. */
+/**
+ * A compliance document full screen, with a download button: a PDF in the PDF
+ * viewer (pinch or double-tap to zoom), a JPG or PNG as a picture.
+ */
 export function DocumentViewerScreen({ navigation, route }: Props): React.JSX.Element {
   const { fileName, path } = route.params;
+  const isImage = documentFileTypeFromPath(path).isImage;
   const [hasError, setHasError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -69,11 +74,20 @@ export function DocumentViewerScreen({ navigation, route }: Props): React.JSX.El
         </View>
 
         <View style={styles.pdfWrapper}>
-          {hasError ? (
-            <Text style={styles.errorText}>Unable to display this document.</Text>
-          ) : (
-            <ZoomablePdf path={path} style={styles.pdf} onError={handlePdfError} />
+          {hasError && <Text style={styles.errorText}>Unable to display this document.</Text>}
+          {!hasError && isImage && (
+            // Pinch to zoom where the platform supports it (iOS).
+            <ScrollView contentContainerStyle={styles.imageContent} maximumZoomScale={4} centerContent>
+              <Image
+                source={{ uri: `file://${path}` }}
+                style={styles.image}
+                resizeMode="contain"
+                onError={({ nativeEvent }) => handlePdfError(nativeEvent)}
+                accessibilityLabel={fileName}
+              />
+            </ScrollView>
           )}
+          {!hasError && !isImage && <ZoomablePdf path={path} style={styles.pdf} onError={handlePdfError} />}
         </View>
       </View>
     </SafeAreaView>
@@ -114,6 +128,13 @@ const styles = StyleSheet.create({
   },
   dimmed: {
     opacity: 0.6,
+  },
+  imageContent: {
+    flexGrow: 1,
+  },
+  image: {
+    flex: 1,
+    width: '100%',
   },
   pdfWrapper: {
     flex: 1,

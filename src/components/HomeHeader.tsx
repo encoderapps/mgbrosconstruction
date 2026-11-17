@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-na
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MgBrosSubcontractorLogo from '../assets/images/mg-bros-subcontractor-logo.svg';
-import { BellIcon, ChatIcon, CheckCircleIcon, CloseCircleIcon, UserIcon } from '../assets/icons';
+// BellIcon and ChatIcon are for the hidden Notifications and chat buttons below.
+import { /* BellIcon, ChatIcon, */ CheckCircleIcon, CloseCircleIcon, UserIcon } from '../assets/icons';
 import { fontFamily, portalColors, radius, toneColors, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
@@ -29,7 +30,8 @@ type HomeHeaderProps = {
 };
 
 /**
- * Top bar of the signed-in screens: logo, Documents status, notifications, chat and profile.
+ * Top bar of the signed-in screens: logo, Documents status and profile
+ * (the notifications and chat buttons are commented out for now).
  * The Documents pill is green when the account's paperwork is in order, red otherwise.
  */
 export function HomeHeader({ active }: HomeHeaderProps): React.JSX.Element {
@@ -39,6 +41,10 @@ export function HomeHeader({ active }: HomeHeaderProps): React.JSX.Element {
   const sizes = compact ? SIZES.compact : SIZES.regular;
   const paperworkComplete = isPaperworkComplete(useSubcontractorSession().company?.paperworkStatus);
   const pillTone = toneColors[paperworkComplete ? 'success' : 'danger'];
+  // Centred, the pill may only be as wide as the room between the logo and its mirror on the right.
+  const horizontalPadding = compact ? 12 : 16;
+  const pillGap = compact ? 8 : 10;
+  const pillMaxWidth = Math.max(0, width - 2 * (horizontalPadding + sizes.logoWidth + pillGap));
 
   const openScreen = (screen: 'Notifications' | 'Profile'): void => {
     // Already there: don't stack a second copy of the same screen.
@@ -52,31 +58,35 @@ export function HomeHeader({ active }: HomeHeaderProps): React.JSX.Element {
     <View style={[styles.header, compact && styles.headerCompact]}>
       <MgBrosSubcontractorLogo width={sizes.logoWidth} height={Math.round(sizes.logoWidth * LOGO_ASPECT_RATIO)} />
 
+      {/* Centred on the screen whatever the logo's and buttons' widths, and kept clear of the logo on both sides. */}
       {!active && (
-        <View
-          style={[
-            styles.documentsPill,
-            compact && styles.documentsPillCompact,
-            { backgroundColor: pillTone.background, borderColor: pillTone.border },
-          ]}
-          accessibilityLabel={`Documents: ${paperworkComplete ? 'complete' : 'incomplete'}`}
-        >
-          <Text
-            style={[styles.documentsPillText, compact && styles.documentsPillTextCompact, { color: pillTone.foreground }]}
-            numberOfLines={1}
-            maxFontSizeMultiplier={PILL_MAX_FONT_SCALE}
+        <View style={styles.pillLayer} pointerEvents="box-none">
+          <View
+            style={[
+              styles.documentsPill,
+              compact && styles.documentsPillCompact,
+              { backgroundColor: pillTone.background, borderColor: pillTone.border, maxWidth: pillMaxWidth },
+            ]}
+            accessibilityLabel={`Documents: ${paperworkComplete ? 'complete' : 'incomplete'}`}
           >
-            Documents:
-          </Text>
-          {paperworkComplete ? (
-            <CheckCircleIcon size={sizes.checkIcon} />
-          ) : (
-            <CloseCircleIcon size={sizes.checkIcon} color={pillTone.foreground} />
-          )}
+            <Text
+              style={[styles.documentsPillText, compact && styles.documentsPillTextCompact, { color: pillTone.foreground }]}
+              numberOfLines={1}
+              maxFontSizeMultiplier={PILL_MAX_FONT_SCALE}
+            >
+              Documents:
+            </Text>
+            {paperworkComplete ? (
+              <CheckCircleIcon size={sizes.checkIcon} />
+            ) : (
+              <CloseCircleIcon size={sizes.checkIcon} color={pillTone.foreground} />
+            )}
+          </View>
         </View>
       )}
 
       <View style={[styles.headerIcons, compact && styles.headerIconsCompact]}>
+        {/* Notifications and chat buttons are hidden for now; only Profile shows.
         <Pressable
           onPress={() => openScreen('Notifications')}
           hitSlop={4}
@@ -94,6 +104,7 @@ export function HomeHeader({ active }: HomeHeaderProps): React.JSX.Element {
         <View style={[styles.headerIconWrapper, compact && styles.headerIconWrapperCompact]}>
           <ChatIcon size={sizes.buttonIcon} color={welcomeColors.accent} />
         </View>
+        */}
         <Pressable
           onPress={() => openScreen('Profile')}
           hitSlop={4}
@@ -158,6 +169,16 @@ const styles = StyleSheet.create({
   documentsPillTextCompact: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  // Spans the header's content area (inside its vertical padding), centring the pill in it.
+  pillLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 12,
+    bottom: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerIcons: {
     flexDirection: 'row',

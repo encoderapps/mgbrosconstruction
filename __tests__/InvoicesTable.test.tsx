@@ -15,15 +15,35 @@ async function renderTexts(invoices: Invoice[]): Promise<string[]> {
 describe('InvoicesTable', () => {
   it('shows each value, with the amount as currency', async () => {
     const texts = await renderTexts([
-      { id: 'a', invoiceNumber: 'INV-1', vendorInvoiceNumber: 'V-1', amount: 1000, status: 'New' },
+      {
+        id: 'a',
+        invoiceNumber: 'INV-1',
+        vendorInvoiceNumber: 'V-1',
+        amount: 1000,
+        status: 'New',
+        projectName: 'ABC Construction opportunity',
+      },
     ]);
 
-    expect(texts).toEqual(['Invoice Number', 'Vendor Invoice Number', 'Amount', 'Status', 'INV-1', 'V-1', '$1,000.00', 'New']);
+    expect(texts).toEqual([
+      'Invoice Number',
+      'Vendor Invoice Number',
+      'Amount',
+      'Status',
+      'Project',
+      'INV-1',
+      'V-1',
+      '$1,000.00',
+      'New',
+      'ABC Construction opportunity',
+    ]);
   });
 
   it('shows a dash for every value the API left out', async () => {
-    const texts = await renderTexts([{ id: 'b', invoiceNumber: '', vendorInvoiceNumber: ' ', amount: null, status: '' }]);
+    const texts = await renderTexts([
+      { id: 'b', invoiceNumber: '', vendorInvoiceNumber: ' ', amount: null, status: '', projectName: '' },
+    ]);
 
-    expect(texts.slice(4)).toEqual(['—', '—', '—', '—']);
+    expect(texts.slice(5)).toEqual(['—', '—', '—', '—', '—']);
   });
 });

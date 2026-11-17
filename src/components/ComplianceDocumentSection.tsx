@@ -11,9 +11,9 @@ type ComplianceDocumentSectionProps = {
   /** Draws a divider above the section (all but the first). */
   showDivider: boolean;
   onOpen: (document: ComplianceDocument) => void;
-  /** Saves the latest file onto the device. */
-  onDownload: (file: ComplianceDocumentFile) => void;
-  /** The file being saved, if any (one at a time across the list). */
+  /** Opens the latest file in the viewer (which has its own download button). */
+  onOpenFile: (file: ComplianceDocumentFile) => void;
+  /** The file being opened, if any (one at a time across the list). */
   busyFileId: string | null;
   /** Left out while adding isn't available yet: the + is shown dimmed and can't be tapped. */
   onAdd?: (document: ComplianceDocument) => void;
@@ -22,13 +22,13 @@ type ComplianceDocumentSectionProps = {
 /**
  * One document in the Documents list: its name, key facts and latest file.
  * The name and facts open the document's own screen (to view or download any
- * version); the file link downloads the latest file straight away.
+ * version); the file link opens the latest file, to read it and download it.
  */
 export function ComplianceDocumentSection({
   document,
   showDivider,
   onOpen,
-  onDownload,
+  onOpenFile,
   busyFileId,
   onAdd,
 }: ComplianceDocumentSectionProps): React.JSX.Element {
@@ -88,12 +88,12 @@ export function ComplianceDocumentSection({
 
       {latestFile && (
         <Pressable
-          onPress={() => onDownload(latestFile)}
+          onPress={() => onOpenFile(latestFile)}
           disabled={busyFileId !== null}
           hitSlop={4}
           style={({ pressed }) => [styles.fileLink, pressed && styles.pressed]}
           accessibilityRole="button"
-          accessibilityLabel={`Download ${latestFile.fileName}`}
+          accessibilityLabel={`Open ${latestFile.fileName}`}
           accessibilityState={{ disabled: busyFileId !== null, busy: isBusy }}
         >
           {isBusy ? (

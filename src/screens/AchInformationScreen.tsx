@@ -80,7 +80,7 @@ export function AchInformationScreen({ navigation, route }: Props): React.JSX.El
         accountNumber,
         routingNumber,
       });
-      // Replace this form, so Back from the confirmation returns to Payment Settings.
+      // The success screen; replacing this form, so Back returns to Payment Settings (whose ACH Form link opens the PDF).
       navigation.replace('AchFormGenerated', { ach });
     } catch (error) {
       setIsSaving(false);

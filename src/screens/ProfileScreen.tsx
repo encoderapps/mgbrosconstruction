@@ -30,17 +30,17 @@ export function ProfileScreen({ navigation }: Props): React.JSX.Element {
     { label: 'Address', value: company?.address },
   ];
 
-  const handleUpdateProfile = (): void => {
-    // There's no profile update API yet.
-    Alert.alert('Update Profile', 'Updating your profile is coming soon.');
-  };
+  // const handleUpdateProfile = (): void => {
+  //   // There's no profile update API yet.
+  //   Alert.alert('Update Profile', 'Updating your profile is coming soon.');
+  // };
 
   const handleLogout = (): void => confirmLogout();
 
-  const handleDeleteProfile = (): void => {
-    // There's no delete-account API yet, so nothing is deleted.
-    Alert.alert('Delete Profile', 'Deleting your profile is coming soon. Please contact MG Bros Construction for now.');
-  };
+  // const handleDeleteProfile = (): void => {
+  //   // There's no delete-account API yet, so nothing is deleted.
+  //   Alert.alert('Delete Profile', 'Deleting your profile is coming soon. Please contact MG Bros Construction for now.');
+  // };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -77,7 +77,7 @@ export function ProfileScreen({ navigation }: Props): React.JSX.Element {
         </View>
 
         <View style={styles.actions}>
-          <AuthPrimaryButton title="Update Profile" onPress={handleUpdateProfile} />
+          {/* <AuthPrimaryButton title="Update Profile" onPress={handleUpdateProfile} /> */}
           <Pressable
             onPress={handleLogout}
             style={({ pressed }) => [styles.outlineButton, pressed && styles.pressed]}
@@ -85,13 +85,13 @@ export function ProfileScreen({ navigation }: Props): React.JSX.Element {
           >
             <Text style={styles.logoutText}>Logout</Text>
           </Pressable>
-          <Pressable
+          {/* <Pressable
             onPress={handleDeleteProfile}
             style={({ pressed }) => [styles.outlineButton, styles.deleteButton, pressed && styles.pressed]}
             accessibilityRole="button"
           >
             <Text style={styles.deleteText}>Delete Profile</Text>
-          </Pressable>
+          </Pressable> */}
         </View>
       </ScrollView>
     </SafeAreaView>

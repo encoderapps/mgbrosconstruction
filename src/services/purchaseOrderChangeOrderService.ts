@@ -21,7 +21,7 @@ function toChangeOrder(record: ChangeOrderApiRecord, index: number): PurchaseOrd
   const source = changeOrderSource(record.id, record.source);
   return {
     id: record.id || `change-order-${index}`,
-    name: record.changeOrderNo ?? '',
+    name: record.name?.trim() || '',
     status: record.status ?? '',
     amount: toNumber(record.amount) ?? 0,
     description: record.description?.trim() ?? '',
@@ -41,6 +41,7 @@ export function toPurchaseOrderInvoice(record: PurchaseOrderInvoiceApiRecord, in
     vendorInvoiceNumber: (record.vendorInvoiceNumber ?? record.vendorNumber)?.trim() ?? '',
     status: record.status ?? '',
     amount: toNumber(record.totalAmount ?? record.amount) ?? 0,
+    projectName: record.project?.trim() || record.relatedToJobName?.trim() || '',
   };
 }
 
