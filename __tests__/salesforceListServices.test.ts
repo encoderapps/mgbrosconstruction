@@ -193,7 +193,9 @@ describe('fetchInvoices', () => {
           id: 'a1k1',
           invoiceNumber: 'BR-000027379',
           vendorNumber: 'V-77',
-          totalAmount: '1000.00',
+          // The invoice's own amount, not the PO's total.
+          invoiceAmount: '200.00',
+          totalAmount: '5000.00',
           status: 'Created',
           project: null,
           relatedToJobName: 'ABC Construction opportunity',
@@ -216,7 +218,7 @@ describe('fetchInvoices', () => {
         id: 'a1k1',
         invoiceNumber: 'BR-000027379',
         vendorInvoiceNumber: 'V-77',
-        amount: 1000,
+        amount: 200,
         status: 'Created',
         projectName: 'ABC Construction opportunity',
       },
@@ -366,6 +368,8 @@ describe('fetchPurchaseOrderDetail', () => {
             paidAmount: 0,
           },
           { id: 'a1k2', recordNumber: 'BR-000027382', vendorNumber: ' INV-7 ', status: 'Paid', totalAmount: '250.50' },
+          // Newer records: invoiceAmount is the invoice's own; totalAmount is the PO's.
+          { id: 'a1k3', recordNumber: 'BR-000027383', status: 'Created', invoiceAmount: 200, totalAmount: 5000 },
         ],
       },
     });
@@ -373,8 +377,9 @@ describe('fetchPurchaseOrderDetail', () => {
     const detail = await fetchPurchaseOrderDetail('001ACCOUNT', 'a1w1');
 
     expect(detail.invoices).toEqual([
-      { id: 'a1kQL0000bGuqjuYAB', name: 'BR-000027381', vendorInvoiceNumber: '', status: 'Created', amount: 0 },
-      { id: 'a1k2', name: 'BR-000027382', vendorInvoiceNumber: 'INV-7', status: 'Paid', amount: 250.5 },
+      { id: 'a1kQL0000bGuqjuYAB', name: 'BR-000027381', vendorInvoiceNumber: '', status: 'Created', amount: 0, projectName: '' },
+      { id: 'a1k2', name: 'BR-000027382', vendorInvoiceNumber: 'INV-7', status: 'Paid', amount: 250.5, projectName: '' },
+      { id: 'a1k3', name: 'BR-000027383', vendorInvoiceNumber: '', status: 'Created', amount: 200, projectName: '' },
     ]);
   });
 

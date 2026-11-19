@@ -129,7 +129,9 @@ export interface InvoiceApiRecord {
   vendorNumber?: string | null;
   /** The older name for vendorNumber. */
   vendorInvoiceNumber?: string | null;
-  /** Salesforce may send amounts as text, e.g. "1000.00". */
+  /** The invoice's own amount, e.g. 200.00. Salesforce may send amounts as text, e.g. "200.00". */
+  invoiceAmount?: number | string | null;
+  /** The purchase order's total, not the invoice's (read only when invoiceAmount is missing). */
   totalAmount?: number | string | null;
   /** e.g. "Created". */
   status?: string | null;
@@ -139,6 +141,8 @@ export interface InvoiceApiRecord {
   /** The job (opportunity) the invoice is for, e.g. "ABC Construction opportunity". */
   relatedToJobName?: string | null;
   relatedToJobId?: string | null;
+  /** The purchase order (Job_Purchase_Order__c) the invoice is against; null when none. */
+  jobPurchaseOrderId?: string | null;
 }
 
 export interface InvoicesApiResponse {
@@ -525,15 +529,18 @@ export interface SoqlQueryResponse<SObject> {
   records: SObject[];
 }
 
-/** POST /invoices/create request body. Dates are YYYY-MM-DD. */
+/** POST /bookkeeping/invoice/create request body. The API creates the invoice as Draft. */
 export interface CreateInvoiceApiPayload {
-  poId: string;
-  /** The PO's job (Job__c). */
-  opportunityId: string;
-  vendorInvoiceNumber: string;
-  createdDate: string;
+  jobPurchaseOrderId: string;
+  accountId: string;
+  /** In dollars. */
+  invoiceAmount: number;
+  /** The subcontractor's own invoice number, e.g. "INV-0017655". */
+  vendorNumber: string;
+  /** YYYY-MM-DD. */
   dueDate: string;
-  status: string;
+  /** Optional; the app doesn't ask for it. */
+  notes?: string;
 }
 
 export interface CreateInvoiceApiResponse {
@@ -572,7 +579,9 @@ export interface PurchaseOrderInvoiceApiRecord {
   /** The PO detail API's name for the vendor's own invoice number. */
   vendorNumber?: string | null;
   status?: string | null;
-  /** Salesforce may send amounts as text, e.g. "1000.00". */
+  /** The invoice's own amount, e.g. 200.00. Salesforce may send amounts as text, e.g. "200.00". */
+  invoiceAmount?: number | string | null;
+  /** In newer responses the purchase order's total, so only a fallback when invoiceAmount is missing. */
   totalAmount?: number | string | null;
   amount?: number | string | null;
   balanceDue?: number | string | null;

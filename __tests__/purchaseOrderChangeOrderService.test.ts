@@ -127,7 +127,9 @@ describe('fetchPurchaseOrderChangeOrders', () => {
             invoiceNumber: 'BR-000027384',
             vendorInvoiceNumber: 'VN-549823',
             status: 'Created',
-            totalAmount: 250.0,
+            // The invoice's own amount; totalAmount is the PO's.
+            invoiceAmount: 250.0,
+            totalAmount: 5000.0,
             project: null,
             relatedToJobName: ' Post Street Remodel ',
           },

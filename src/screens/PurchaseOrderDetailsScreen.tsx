@@ -197,14 +197,8 @@ export function PurchaseOrderDetailsScreen({ navigation, route }: Props): React.
               vendorName={vendorName}
               onAddChangeOrder={addChangeOrder}
               isAddingChangeOrder={isAddingChangeOrder}
-              // Add Invoice is hidden for now: without onAddInvoice the ledger shows no button.
-              // onAddInvoice={() =>
-              //   navigation.navigate('AddPurchaseOrderInvoice', {
-              //     poId,
-              //     poName: detail.name,
-              //     opportunityId: detail.opportunityId,
-              //   })
-              // }
+              // Back from Add Invoice, the PO re-loads (useRefreshOnReturn), so the new invoice is listed.
+              onAddInvoice={() => navigation.navigate('AddPurchaseOrderInvoice', { poId, poName: detail.name })}
               onOpenChangeOrder={({ id, name, status: changeOrderStatus, amount, description, source }) => {
                 const changeOrder = {
                   id,

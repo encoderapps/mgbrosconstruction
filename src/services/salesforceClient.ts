@@ -51,14 +51,17 @@ export function toSalesforceErrorMessage(body: unknown): string | null {
  * back as a non-2xx status with a normal { success, message } body, which is
  * returned as-is so the caller can show the message. Any other failure throws
  * an Error whose message is fit to show the user (`fallbackMessage` for server
- * errors). The caller still has to check `success`.
+ * errors). The caller still has to check `success`. `hideBody` keeps the
+ * request body (e.g. a password) out of the dev logs.
  */
 export async function salesforceSend<Response extends { success: boolean }>(
   config: AxiosRequestConfig,
   fallbackMessage: string,
+  { hideBody = false }: { hideBody?: boolean } = {},
 ): Promise<Response> {
   if (__DEV__) {
-    console.log(`[Salesforce ${config.method?.toUpperCase()}]`, config.url, JSON.stringify(config.data));
+    const body = hideBody ? '[hidden]' : JSON.stringify(config.data);
+    console.log(`[Salesforce ${config.method?.toUpperCase()}]`, config.url, body);
   }
   let data: Partial<Response> | undefined;
   try {

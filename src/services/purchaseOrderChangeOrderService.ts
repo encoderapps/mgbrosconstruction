@@ -40,7 +40,8 @@ export function toPurchaseOrderInvoice(record: PurchaseOrderInvoiceApiRecord, in
     name: record.invoiceNumber ?? record.invoiceNo ?? record.recordNumber ?? record.name ?? '',
     vendorInvoiceNumber: (record.vendorInvoiceNumber ?? record.vendorNumber)?.trim() ?? '',
     status: record.status ?? '',
-    amount: toNumber(record.totalAmount ?? record.amount) ?? 0,
+    // invoiceAmount is the invoice's own; totalAmount is now the PO's total (older responses: the invoice's).
+    amount: toNumber(record.invoiceAmount ?? record.totalAmount ?? record.amount) ?? 0,
     projectName: record.project?.trim() || record.relatedToJobName?.trim() || '',
   };
 }

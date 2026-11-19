@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { AuthPrimaryButton } from '../components/AuthPrimaryButton';
+import { DeleteAccountModal } from '../components/DeleteAccountModal';
 import { HomeHeader } from '../components/HomeHeader';
 import { ChevronRightIcon } from '../assets/icons';
 import { fontFamily, portalColors, radius, shadows, welcomeColors } from '../theme';
@@ -10,6 +10,7 @@ import { AuthStackParamList } from '../navigation/types';
 import { EMPTY_VALUE } from '../constants/display';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { useLogout } from '../hooks/useLogout';
+import { deleteSubcontractorAccount } from '../services/deleteAccountService';
 import { formatPhoneNumber } from '../utils/formatPhoneNumber';
 import { getInitials } from '../utils/signature';
 
@@ -19,7 +20,8 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Profile'>;
 /** The user icon in the header opens this: the logged-in subcontractor's details. */
 export function ProfileScreen({ navigation }: Props): React.JSX.Element {
   const { company } = useSubcontractorSession();
-  const { confirmLogout } = useLogout();
+  const { confirmLogout, logout } = useLogout();
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   // The login response's companyName is the subcontractor's display name.
   const name = company?.name ?? '';
 
@@ -37,10 +39,21 @@ export function ProfileScreen({ navigation }: Props): React.JSX.Element {
 
   const handleLogout = (): void => confirmLogout();
 
-  // const handleDeleteProfile = (): void => {
-  //   // There's no delete-account API yet, so nothing is deleted.
-  //   Alert.alert('Delete Profile', 'Deleting your profile is coming soon. Please contact MG Bros Construction for now.');
-  // };
+  const handleDeleteProfile = (): void => {
+    if (!company?.email) {
+      Alert.alert('Unable to delete account', 'Your account could not be found. Please log in again.');
+      return;
+    }
+    setIsDeleteOpen(true);
+  };
+
+  // The API checks the password; a wrong one rejects and the modal shows its message.
+  const deleteAccount = async (password: string): Promise<void> => {
+    const message = await deleteSubcontractorAccount(company?.email ?? '', password);
+    setIsDeleteOpen(false);
+    // The account is gone, so OK logs the user out (the alert can't be dismissed any other way).
+    Alert.alert('Account Deleted', message, [{ text: 'OK', onPress: logout }], { cancelable: false });
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -85,14 +98,20 @@ export function ProfileScreen({ navigation }: Props): React.JSX.Element {
           >
             <Text style={styles.logoutText}>Logout</Text>
           </Pressable>
-          {/* <Pressable
+          <Pressable
             onPress={handleDeleteProfile}
             style={({ pressed }) => [styles.outlineButton, styles.deleteButton, pressed && styles.pressed]}
             accessibilityRole="button"
           >
             <Text style={styles.deleteText}>Delete Profile</Text>
-          </Pressable> */}
+          </Pressable>
         </View>
+        <DeleteAccountModal
+          visible={isDeleteOpen}
+          email={company?.email ?? ''}
+          onConfirm={deleteAccount}
+          onClose={() => setIsDeleteOpen(false)}
+        />
       </ScrollView>
     </SafeAreaView>
   );

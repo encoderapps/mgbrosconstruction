@@ -2,6 +2,7 @@ import { SALESFORCE_INVOICES_URL } from '../constants/config';
 import { AccountListResult } from '../types/list';
 import { InvoiceApiRecord, InvoicesApiResponse, InvoicesView } from '../types';
 import { Invoice } from '../types/invoice';
+import { PurchaseOrderLedgerEntry } from '../types/purchaseOrder';
 import { toNumber } from '../utils/toNumber';
 import { salesforceGet } from './salesforceClient';
 
@@ -12,11 +13,37 @@ function toInvoice(record: InvoiceApiRecord, index: number): Invoice {
     invoiceNumber: record.invoiceNumber?.trim() ?? '',
     // Sent as vendorNumber (vendorInvoiceNumber in older responses).
     vendorInvoiceNumber: record.vendorNumber?.trim() || record.vendorInvoiceNumber?.trim() || '',
-    amount: toNumber(record.totalAmount),
+    // invoiceAmount is the invoice's own; totalAmount (older responses' amount) is now the PO's total.
+    amount: toNumber(record.invoiceAmount ?? record.totalAmount),
     status: record.status?.trim() ?? '',
     // `project` is usually null; the job it's related to names the project then.
     projectName: (typeof record.project === 'string' && record.project.trim()) || record.relatedToJobName?.trim() || '',
   };
+}
+
+/**
+ * The invoices against one purchase order, from GET /bookkeeping/fetch
+ * (view=all, matched on jobPurchaseOrderId), as rows of the PO's invoice
+ * table. Its invoiceAmount is the amount the PO detail API's records lack.
+ */
+export async function fetchPurchaseOrderInvoices(accountId: string, poId: string): Promise<PurchaseOrderLedgerEntry[]> {
+  const data = await salesforceGet<InvoicesApiResponse>(SALESFORCE_INVOICES_URL, { accountId, view: 'all' });
+  if (!data.success) {
+    throw new Error(data.message || 'Unable to load invoices.');
+  }
+  return (data.invoices ?? [])
+    .filter((record) => record.jobPurchaseOrderId === poId)
+    .map((record, index) => {
+      const invoice = toInvoice(record, index);
+      return {
+        id: invoice.id,
+        name: invoice.invoiceNumber,
+        vendorInvoiceNumber: invoice.vendorInvoiceNumber,
+        status: invoice.status,
+        amount: invoice.amount ?? 0,
+        projectName: invoice.projectName,
+      };
+    });
 }
 
 /**

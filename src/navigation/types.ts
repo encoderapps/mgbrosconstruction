@@ -148,7 +148,8 @@ export type AuthStackParamList = {
   };
   PurchaseOrderSigning: { poId: string; poDate?: string };
   /** poName is only for the screen's subtitle; opportunityId is the PO's job (null when unknown). */
-  AddPurchaseOrderInvoice: { poId: string; poName: string; opportunityId: string | null };
+  /** poName (e.g. "Job-PO-#000151") is shown on the form. */
+  AddPurchaseOrderInvoice: { poId: string; poName: string };
   /** poName is only for the screen's subtitle; opportunityId is the PO's job (null when unknown). */
   AddChangeOrder: { poId: string; poName: string; opportunityId: string | null };
   /** The change order as listed on its PO, so the screen can show it without fetching the PO's change orders again. */

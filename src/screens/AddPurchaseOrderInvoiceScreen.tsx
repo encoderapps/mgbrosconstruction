@@ -7,36 +7,41 @@ import { DateInput } from '../components/DateInput';
 import { HomeHeader } from '../components/HomeHeader';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 import { LoginInput } from '../components/LoginInput';
-import { SelectInput } from '../components/SelectInput';
 import { ChevronRightIcon } from '../assets/icons';
 import { fontFamily, radius, welcomeColors } from '../theme';
 import { AuthStackParamList } from '../navigation/types';
-import { DEFAULT_INVOICE_STATUS, INVOICE_STATUS_OPTIONS } from '../constants/invoiceStatusOptions';
+import { EMPTY_VALUE } from '../constants/display';
 import { useSubcontractorSession } from '../context/SubcontractorSessionContext';
 import { useBlockBackWhile } from '../hooks/useBlockBackWhile';
-import { createPurchaseOrderInvoice } from '../services/purchaseOrderInvoiceService';
+import { createPurchaseOrderInvoice, parseInvoiceAmount } from '../services/purchaseOrderInvoiceService';
+import { NEW_INVOICE_STATUS } from '../types/purchaseOrderInvoice';
 import { startOfToday } from '../utils/dateValidation';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'AddPurchaseOrderInvoice'>;
 
 const VENDOR_INVOICE_NUMBER_MAX_LENGTH = 40;
+const AMOUNT_MAX_LENGTH = 15;
 
 /**
- * "Add Invoice" on a signed purchase order: the subcontractor's invoice number,
- * status and due date. Salesforce assigns the invoice number (INV-…) and dates
- * the invoice today.
+ * "Add Invoice" on a signed purchase order: amount, the subcontractor's invoice
+ * number and due date, with the PO, the account and the status (always Draft)
+ * shown read-only. Salesforce assigns the invoice number (INV-…).
  */
 export function AddPurchaseOrderInvoiceScreen({ navigation, route }: Props): React.JSX.Element {
-  const { poId, poName, opportunityId } = route.params;
+  const { poId, poName } = route.params;
   const company = useSubcontractorSession().company;
+  const [amount, setAmount] = useState('');
   const [vendorInvoiceNumber, setVendorInvoiceNumber] = useState('');
-  const [status, setStatus] = useState<string>(DEFAULT_INVOICE_STATUS);
   const [dueDate, setDueDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   // Leaving mid-save would lose the result.
   useBlockBackWhile(isSaving);
 
   const handleSave = async (): Promise<void> => {
+    if (parseInvoiceAmount(amount) === null) {
+      Alert.alert('Invalid amount', 'Please enter an amount greater than 0, e.g. 150 or 150.75.');
+      return;
+    }
     if (!vendorInvoiceNumber.trim()) {
       Alert.alert('Missing vendor invoice number', 'Please enter your invoice number.');
       return;
@@ -55,9 +60,8 @@ export function AddPurchaseOrderInvoiceScreen({ navigation, route }: Props): Rea
     try {
       const invoice = await createPurchaseOrderInvoice(company.accountId, {
         poId,
-        opportunityId,
+        amount,
         vendorInvoiceNumber,
-        status,
         dueDate,
       });
       // The purchase order reloads when it's shown again, so the invoice appears in its table.
@@ -95,11 +99,19 @@ export function AddPurchaseOrderInvoiceScreen({ navigation, route }: Props): Rea
               Add Invoice
             </Text>
           </View>
-          {!!company?.name && <Text style={styles.companyName}>{company.name}</Text>}
-          <Text style={styles.poName}>{poName}</Text>
         </View>
 
         <AuthCard>
+          <LoginInput
+            label="Amount"
+            required
+            placeholder="Enter amount, e.g. 150.00"
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="decimal-pad"
+            maxLength={AMOUNT_MAX_LENGTH}
+            editable={!isSaving}
+          />
           <LoginInput
             label="Vendor Invoice Number"
             required
@@ -110,15 +122,6 @@ export function AddPurchaseOrderInvoiceScreen({ navigation, route }: Props): Rea
             maxLength={VENDOR_INVOICE_NUMBER_MAX_LENGTH}
             editable={!isSaving}
           />
-          <SelectInput
-            label="Status"
-            required
-            placeholder="Select status"
-            value={status}
-            options={[...INVOICE_STATUS_OPTIONS]}
-            onSelect={setStatus}
-            disabled={isSaving}
-          />
           <DateInput
             label="Due Date"
             required
@@ -128,6 +131,10 @@ export function AddPurchaseOrderInvoiceScreen({ navigation, route }: Props): Rea
             minimumDate={startOfToday()}
             disabled={isSaving}
           />
+          {/* Read-only: set by the PO and the account, and every new invoice starts as a Draft. */}
+          <ReadOnlyField label="Purchase Order" value={poName} />
+          <ReadOnlyField label="Account" value={company?.name ?? ''} />
+          <ReadOnlyField label="Status" value={NEW_INVOICE_STATUS} />
 
           {/* collapsable={false}: see LoginInput. */}
           <View style={styles.buttons} collapsable={false}>
@@ -153,6 +160,19 @@ export function AddPurchaseOrderInvoiceScreen({ navigation, route }: Props): Rea
         </AuthCard>
       </KeyboardAwareScrollView>
     </SafeAreaView>
+  );
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string }): React.JSX.Element {
+  return (
+    <View style={styles.readOnlyField}>
+      <Text style={styles.readOnlyLabel}>{label}</Text>
+      <View style={styles.readOnlyBox}>
+        <Text style={styles.readOnlyValue} numberOfLines={1}>
+          {value.trim() || EMPTY_VALUE}
+        </Text>
+      </View>
+    </View>
   );
 }
 
@@ -185,19 +205,32 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: welcomeColors.textPrimary,
   },
-  companyName: {
-    fontFamily: fontFamily.medium,
-    fontWeight: '500',
-    fontSize: 13,
-    color: welcomeColors.textPrimary,
-    marginTop: 6,
+  readOnlyField: {
+    marginBottom: 14,
   },
-  poName: {
+  // Same label and box as LoginInput, greyed out.
+  readOnlyLabel: {
+    fontFamily: fontFamily.semiBold,
+    fontWeight: '600',
+    fontSize: 11,
+    lineHeight: 16.5,
+    color: welcomeColors.textPrimary,
+    marginBottom: 6,
+  },
+  readOnlyBox: {
+    height: 44,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: welcomeColors.inputBorder,
+    backgroundColor: welcomeColors.background,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  readOnlyValue: {
     fontFamily: fontFamily.regular,
     fontWeight: '400',
     fontSize: 12,
     color: welcomeColors.textSecondary,
-    marginTop: 2,
   },
   buttons: {
     flexDirection: 'row',

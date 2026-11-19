@@ -1,5 +1,5 @@
 import axios, { AxiosError, AxiosHeaders } from 'axios';
-import { createPurchaseOrderInvoice } from '../src/services/purchaseOrderInvoiceService';
+import { createPurchaseOrderInvoice, parseInvoiceAmount } from '../src/services/purchaseOrderInvoiceService';
 import { NewPurchaseOrderInvoice } from '../src/types/purchaseOrderInvoice';
 
 jest.mock('../src/services/salesforceAuthService', () => ({
@@ -14,18 +14,16 @@ const respondWith = (body: unknown): void => {
 };
 
 const ACCOUNT_ID = '001QL00002WQD8ZYAX';
-const PO_ID = 'a1wQL000008q8uXYAQ';
-const OPPORTUNITY_ID = '006QL00000iYFEtYAO';
-// Fixed "today", so the created date and the due-date check are predictable.
+const PO_ID = 'a1wQL000008jY5sYAE';
+// Fixed "today", so the due-date check is predictable.
 const TODAY = new Date(2026, 9, 15, 10, 30);
 
 function newInvoice(overrides: Partial<NewPurchaseOrderInvoice> = {}): NewPurchaseOrderInvoice {
   return {
     poId: PO_ID,
-    opportunityId: OPPORTUNITY_ID,
-    vendorInvoiceNumber: 'VN-123121',
-    status: 'New',
-    dueDate: '2026-11-21',
+    amount: '150',
+    vendorInvoiceNumber: 'INV-0017655',
+    dueDate: '2026-12-19',
     ...overrides,
   };
 }
@@ -36,13 +34,10 @@ function createdResponse(overrides: Record<string, unknown> = {}) {
     success: true,
     message: 'Invoice created successfully',
     invoice: {
-      opportunityId: OPPORTUNITY_ID,
-      poId: PO_ID,
-      status: 'New',
-      dueDate: '2026-11-21',
-      vendorInvoiceNumber: 'VN-123121',
-      createdDate: '2026-10-15T00:00:00.000Z',
-      invoiceNumber: 'INV-000004661',
+      status: 'Draft',
+      dueDate: '2026-12-19',
+      vendorInvoiceNumber: 'INV-0017655',
+      invoiceNumber: 'BR-000027390',
       id: 'a0nQL00000GkUl3YAF',
       ...overrides,
     },
@@ -62,106 +57,72 @@ afterEach(() => {
   mockedAxiosRequest.mockReset();
 });
 
+describe('parseInvoiceAmount', () => {
+  it('reads a positive amount with up to 2 decimals, ignoring $, commas and spaces', () => {
+    expect(parseInvoiceAmount('150')).toBe(150);
+    expect(parseInvoiceAmount(' $1,250.50 ')).toBe(1250.5);
+    expect(parseInvoiceAmount('0.75')).toBe(0.75);
+  });
+
+  it('rejects empty, zero, negative, non-numeric or over-precise amounts', () => {
+    for (const value of ['', '0', '0.00', '-5', 'abc', '1.234', '1.2.3']) {
+      expect(parseInvoiceAmount(value)).toBeNull();
+    }
+  });
+});
+
 describe('createPurchaseOrderInvoice', () => {
-  it('POSTs the invoice, dated today, and returns it as created', async () => {
+  it('POSTs the invoice to bookkeeping/invoice/create and returns it as created', async () => {
     respondWith(createdResponse());
 
-    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ vendorInvoiceNumber: '  VN-123121 ' }))).resolves.toEqual({
+    await expect(
+      createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ amount: '1,250.50', vendorInvoiceNumber: '  INV-0017655 ' })),
+    ).resolves.toEqual({
       id: 'a0nQL00000GkUl3YAF',
-      invoiceNumber: 'INV-000004661',
-      vendorInvoiceNumber: 'VN-123121',
-      status: 'New',
-      dueDate: '2026-11-21',
+      invoiceNumber: 'BR-000027390',
+      vendorInvoiceNumber: 'INV-0017655',
+      status: 'Draft',
+      dueDate: '2026-12-19',
     });
+    expect(mockedAxiosRequest).toHaveBeenCalledTimes(1);
     expect(mockedAxiosRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'post',
-        url: expect.stringMatching(/\/services\/apexrest\/invoices\/create\/\*$/),
+        url: expect.stringMatching(/\/services\/apexrest\/bookkeeping\/invoice\/create\/$/),
+        // No notes and no status: the API creates it as Draft.
         data: {
-          poId: PO_ID,
-          opportunityId: OPPORTUNITY_ID,
-          vendorInvoiceNumber: 'VN-123121',
-          createdDate: '2026-10-15',
-          dueDate: '2026-11-21',
-          status: 'New',
+          jobPurchaseOrderId: PO_ID,
+          accountId: ACCOUNT_ID,
+          invoiceAmount: 1250.5,
+          vendorNumber: 'INV-0017655',
+          dueDate: '2026-12-19',
         },
         headers: expect.objectContaining({ Authorization: 'Bearer token' }),
       }),
     );
   });
 
-  it("looks up the PO's job when the PO detail didn't include it, limited to the account's POs", async () => {
-    mockedAxiosRequest
-      .mockResolvedValueOnce({ data: { totalSize: 1, done: true, records: [{ Job__c: OPPORTUNITY_ID }] } })
-      .mockResolvedValueOnce({ data: createdResponse() });
-
-    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ opportunityId: null }))).resolves.toMatchObject({
-      invoiceNumber: 'INV-000004661',
-    });
-
-    expect(mockedAxiosRequest).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        method: 'get',
-        url: expect.stringMatching(/\/services\/data\/v\d+\.\d\/query$/),
-        params: {
-          q: `SELECT Job__c FROM Job_Purchase_Order__c WHERE Id = '${PO_ID}' AND Vendor__c = '${ACCOUNT_ID}' LIMIT 1`,
-        },
-      }),
-    );
-    expect(mockedAxiosRequest).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ data: expect.objectContaining({ opportunityId: OPPORTUNITY_ID }) }),
-    );
-  });
-
-  it("doesn't create the invoice when the PO has no job, isn't the account's, or the lookup fails", async () => {
-    respondWith({ totalSize: 1, done: true, records: [{ Job__c: null }] });
-    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ opportunityId: null }))).rejects.toThrow(
-      'This purchase order is not linked to a job, so an invoice cannot be added to it.',
-    );
-
-    respondWith({ totalSize: 0, done: true, records: [] });
-    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ opportunityId: null }))).rejects.toThrow(
-      'This purchase order is not linked to a job',
-    );
-
-    jest.spyOn(console, 'error').mockImplementationOnce(() => undefined);
-    mockedAxiosRequest.mockRejectedValue(new Error('boom'));
-    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ opportunityId: null }))).rejects.toThrow(
-      'Unable to create the invoice. Please try again.',
-    );
-    // Only lookups: nothing was sent to the create API.
-    expect(mockedAxiosRequest.mock.calls.every(([config]) => config.method === 'get')).toBe(true);
-  });
-
-  it('never puts a malformed id into the lookup query', async () => {
-    await expect(
-      createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ poId: "x' OR Name != '", opportunityId: null })),
-    ).rejects.toThrow('This purchase order is not linked to a job');
-    expect(mockedAxiosRequest).not.toHaveBeenCalled();
-  });
-
-  it('shows the status the API gives the invoice, and falls back to what was sent', async () => {
-    respondWith(createdResponse({ status: 'Paid in Full' }));
-    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice())).resolves.toMatchObject({ status: 'Paid in Full' });
-
-    respondWith({ success: true, message: 'Invoice created successfully', invoice: null });
+  it('falls back to what was sent, as a Draft, when the API returns no invoice', async () => {
+    respondWith({ success: true, message: 'Invoice created successfully' });
     await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice())).resolves.toEqual({
       id: '',
       invoiceNumber: '',
-      vendorInvoiceNumber: 'VN-123121',
-      status: 'New',
-      dueDate: '2026-11-21',
+      vendorInvoiceNumber: 'INV-0017655',
+      status: 'Draft',
+      dueDate: '2026-12-19',
     });
   });
 
-  it("refuses a missing vendor invoice number, status or due date, or a past due date, without calling the API", async () => {
+  it('refuses a bad amount, a missing vendor invoice number or due date, or a past due date, without calling the API', async () => {
+    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ amount: '0' }))).rejects.toThrow(
+      'Please enter an amount greater than 0',
+    );
     await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ vendorInvoiceNumber: '  ' }))).rejects.toThrow(
       'Please enter the vendor invoice number.',
     );
-    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ status: '' }))).rejects.toThrow('Please select a status.');
-    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ dueDate: '' }))).rejects.toThrow('Please select a due date.');
+    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ dueDate: '' }))).rejects.toThrow(
+      'Please select a due date.',
+    );
     await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice({ dueDate: '2026-10-14' }))).rejects.toThrow(
       'The due date cannot be in the past.',
     );
@@ -197,7 +158,9 @@ describe('createPurchaseOrderInvoice', () => {
         data: { success: false, message: 'Vendor invoice number already exists.' },
       }),
     );
-    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice())).rejects.toThrow('Vendor invoice number already exists.');
+    await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice())).rejects.toThrow(
+      'Vendor invoice number already exists.',
+    );
 
     mockedAxiosRequest.mockRejectedValue(new AxiosError('Network Error', 'ERR_NETWORK', config));
     await expect(createPurchaseOrderInvoice(ACCOUNT_ID, newInvoice())).rejects.toThrow(

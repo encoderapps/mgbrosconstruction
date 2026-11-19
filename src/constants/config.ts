@@ -23,12 +23,14 @@ export const SALESFORCE_SUBCONTRACTOR_REGISTRATION_URL = `${SALESFORCE_INSTANCE_
 export const SALESFORCE_CHECK_EXISTING_EMAIL_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/checkExistingEmail`;
 export const SALESFORCE_SUBCONTRACTOR_LOGIN_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorlogin`;
 export const SALESFORCE_FORGOT_PASSWORD_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractorforgotpassword`;
-export const SALESFORCE_CONTACT_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/contact`;
+/** POST { email, password }: deletes the subcontractor's account once the password checks out. */
+export const SALESFORCE_SUBCONTRACTOR_DELETE_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/subcontractordelete`;
+export const SALESFORCE_CONTACT_URL =`${SALESFORCE_INSTANCE_URL}/services/apexrest/contact`;
 // The trailing "*" is part of the Apex REST URL mapping (/getcontact/*).
 export const SALESFORCE_GET_CONTACTS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/getcontact/*`;
 export const SALESFORCE_INVOICES_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/bookkeeping/fetch`;
-// The trailing "*" is part of the Apex REST URL mapping (/invoices/create/*).
-export const SALESFORCE_CREATE_INVOICE_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/invoices/create/*`;
+/** POST: creates a Draft invoice (bookkeeping record) on one of the account's purchase orders. */
+export const SALESFORCE_CREATE_INVOICE_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/bookkeeping/invoice/create/`;
 // Salesforce REST API SOQL query endpoint (not Apex REST).
 export const SALESFORCE_QUERY_URL = `${SALESFORCE_INSTANCE_URL}/services/data/v60.0/query`;
 export const SALESFORCE_PURCHASE_ORDERS_URL = `${SALESFORCE_INSTANCE_URL}/services/apexrest/purchaseorders`;
